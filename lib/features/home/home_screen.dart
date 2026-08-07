@@ -1,3 +1,4 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -5,7 +6,6 @@ import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../services/import_service.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/mood_colors.dart';
 import '../../widgets/mood_card.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/skeleton_loader.dart';
@@ -132,7 +132,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 final track = trackState.filteredTracks[index];
-                                final isPlaying = currentTrack.value?.id == track.id;
+                                final isPlaying = currentTrack.value?.id == track.id.toString();
                                 return TrackTile(
                                   track: track,
                                   index: index,
@@ -161,7 +161,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  child: MiniPlayer(currentTrack: currentTrack.value!),
+                  child: MiniPlayer(currentTrack: _mediaItemToTrack(currentTrack.value!)),
                 ),
             ],
           ),
@@ -512,6 +512,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
+  }
+
+  /// Convert a MediaItem (from the audio service) into a Track for the UI
+  Track _mediaItemToTrack(MediaItem item) {
+    return Track()
+      ..id = int.tryParse(item.id) ?? 0
+      ..title = item.title
+      ..artist = item.artist
+      ..album = (item.album?.isNotEmpty ?? false) ? item.album : null
+      ..filePath = item.extras?['filePath'] as String?
+      ..moodIndex = item.extras?['mood'] != null
+          ? MoodTypeExtension.fromString(item.extras!['mood'] as String).index
+          : null
+      ..moodConfidence = (item.extras?['moodConfidence'] as num?)?.toDouble();
   }
 
   void _playTrack(Track track) {

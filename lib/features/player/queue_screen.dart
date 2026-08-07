@@ -372,7 +372,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                   ),
                 ),
           title: Text(
-            item.title ?? 'Sans titre',
+            item.title,
             style: AppTheme.bodyLarge.copyWith(
               color: isCurrentTrack
                   ? AppTheme.accentPrimary
@@ -383,7 +383,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           subtitle: Text(
-            item.artist ?? 'Artiste inconnu',
+            item.artist,
             style: AppTheme.bodySmall,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

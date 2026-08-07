@@ -31,7 +31,7 @@ final isPlayingProvider = Provider.autoDispose<bool>((ref) {
   return playbackState.when(
     data: (state) => state.playing,
     loading: () => false,
-    error: (_, __) => false,
+    error: (_, _) => false,
   );
 });
 
@@ -41,22 +41,18 @@ final currentPositionProvider = Provider.autoDispose<Duration>((ref) {
   return playbackState.when(
     data: (state) => state.updatePosition,
     loading: () => Duration.zero,
-    error: (_, __) => Duration.zero,
+    error: (_, _) => Duration.zero,
   );
 });
 
 // Duration provider
-final durationProvider = Provider.autoDispose<Duration>((ref) {
-  final playbackState = ref.watch(playbackStateProvider);
-  return playbackState.when(
-    data: (state) => state.duration ?? Duration.zero,
-    loading: () => Duration.zero,
-    error: (_, __) => Duration.zero,
-  );
+final durationProvider = StreamProvider.autoDispose<Duration>((ref) async* {
+  final audioHandler = await ref.watch(audioHandlerProvider.future);
+  yield* audioHandler.durationStream;
 });
 
 // Repeat mode provider
-final repeatModeProvider = StreamProvider.autoDispose<RepeatMode>((ref) async* {
+final repeatModeProvider = StreamProvider.autoDispose<PlayerRepeatMode>((ref) async* {
   final audioHandler = await ref.watch(audioHandlerProvider.future);
   yield* audioHandler.repeatModeStream;
 });

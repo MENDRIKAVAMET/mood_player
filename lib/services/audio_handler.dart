@@ -3,8 +3,8 @@ import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/track.dart';
 
-/// Repeat mode enum
-enum RepeatMode {
+/// Repeat mode enum (renamed to avoid clashing with Flutter's own RepeatMode)
+enum PlayerRepeatMode {
   off,
   all,
   one,
@@ -14,19 +14,23 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final AudioPlayer _player = AudioPlayer();
   final List<MediaItem> _queue = [];
   final List<MediaItem> _originalQueue = []; // Store original order for unshuffle
-  final _repeatModeController = StreamController<RepeatMode>.broadcast();
+  final _repeatModeController = StreamController<PlayerRepeatMode>.broadcast();
   final _shuffleModeController = StreamController<bool>.broadcast();
-  RepeatMode _repeatMode = RepeatMode.off;
+  PlayerRepeatMode _repeatMode = PlayerRepeatMode.off;
   bool _shuffleMode = false;
 
   /// Stream of repeat mode changes
-  Stream<RepeatMode> get repeatModeStream => _repeatModeController.stream;
+  Stream<PlayerRepeatMode> get repeatModeStream => _repeatModeController.stream;
 
   /// Stream of shuffle mode changes
   Stream<bool> get shuffleModeStream => _shuffleModeController.stream;
 
+  /// Stream of the current track duration
+  Stream<Duration> get durationStream =>
+      _player.durationStream.map((d) => d ?? Duration.zero);
+
   /// Current repeat mode
-  RepeatMode get repeatMode => _repeatMode;
+  PlayerRepeatMode get repeatMode => _repeatMode;
 
   /// Current shuffle mode
   bool get shuffleMode => _shuffleMode;
@@ -80,13 +84,13 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   /// Handle track completion based on repeat mode
   void _handleTrackComplete() {
     switch (_repeatMode) {
-      case RepeatMode.one:
+      case PlayerRepeatMode.one:
         // Restart the same track
         _player.seek(Duration.zero);
         _player.play();
         break;
-      case RepeatMode.all:
-      case RepeatMode.off:
+      case PlayerRepeatMode.all:
+      case PlayerRepeatMode.off:
         // Use skipToNext which already handles wrap-around logic
         skipToNext();
         break;
@@ -130,7 +134,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   /// Set repeat mode
-  void setRepeatMode(RepeatMode mode) {
+  void setRepeatMode(PlayerRepeatMode mode) {
     _repeatMode = mode;
     _repeatModeController.add(mode);
   }
@@ -138,14 +142,14 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   /// Cycle through repeat modes: off -> all -> one -> off
   void cycleRepeatMode() {
     switch (_repeatMode) {
-      case RepeatMode.off:
-        setRepeatMode(RepeatMode.all);
+      case PlayerRepeatMode.off:
+        setRepeatMode(PlayerRepeatMode.all);
         break;
-      case RepeatMode.all:
-        setRepeatMode(RepeatMode.one);
+      case PlayerRepeatMode.all:
+        setRepeatMode(PlayerRepeatMode.one);
         break;
-      case RepeatMode.one:
-        setRepeatMode(RepeatMode.off);
+      case PlayerRepeatMode.one:
+        setRepeatMode(PlayerRepeatMode.off);
         break;
     }
   }
@@ -219,7 +223,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     int nextIndex = currentIndex + 1;
     
     if (nextIndex >= queue.value.length) {
-      if (_repeatMode == RepeatMode.all && queue.value.isNotEmpty) {
+      if (_repeatMode == PlayerRepeatMode.all && queue.value.isNotEmpty) {
         nextIndex = 0; // Wrap to beginning
       } else {
         return; // End of queue
@@ -239,7 +243,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     int prevIndex = currentIndex - 1;
     
     if (prevIndex < 0) {
-      if (_repeatMode == RepeatMode.all && queue.value.isNotEmpty) {
+      if (_repeatMode == PlayerRepeatMode.all && queue.value.isNotEmpty) {
         prevIndex = queue.value.length - 1; // Wrap to end
       } else {
         return; // Beginning of queue
@@ -258,7 +262,6 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
   }
 
-  @override
   Future<void> setSpeed(double speed) async {
     await _player.setSpeed(speed);
   }
@@ -415,12 +418,10 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     await super.onTaskRemoved();
   }
 
-  @override
   Future<void> close() async {
     await _repeatModeController.close();
     await _shuffleModeController.close();
     await _player.dispose();
-    await super.close();
   }
 }
 

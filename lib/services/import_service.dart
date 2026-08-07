@@ -52,8 +52,10 @@ class ImportService {
 
       for (final file in result.files) {
         final importResult = _processFile(file);
-        if (importResult.isSuccess && importResult.track != null) {
-          tracks.add(importResult.track!);
+        if (importResult.isSuccess &&
+            importResult.tracks != null &&
+            importResult.tracks!.isNotEmpty) {
+          tracks.add(importResult.tracks!.first);
         } else if (importResult.errorMessage != null) {
           errors.add(importResult.errorMessage!);
         }
@@ -99,8 +101,10 @@ class ImportService {
               size: await entity.length(),
             );
             final importResult = _processFile(file);
-            if (importResult.isSuccess && importResult.track != null) {
-              tracks.add(importResult.track!);
+            if (importResult.isSuccess &&
+                importResult.tracks != null &&
+                importResult.tracks!.isNotEmpty) {
+              tracks.add(importResult.tracks!.first);
             } else if (importResult.errorMessage != null) {
               errors.add(importResult.errorMessage!);
             }
@@ -129,7 +133,6 @@ class ImportService {
 
       final filePath = file.path!;
       final fileName = path.basenameWithoutExtension(filePath);
-      final fileExtension = path.extension(filePath).toLowerCase();
 
       // Check if file exists
       if (!File(filePath).existsSync()) {

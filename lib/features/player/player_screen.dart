@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
-import '../../services/color_extractor.dart';
+import '../../services/audio_handler.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import 'queue_screen.dart';
@@ -26,7 +26,7 @@ class PlayerScreen extends ConsumerStatefulWidget {
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _isLiked = false;
-  RepeatMode _repeatMode = RepeatMode.off;
+  PlayerRepeatMode _repeatMode = PlayerRepeatMode.off;
   bool _shuffleMode = false;
 
   @override
@@ -90,7 +90,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final moodColors = MoodColors.forMood(widget.track.mood);
     final isPlaying = ref.watch(isPlayingProvider);
     final position = ref.watch(currentPositionProvider);
-    final duration = ref.watch(durationProvider);
+    final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
     
     // Extract dynamic colors from cover art if available
     final coverColorsAsync = ref.watch(coverColorProvider(widget.track.coverUrl));
@@ -578,13 +578,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Widget _buildRepeatButton(MoodColors moodColors) {
-    final isActive = _repeatMode != RepeatMode.off;
+    final isActive = _repeatMode != PlayerRepeatMode.off;
     final color = isActive ? moodColors.primary : AppTheme.textSecondary;
     
     return GestureDetector(
       onTap: _cycleRepeatMode,
       child: Icon(
-        _repeatMode == RepeatMode.one
+        _repeatMode == PlayerRepeatMode.one
             ? Icons.repeat_one_rounded
             : Icons.repeat_rounded,
         size: 24,

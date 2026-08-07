@@ -19,7 +19,7 @@ class MiniPlayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isPlaying = ref.watch(isPlayingProvider);
     final position = ref.watch(currentPositionProvider);
-    final duration = ref.watch(durationProvider);
+    final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
 
     final moodColors = MoodColors.forMood(currentTrack.mood);
     final progress = duration.inMilliseconds > 0

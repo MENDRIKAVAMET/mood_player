@@ -243,7 +243,7 @@ class AppTheme {
         titleTextStyle: headlineLarge,
         iconTheme: const IconThemeData(color: textPrimary),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: backgroundCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
