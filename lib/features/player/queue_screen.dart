@@ -269,6 +269,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
         vertical: AppTheme.spacingS,
       ),
       itemCount: _localQueue.length,
+      // ignore: deprecated_member_use
       onReorder: _isReordering ? _onReorder : (oldIndex, newIndex) {},
       proxyDecorator: (child, index, animation) {
         final scale = 1.0 + (animation.value * 0.05);
