@@ -133,8 +133,8 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     await _player.seek(position);
   }
 
-  /// Set repeat mode
-  void setRepeatMode(PlayerRepeatMode mode) {
+  /// Set repeat mode (renamed: BaseAudioHandler already has a setRepeatMode)
+  void setPlayerRepeatMode(PlayerRepeatMode mode) {
     _repeatMode = mode;
     _repeatModeController.add(mode);
   }
@@ -143,13 +143,13 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   void cycleRepeatMode() {
     switch (_repeatMode) {
       case PlayerRepeatMode.off:
-        setRepeatMode(PlayerRepeatMode.all);
+        setPlayerRepeatMode(PlayerRepeatMode.all);
         break;
       case PlayerRepeatMode.all:
-        setRepeatMode(PlayerRepeatMode.one);
+        setPlayerRepeatMode(PlayerRepeatMode.one);
         break;
       case PlayerRepeatMode.one:
-        setRepeatMode(PlayerRepeatMode.off);
+        setPlayerRepeatMode(PlayerRepeatMode.off);
         break;
     }
   }
@@ -262,11 +262,11 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
   }
 
+  @override
   Future<void> setSpeed(double speed) async {
     await _player.setSpeed(speed);
   }
 
-  @override
   Future<void> setVolume(double volume) async {
     await _player.setVolume(volume);
   }

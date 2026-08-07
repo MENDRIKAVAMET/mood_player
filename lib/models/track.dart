@@ -55,7 +55,6 @@ class Track {
       case MoodType.sad:
         return 'Triste';
       case MoodType.unknown:
-      case null:
         return 'Inconnu';
     }
   }
@@ -93,7 +92,6 @@ extension MoodTypeExtension on MoodType {
       case MoodType.sad:
         return 'Triste';
       case MoodType.unknown:
-      case null:
         return 'Inconnu';
     }
   }
@@ -117,7 +115,6 @@ extension MoodTypeExtension on MoodType {
       case MoodType.sad:
         return '😢';
       case MoodType.unknown:
-      default:
         return '🎵';
     }
   }

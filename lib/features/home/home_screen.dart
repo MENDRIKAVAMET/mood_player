@@ -519,7 +519,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Track()
       ..id = int.tryParse(item.id) ?? 0
       ..title = item.title
-      ..artist = item.artist
+      ..artist = item.artist ?? 'Artiste inconnu'
       ..album = (item.album?.isNotEmpty ?? false) ? item.album : null
       ..filePath = item.extras?['filePath'] as String?
       ..moodIndex = item.extras?['mood'] != null

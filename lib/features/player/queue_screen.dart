@@ -383,7 +383,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           subtitle: Text(
-            item.artist,
+            item.artist ?? 'Artiste inconnu',
             style: AppTheme.bodySmall,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
