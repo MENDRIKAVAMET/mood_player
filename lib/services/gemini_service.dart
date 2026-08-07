@@ -7,7 +7,8 @@ class GeminiService {
   late final Dio _dio;
   final String _apiKey;
 
-  GeminiService() : _apiKey = dotenv.env['GEMINI_API_KEY'] ?? '' {
+  GeminiService()
+      : _apiKey = dotenv.isInitialized ? (dotenv.env['GEMINI_API_KEY'] ?? '') : '' {
     _dio = Dio(BaseOptions(
       baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
       connectTimeout: const Duration(seconds: 30),
