@@ -132,7 +132,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 final track = trackState.filteredTracks[index];
-                                final isPlaying = currentTrack.value?.id == track.id.toString();
+                                final isPlaying = currentTrack.valueOrNull?.id == track.id.toString();
                                 return TrackTile(
                                   track: track,
                                   index: index,
@@ -156,12 +156,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
 
               // Mini player (at bottom, above any potential bottom nav)
-              if (currentTrack.value != null)
+              if (currentTrack.valueOrNull != null)
                 Positioned(
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  child: MiniPlayer(currentTrack: _mediaItemToTrack(currentTrack.value!)),
+                  child: MiniPlayer(currentTrack: _mediaItemToTrack(currentTrack.valueOrNull!)),
                 ),
             ],
           ),
