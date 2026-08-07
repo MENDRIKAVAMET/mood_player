@@ -19,12 +19,21 @@ void main() {
         child: const MyApp(),
       ),
     );
-    // Let all the flutter_animate entrance animations (fadeIn/scale, etc.)
-    // finish and their internal timers complete before the test tears down
-    // the widget tree. A single `pump()` leaves those timers pending, which
-    // makes the test binding fail with "A Timer is still pending even after
-    // the widget tree was disposed."
-    await tester.pumpAndSettle();
+    // Pump forward enough to let the one-shot flutter_animate entrance
+    // animations (fadeIn/scale, etc.) finish and their internal timers
+    // complete before the test tears down the widget tree. A single
+    // `pump()` leaves those timers pending, which makes the test binding
+    // fail with "A Timer is still pending even after the widget tree was
+    // disposed."
+    //
+    // We can't use `pumpAndSettle()` here because the loading state renders
+    // a `Shimmer` skeleton loader, whose animation repeats forever and would
+    // make `pumpAndSettle()` time out. Instead, pump a fixed number of
+    // frames covering the longest entrance-animation duration used in the
+    // app (see AppTheme.animSlow and the explicit delays in home_screen.dart).
+    for (var i = 0; i < 15; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     // The app title should be visible.
     expect(find.text('Mood Player'), findsOneWidget);
