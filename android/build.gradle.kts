@@ -20,15 +20,37 @@ subprojects {
 }
 
 // Workaround for old plugins (e.g. isar_flutter_libs 3.1.0+1) that don't
-// declare an Android Gradle Plugin `namespace` in their build.gradle,
-// which newer AGP versions require. This patches the namespace after the
-// plugin's own build script has been evaluated, before AGP validates it.
-// Uses reflection so this file doesn't need a compile-time dependency on
-// AGP's DSL classes.
+// declare an Android Gradle Plugin `namespace` in their build.gradle, but
+// instead set it the legacy way via `package="..."` in their
+// AndroidManifest.xml. Newer AGP versions (a) require `namespace` to be set
+// in build.gradle and (b) reject the `package` attribute outright ("Setting
+// the namespace via the package attribute in the source AndroidManifest.xml
+// is no longer supported"). So for every such plugin we:
+//   1. Read the `package` value out of its AndroidManifest.xml.
+//   2. Set that value as the AGP `namespace` (reflection avoids a
+//      compile-time dependency on AGP's DSL classes here in the root script).
+//   3. Strip the `package` attribute from the manifest file itself so AGP's
+//      manifest merger doesn't reject it.
 subprojects {
     if (project.name == "app") return@subprojects
     afterEvaluate {
         if (!plugins.hasPlugin("com.android.library")) return@afterEvaluate
+
+        val manifestFile = file("src/main/AndroidManifest.xml")
+        var manifestPackage: String? = null
+        if (manifestFile.exists()) {
+            val original = manifestFile.readText()
+            val match = Regex("package\\s*=\\s*\"([^\"]+)\"").find(original)
+            manifestPackage = match?.groupValues?.get(1)
+            if (match != null) {
+                val patched = original.replaceFirst(match.value, "")
+                if (patched != original) {
+                    logger.lifecycle("Stripping legacy package attribute from AndroidManifest.xml for '${project.name}'")
+                    manifestFile.writeText(patched)
+                }
+            }
+        }
+
         val android = extensions.findByName("android") ?: return@afterEvaluate
         val getNamespace = android.javaClass.getMethod("getNamespace")
         val currentNamespace = try {
@@ -37,7 +59,8 @@ subprojects {
             null
         }
         if (currentNamespace.isNullOrEmpty()) {
-            val generatedNamespace = "com.generated.${project.name.replace("-", "_").replace(".", "_")}"
+            val generatedNamespace = manifestPackage
+                ?: "com.generated.${project.name.replace("-", "_").replace(".", "_")}"
             logger.lifecycle("Patching missing Android namespace for '${project.name}' -> $generatedNamespace")
             val setNamespace = android.javaClass.getMethod("setNamespace", String::class.java)
             setNamespace.invoke(android, generatedNamespace)
