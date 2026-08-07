@@ -717,11 +717,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 onTap: () => Navigator.pop(context),
               ),
               ListTile(
-                leading: const Icon(Icons.playlist_add_rounded),
-                title: Text('Ajouter à une playlist', style: AppTheme.bodyLarge),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
                 leading: const Icon(Icons.share_rounded),
                 title: Text('Partager', style: AppTheme.bodyLarge),
                 onTap: () => Navigator.pop(context),

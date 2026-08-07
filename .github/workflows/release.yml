@@ -1,0 +1,32 @@
+name: Release APK
+
+# Déclenché quand on pousse un tag versionné (ex: v1.0.0, v1.2.3)
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    name: Build APK and create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Create GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
