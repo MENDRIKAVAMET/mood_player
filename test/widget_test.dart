@@ -19,7 +19,12 @@ void main() {
         child: const MyApp(),
       ),
     );
-    await tester.pump();
+    // Let all the flutter_animate entrance animations (fadeIn/scale, etc.)
+    // finish and their internal timers complete before the test tears down
+    // the widget tree. A single `pump()` leaves those timers pending, which
+    // makes the test binding fail with "A Timer is still pending even after
+    // the widget tree was disposed."
+    await tester.pumpAndSettle();
 
     // The app title should be visible.
     expect(find.text('Mood Player'), findsOneWidget);
