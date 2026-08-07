@@ -60,7 +60,7 @@ class AppTheme {
 
   static List<BoxShadow> get shadowSmall => [
     BoxShadow(
-      color: Colors.black.withOpacity(0.2),
+      color: Colors.black.withValues(alpha: 0.2),
       blurRadius: 8,
       offset: const Offset(0, 2),
     ),
@@ -68,7 +68,7 @@ class AppTheme {
 
   static List<BoxShadow> get shadowMedium => [
     BoxShadow(
-      color: Colors.black.withOpacity(0.3),
+      color: Colors.black.withValues(alpha: 0.3),
       blurRadius: 16,
       offset: const Offset(0, 4),
     ),
@@ -76,7 +76,7 @@ class AppTheme {
 
   static List<BoxShadow> get shadowLarge => [
     BoxShadow(
-      color: Colors.black.withOpacity(0.4),
+      color: Colors.black.withValues(alpha: 0.4),
       blurRadius: 32,
       offset: const Offset(0, 8),
     ),
@@ -84,7 +84,7 @@ class AppTheme {
 
   static List<BoxShadow> coloredShadow(Color color) => [
     BoxShadow(
-      color: color.withOpacity(0.3),
+      color: color.withValues(alpha: 0.3),
       blurRadius: 40,
       spreadRadius: -4,
       offset: const Offset(0, 8),
@@ -202,7 +202,7 @@ class AppTheme {
   static BoxDecoration get cardDecoration => BoxDecoration(
     color: backgroundCard,
     borderRadius: BorderRadius.circular(radiusL),
-    border: Border.all(color: border.withOpacity(0.3), width: 1),
+    border: Border.all(color: border.withValues(alpha: 0.3), width: 1),
   );
 
   static BoxDecoration get cardElevatedDecoration => BoxDecoration(
@@ -212,9 +212,9 @@ class AppTheme {
   );
 
   static BoxDecoration get glassDecoration => BoxDecoration(
-    color: Colors.black.withOpacity(0.5),
+    color: Colors.black.withValues(alpha: 0.5),
     borderRadius: BorderRadius.circular(radiusL),
-    border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+    border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
   );
 
   // ═══════════════════════════════════════════════════════════════
@@ -252,12 +252,12 @@ class AppTheme {
       ),
       sliderTheme: SliderThemeData(
         activeTrackColor: accentPrimary,
-        inactiveTrackColor: textTertiary.withOpacity(0.3),
+        inactiveTrackColor: textTertiary.withValues(alpha: 0.3),
         thumbColor: accentPrimary,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
         trackHeight: 4,
-        overlayColor: accentPrimary.withOpacity(0.2),
+        overlayColor: accentPrimary.withValues(alpha: 0.2),
       ),
       iconTheme: const IconThemeData(color: textPrimary, size: 24),
       dividerTheme: const DividerThemeData(color: divider, thickness: 1),

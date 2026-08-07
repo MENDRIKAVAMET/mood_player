@@ -35,13 +35,13 @@ class TrackTile extends StatelessWidget {
         padding: const EdgeInsets.all(AppTheme.spacingM),
         decoration: BoxDecoration(
           color: isPlaying
-              ? moodColors.primary.withOpacity(0.1)
+              ? moodColors.primary.withValues(alpha: 0.1)
               : AppTheme.backgroundCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
             color: isPlaying
-                ? moodColors.primary.withOpacity(0.3)
-                : AppTheme.border.withOpacity(0.3),
+                ? moodColors.primary.withValues(alpha: 0.3)
+                : AppTheme.border.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -84,7 +84,7 @@ class TrackTile extends StatelessWidget {
                             vertical: AppTheme.spacingXXS,
                           ),
                           decoration: BoxDecoration(
-                            color: moodColors.primary.withOpacity(0.15),
+                            color: moodColors.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(AppTheme.radiusS),
                           ),
                           child: Text(
@@ -175,7 +175,7 @@ class TrackTile extends StatelessWidget {
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        color: moodColors.primary.withOpacity(0.15),
+        color: moodColors.primary.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
         image: track.coverUrl != null
             ? DecorationImage(

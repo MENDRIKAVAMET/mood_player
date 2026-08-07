@@ -169,7 +169,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.backgroundCardElevated.withOpacity(0.5),
+                color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -204,7 +204,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.backgroundCardElevated.withOpacity(0.5),
+                color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -238,7 +238,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ),
             // Standard shadow
             BoxShadow(
-              color: Colors.black.withOpacity(0.4),
+              color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 32,
               offset: const Offset(0, 8),
             ),
@@ -257,8 +257,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      moodColors.primary.withOpacity(0.3),
-                      moodColors.secondary.withOpacity(0.2),
+                      moodColors.primary.withValues(alpha: 0.3),
+                      moodColors.secondary.withValues(alpha: 0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(AppTheme.radiusXL),
@@ -337,13 +337,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
               decoration: BoxDecoration(
                 color: _isLiked
-                    ? moodColors.primary.withOpacity(0.2)
+                    ? moodColors.primary.withValues(alpha: 0.2)
                     : AppTheme.backgroundCardElevated,
                 borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                 border: Border.all(
                   color: _isLiked
-                      ? moodColors.primary.withOpacity(0.3)
-                      : AppTheme.border.withOpacity(0.3),
+                      ? moodColors.primary.withValues(alpha: 0.3)
+                      : AppTheme.border.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -382,7 +382,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           SliderTheme(
             data: SliderThemeData(
               activeTrackColor: moodColors.primary,
-              inactiveTrackColor: moodColors.primary.withOpacity(0.2),
+              inactiveTrackColor: moodColors.primary.withValues(alpha: 0.2),
               thumbColor: moodColors.primary,
               thumbShape: const RoundSliderThumbShape(
                 enabledThumbRadius: 7,
@@ -391,7 +391,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               overlayShape: const RoundSliderOverlayShape(
                 overlayRadius: 16,
               ),
-              overlayColor: moodColors.primary.withOpacity(0.2),
+              overlayColor: moodColors.primary.withValues(alpha: 0.2),
               trackHeight: 4,
               trackShape: const RoundedRectSliderTrackShape(),
             ),
@@ -498,7 +498,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: moodColors.primary.withOpacity(0.3),
+              color: moodColors.primary.withValues(alpha: 0.3),
               blurRadius: 24,
               spreadRadius: -4,
             ),
@@ -602,13 +602,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            moodColors.primary.withOpacity(0.15),
-            moodColors.primary.withOpacity(0.05),
+            moodColors.primary.withValues(alpha: 0.15),
+            moodColors.primary.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(AppTheme.radiusL),
         border: Border.all(
-          color: moodColors.primary.withOpacity(0.2),
+          color: moodColors.primary.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -618,7 +618,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: moodColors.primary.withOpacity(0.2),
+              color: moodColors.primary.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
             ),
             child: Center(

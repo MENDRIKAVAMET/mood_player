@@ -54,12 +54,12 @@ class MiniPlayer extends ConsumerWidget {
           color: AppTheme.backgroundCardElevated,
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
-            color: moodColors.primary.withOpacity(0.2),
+            color: moodColors.primary.withValues(alpha: 0.2),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -81,7 +81,7 @@ class MiniPlayer extends ConsumerWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: moodColors.primary.withOpacity(0.2),
+                          color: moodColors.primary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(AppTheme.radiusM),
                           image: currentTrack.coverUrl != null
                               ? DecorationImage(

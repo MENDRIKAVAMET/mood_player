@@ -170,7 +170,7 @@ class MoodDetailScreen extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.backgroundCardElevated.withOpacity(0.5),
+                color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -193,7 +193,7 @@ class MoodDetailScreen extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: moodColors.primary.withOpacity(0.2),
+              color: moodColors.primary.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
             ),
             child: Center(
@@ -254,7 +254,7 @@ class MoodDetailScreen extends StatelessWidget {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: moodColors.primary.withOpacity(0.1),
+              color: moodColors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Center(

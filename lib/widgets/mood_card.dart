@@ -32,14 +32,14 @@ class MoodCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              moodColors.primary.withOpacity(0.3),
-              moodColors.primary.withOpacity(0.1),
+              moodColors.primary.withValues(alpha: 0.3),
+              moodColors.primary.withValues(alpha: 0.1),
               AppTheme.backgroundCard,
             ],
           ),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
-            color: moodColors.primary.withOpacity(0.2),
+            color: moodColors.primary.withValues(alpha: 0.2),
             width: 1,
           ),
           boxShadow: [
@@ -64,7 +64,7 @@ class MoodCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      moodColors.primary.withOpacity(0.3),
+                      moodColors.primary.withValues(alpha: 0.3),
                       Colors.transparent,
                     ],
                   ),
@@ -83,7 +83,7 @@ class MoodCard extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: moodColors.primary.withOpacity(0.2),
+                      color: moodColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     ),
                     child: Center(
@@ -120,7 +120,7 @@ class MoodCard extends StatelessWidget {
               child: Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
-                color: moodColors.primary.withOpacity(0.6),
+                color: moodColors.primary.withValues(alpha: 0.6),
               ),
             ),
           ],

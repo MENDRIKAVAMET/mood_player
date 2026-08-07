@@ -215,7 +215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.backgroundCard,
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 border: Border.all(
-                  color: AppTheme.border.withOpacity(0.3),
+                  color: AppTheme.border.withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -246,7 +246,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             color: AppTheme.backgroundCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusFull),
             border: Border.all(
-              color: AppTheme.border.withOpacity(0.3),
+              color: AppTheme.border.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -324,7 +324,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             color: AppTheme.backgroundCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusM),
             border: Border.all(
-              color: AppTheme.border.withOpacity(0.3),
+              color: AppTheme.border.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -407,7 +407,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 vertical: AppTheme.spacingXXS,
               ),
               decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withOpacity(0.15),
+                color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(AppTheme.radiusS),
               ),
               child: Text(
@@ -434,7 +434,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withOpacity(0.1),
+                color: AppTheme.accentPrimary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -730,7 +730,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: AppTheme.accentPrimary.withOpacity(0.15),
+          color: AppTheme.accentPrimary.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
         ),
         child: Icon(icon, color: AppTheme.accentPrimary),

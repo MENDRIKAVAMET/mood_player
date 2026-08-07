@@ -114,7 +114,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppTheme.backgroundCardElevated.withOpacity(0.5),
+                color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -137,7 +137,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.backgroundCardElevated.withOpacity(0.5),
+                      color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -156,12 +156,12 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: _isReordering
-                        ? AppTheme.accentPrimary.withOpacity(0.2)
-                        : AppTheme.backgroundCardElevated.withOpacity(0.5),
+                        ? AppTheme.accentPrimary.withValues(alpha: 0.2)
+                        : AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
                     border: _isReordering
                         ? Border.all(
-                            color: AppTheme.accentPrimary.withOpacity(0.5),
+                            color: AppTheme.accentPrimary.withValues(alpha: 0.5),
                             width: 1,
                           )
                         : null,
@@ -210,7 +210,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                 vertical: AppTheme.spacingXXS,
               ),
               decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withOpacity(0.15),
+                color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(AppTheme.radiusS),
               ),
               child: Text(
@@ -235,7 +235,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: AppTheme.accentPrimary.withOpacity(0.1),
+              color: AppTheme.accentPrimary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -278,7 +278,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
             decoration: BoxDecoration(
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -319,7 +319,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
       background: Container(
         margin: const EdgeInsets.only(bottom: AppTheme.spacingS),
         decoration: BoxDecoration(
-          color: AppTheme.accentError.withOpacity(0.2),
+          color: AppTheme.accentError.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
         ),
         alignment: Alignment.centerRight,
@@ -334,13 +334,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
         margin: const EdgeInsets.only(bottom: AppTheme.spacingS),
         decoration: BoxDecoration(
           color: isCurrentTrack
-              ? AppTheme.accentPrimary.withOpacity(0.15)
+              ? AppTheme.accentPrimary.withValues(alpha: 0.15)
               : AppTheme.backgroundCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
           border: Border.all(
             color: isCurrentTrack
-                ? AppTheme.accentPrimary.withOpacity(0.3)
-                : AppTheme.border.withOpacity(0.2),
+                ? AppTheme.accentPrimary.withValues(alpha: 0.3)
+                : AppTheme.border.withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -398,7 +398,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                     vertical: AppTheme.spacingXXS,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentPrimary.withOpacity(0.1),
+                    color: AppTheme.accentPrimary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radiusS),
                   ),
                   child: Text(
