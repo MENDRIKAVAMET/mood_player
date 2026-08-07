@@ -56,6 +56,8 @@ class Track {
         return 'Triste';
       case MoodType.unknown:
         return 'Inconnu';
+      case null:
+        return 'Inconnu';
     }
   }
 }
