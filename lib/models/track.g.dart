@@ -37,6 +37,11 @@ const TrackSchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
+    r'duration': PropertySchema(
+      id: 10,
+      name: r'duration',
+      type: IsarType.long,
+    ),
     r'filePath': PropertySchema(
       id: 4,
       name: r'filePath',
@@ -135,6 +140,7 @@ void _trackSerialize(
   writer.writeString(offsets[1], object.artist);
   writer.writeString(offsets[2], object.coverUrl);
   writer.writeDateTime(offsets[3], object.createdAt);
+  writer.writeLong(offsets[10], object.duration);
   writer.writeString(offsets[4], object.filePath);
   writer.writeDateTime(offsets[5], object.lastClassified);
   writer.writeDouble(offsets[6], object.moodConfidence);
@@ -154,6 +160,7 @@ Track _trackDeserialize(
   object.artist = reader.readString(offsets[1]);
   object.coverUrl = reader.readStringOrNull(offsets[2]);
   object.createdAt = reader.readDateTimeOrNull(offsets[3]);
+  object.duration = reader.readLongOrNull(offsets[10]);
   object.filePath = reader.readStringOrNull(offsets[4]);
   object.id = id;
   object.lastClassified = reader.readDateTimeOrNull(offsets[5]);
@@ -191,6 +198,8 @@ P _trackDeserializeProp<P>(
       return (reader.readString(offset)) as P;
     case 9:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 10:
+      return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }

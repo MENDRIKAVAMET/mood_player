@@ -15,6 +15,9 @@ class Track {
 
   String? filePath;
 
+  /// Track duration in milliseconds, read from the device's media library.
+  int? duration;
+
   String? coverUrl;
 
   int? moodIndex;
@@ -34,6 +37,20 @@ class Track {
 
   @ignore
   bool get isClassified => mood != null;
+
+  @ignore
+  String get durationFormatted {
+    final d = duration;
+    if (d == null || d <= 0) return '--:--';
+    final total = Duration(milliseconds: d);
+    final minutes = total.inMinutes.remainder(60);
+    final seconds = total.inSeconds.remainder(60);
+    final hours = total.inHours;
+    final twoDigits = (int n) => n.toString().padLeft(2, '0');
+    return hours > 0
+        ? '$hours:${twoDigits(minutes)}:${twoDigits(seconds)}'
+        : '$minutes:${twoDigits(seconds)}';
+  }
 
   @ignore
   String get moodDisplayName {

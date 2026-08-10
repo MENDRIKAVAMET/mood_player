@@ -29,7 +29,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(trackProvider.notifier).loadTracks();
+      // Scan the device's full audio library on every app open: picks up
+      // new files automatically and refreshes metadata/duration for tracks
+      // already known, without touching their mood classification.
+      ref.read(trackProvider.notifier).scanAndLoadTracks();
     });
   }
 
@@ -58,6 +61,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(trackProvider, (previous, next) {
+      if (next.error != null && next.error != previous?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error!),
+            backgroundColor: AppTheme.backgroundCardElevated,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    });
+
     final trackState = ref.watch(trackProvider);
     final trackCountByMood = ref.watch(trackCountByMoodProvider);
     final currentTrack = ref.watch(currentTrackProvider);

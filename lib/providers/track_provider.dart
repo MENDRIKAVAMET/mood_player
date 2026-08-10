@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:on_audio_query/on_audio_query.dart';
 import '../models/track.dart';
 import '../services/storage_service.dart';
 import '../services/gemini_service.dart';
+import '../services/library_scan_service.dart';
 
 // Service providers
 final storageServiceProvider = Provider<StorageService>((ref) {
@@ -10,6 +12,10 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 
 final geminiServiceProvider = Provider<GeminiService>((ref) {
   return GeminiService();
+});
+
+final libraryScanServiceProvider = Provider<LibraryScanService>((ref) {
+  return LibraryScanService();
 });
 
 // Track state
@@ -53,8 +59,9 @@ class TrackState {
 class TrackNotifier extends StateNotifier<TrackState> {
   final StorageService _storageService;
   final GeminiService _geminiService;
+  final LibraryScanService _libraryScanService;
 
-  TrackNotifier(this._storageService, this._geminiService) 
+  TrackNotifier(this._storageService, this._geminiService, this._libraryScanService)
       : super(const TrackState());
 
   /// Load all tracks from storage
@@ -73,6 +80,80 @@ class TrackNotifier extends StateNotifier<TrackState> {
       state = state.copyWith(
         isLoading: false,
         error: 'Erreur lors du chargement des morceaux: $e',
+      );
+    }
+  }
+
+  /// Scan the device's entire audio library (every format the OS indexes),
+  /// merge the results into local storage (updating already-known tracks
+  /// with fresh metadata/duration while preserving their mood
+  /// classification), then reload. Runs on every app open.
+  Future<void> scanAndLoadTracks() async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final result = await _libraryScanService.scan();
+
+      if (!result.permissionGranted) {
+        // No permission: fall back to whatever is already stored locally.
+        await loadTracks();
+        state = state.copyWith(
+          error: 'Autorisation d\'accès à la musique refusée. '
+              'Activez-la dans les paramètres pour scanner votre bibliothèque.',
+        );
+        return;
+      }
+
+      final existingTracks = await _storageService.getAllTracks();
+      final byFilePath = <String, Track>{
+        for (final t in existingTracks)
+          if (t.filePath != null) t.filePath!: t,
+      };
+
+      final now = DateTime.now();
+      final toSave = <Track>[];
+
+      for (final SongModel song in result.songs) {
+        final filePath = song.data;
+        if (filePath.isEmpty) continue;
+
+        final existing = byFilePath[filePath];
+        if (existing != null) {
+          // Update metadata/duration for an already-known track, keep its
+          // mood classification and creation date intact.
+          existing
+            ..title = song.title.isNotEmpty ? song.title : existing.title
+            ..artist = (song.artist != null && song.artist!.isNotEmpty)
+                ? song.artist!
+                : existing.artist
+            ..album = song.album ?? existing.album
+            ..duration = song.duration ?? existing.duration
+            ..updatedAt = now;
+          toSave.add(existing);
+        } else {
+          final track = Track()
+            ..title = song.title.isNotEmpty ? song.title : 'Titre inconnu'
+            ..artist = (song.artist != null && song.artist!.isNotEmpty)
+                ? song.artist!
+                : 'Artiste inconnu'
+            ..album = song.album
+            ..filePath = filePath
+            ..duration = song.duration
+            ..createdAt = now
+            ..updatedAt = now;
+          toSave.add(track);
+        }
+      }
+
+      if (toSave.isNotEmpty) {
+        await _storageService.saveTracks(toSave);
+      }
+
+      await loadTracks();
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Erreur lors du scan de la bibliothèque: $e',
       );
     }
   }
@@ -202,7 +283,8 @@ class TrackNotifier extends StateNotifier<TrackState> {
 final trackProvider = StateNotifierProvider<TrackNotifier, TrackState>((ref) {
   final storageService = ref.watch(storageServiceProvider);
   final geminiService = ref.watch(geminiServiceProvider);
-  return TrackNotifier(storageService, geminiService);
+  final libraryScanService = ref.watch(libraryScanServiceProvider);
+  return TrackNotifier(storageService, geminiService, libraryScanService);
 });
 
 // Filtered tracks provider

@@ -104,6 +104,13 @@ class TrackTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: AppTheme.spacingS),
+                      Text(
+                        track.durationFormatted,
+                        style: AppTheme.bodySmall.copyWith(
+                          color: AppTheme.textTertiary,
+                        ),
+                      ),
                     ],
                   ),
                 ],
