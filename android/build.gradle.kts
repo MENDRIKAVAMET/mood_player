@@ -19,6 +19,26 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Force every subproject (plugins like isar_flutter_libs that hardcode an
+// old compileSdkVersion in their own build.gradle) to compile against SDK
+// 36. Old plugins set compileSdkVersion too low, which makes AAPT fail to
+// resolve resources introduced in newer platforms (e.g. android:attr/lStar,
+// added in API 31) that get pulled in transitively via AndroidX. Forcing a
+// high compileSdk everywhere is safe since Android SDKs are backward
+// compatible.
+subprojects {
+    if (project.name == "app") return@subprojects
+    afterEvaluate {
+        val android = extensions.findByName("android") ?: return@afterEvaluate
+        try {
+            val setCompileSdkVersion = android.javaClass.getMethod("setCompileSdkVersion", Int::class.java)
+            setCompileSdkVersion.invoke(android, 36)
+        } catch (e: Exception) {
+            logger.lifecycle("Could not force compileSdk for '${project.name}': ${e.message}")
+        }
+    }
+}
+
 // Workaround for old plugins (e.g. isar_flutter_libs 3.1.0+1) that don't
 // declare an Android Gradle Plugin `namespace` in their build.gradle, but
 // instead set it the legacy way via `package="..."` in their
