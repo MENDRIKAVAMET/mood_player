@@ -424,9 +424,6 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           onTap: _isReordering ? null : onTap,
         ),
       ),
-    ).animate().fadeIn(
-      duration: AppTheme.animNormal,
-      delay: Duration(milliseconds: 30 * index),
     );
   }
 

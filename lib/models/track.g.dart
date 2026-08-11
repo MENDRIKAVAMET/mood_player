@@ -67,8 +67,13 @@ const TrackSchema = CollectionSchema(
       name: r'title',
       type: IsarType.string,
     ),
-    r'updatedAt': PropertySchema(
+    r'uri': PropertySchema(
       id: 10,
+      name: r'uri',
+      type: IsarType.string,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 11,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -127,6 +132,12 @@ int _trackEstimateSize(
     }
   }
   bytesCount += 3 + object.title.length * 3;
+  {
+    final value = object.uri;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -146,7 +157,8 @@ void _trackSerialize(
   writer.writeDouble(offsets[7], object.moodConfidence);
   writer.writeLong(offsets[8], object.moodIndex);
   writer.writeString(offsets[9], object.title);
-  writer.writeDateTime(offsets[10], object.updatedAt);
+  writer.writeString(offsets[10], object.uri);
+  writer.writeDateTime(offsets[11], object.updatedAt);
 }
 
 Track _trackDeserialize(
@@ -167,7 +179,8 @@ Track _trackDeserialize(
   object.moodConfidence = reader.readDoubleOrNull(offsets[7]);
   object.moodIndex = reader.readLongOrNull(offsets[8]);
   object.title = reader.readString(offsets[9]);
-  object.updatedAt = reader.readDateTimeOrNull(offsets[10]);
+  object.uri = reader.readStringOrNull(offsets[10]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[11]);
   return object;
 }
 
@@ -199,6 +212,8 @@ P _trackDeserializeProp<P>(
     case 9:
       return (reader.readString(offset)) as P;
     case 10:
+      return (reader.readStringOrNull(offset)) as P;
+    case 11:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');

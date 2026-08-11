@@ -128,6 +128,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
                 : existing.artist
             ..album = song.album ?? existing.album
             ..duration = song.duration ?? existing.duration
+            ..uri = song.uri ?? existing.uri
             ..updatedAt = now;
           toSave.add(existing);
         } else {
@@ -138,6 +139,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
                 : 'Artiste inconnu'
             ..album = song.album
             ..filePath = filePath
+            ..uri = song.uri
             ..duration = song.duration
             ..createdAt = now
             ..updatedAt = now;

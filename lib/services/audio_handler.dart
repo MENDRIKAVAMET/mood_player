@@ -381,19 +381,37 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   /// Play a specific media item
   Future<void> _playMediaItem(MediaItem item) async {
     mediaItem.add(item);
-    
-    // If the item has a URI, play it
-    if (item.extras?['filePath'] != null) {
-      try {
-        await _player.setFilePath(item.extras!['filePath'] as String);
-        await _player.play();
-      } catch (e) {
-        // Handle error
-        playbackState.add(playbackState.value.copyWith(
-          processingState: AudioProcessingState.idle,
-          playing: false,
-        ));
+
+    final uri = item.extras?['uri'] as String?;
+    final filePath = item.extras?['filePath'] as String?;
+
+    if (uri == null && filePath == null) return;
+
+    try {
+      Duration? duration;
+      if (uri != null) {
+        // Preferred: content:// URI from MediaStore. Required on Android
+        // 10+ (scoped storage) since apps can't read another app's media
+        // files by raw filesystem path, only through the ContentResolver.
+        duration = await _player.setAudioSource(AudioSource.uri(Uri.parse(uri)));
+      } else {
+        duration = await _player.setFilePath(filePath!);
       }
+
+      // Reflect the real duration on the media item as soon as it's known,
+      // so the UI (queue, notification) has it immediately rather than
+      // waiting on the duration stream alone.
+      if (duration != null) {
+        mediaItem.add(item.copyWith(duration: duration));
+      }
+
+      await _player.play();
+    } catch (e) {
+      // Handle error
+      playbackState.add(playbackState.value.copyWith(
+        processingState: AudioProcessingState.idle,
+        playing: false,
+      ));
     }
   }
 
@@ -403,9 +421,12 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       title: track.title,
       artist: track.artist,
       album: track.album ?? '',
-      duration: null, // Will be set when audio is loaded
+      duration: track.duration != null
+          ? Duration(milliseconds: track.duration!)
+          : null,
       extras: {
         'filePath': track.filePath,
+        'uri': track.uri,
         'mood': track.mood?.displayName,
         'moodConfidence': track.moodConfidence,
       },

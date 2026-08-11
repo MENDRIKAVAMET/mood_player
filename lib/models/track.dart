@@ -15,6 +15,11 @@ class Track {
 
   String? filePath;
 
+  /// content:// URI from the device's MediaStore. Required to actually
+  /// play/read the file on Android 10+ (scoped storage blocks direct
+  /// filesystem access to other apps' media via the raw [filePath]).
+  String? uri;
+
   /// Track duration in milliseconds, read from the device's media library.
   int? duration;
 
