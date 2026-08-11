@@ -2,6 +2,8 @@ import 'package:isar/isar.dart';
 
 part 'track.g.dart';
 
+String _twoDigits(int n) => n.toString().padLeft(2, '0');
+
 @collection
 class Track {
   Id id = Isar.autoIncrement;
@@ -51,10 +53,9 @@ class Track {
     final minutes = total.inMinutes.remainder(60);
     final seconds = total.inSeconds.remainder(60);
     final hours = total.inHours;
-    final twoDigits = (int n) => n.toString().padLeft(2, '0');
     return hours > 0
-        ? '$hours:${twoDigits(minutes)}:${twoDigits(seconds)}'
-        : '$minutes:${twoDigits(seconds)}';
+        ? '$hours:${_twoDigits(minutes)}:${_twoDigits(seconds)}'
+        : '$minutes:${_twoDigits(seconds)}';
   }
 
   @ignore
