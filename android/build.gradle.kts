@@ -39,6 +39,28 @@ subprojects {
     }
 }
 
+// Force a consistent JVM target (17) for both Java and Kotlin compile tasks
+// on every subproject. Some old plugins (e.g. on_audio_query_android)
+// compile their Java sources against 1.8 but their Kotlin sources against a
+// newer JVM target, which Gradle now refuses as inconsistent. Pinning both
+// to the same target everywhere avoids relying on each plugin's own,
+// inconsistent defaults.
+subprojects {
+    afterEvaluate {
+        extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.apply {
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
+        }
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            }
+        }
+    }
+}
+
 // Workaround for old plugins (e.g. isar_flutter_libs 3.1.0+1) that don't
 // declare an Android Gradle Plugin `namespace` in their build.gradle, but
 // instead set it the legacy way via `package="..."` in their
