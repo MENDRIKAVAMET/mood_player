@@ -4,7 +4,13 @@ import '../services/audio_handler.dart';
 
 // Audio handler provider
 final audioHandlerProvider = FutureProvider<MoodAudioHandler>((ref) async {
-  return await initAudioService();
+  try {
+    return await initAudioService();
+  } catch (e, st) {
+    // ignore: avoid_print
+    print('audioHandlerProvider: failed to initialize audio service: $e\n$st');
+    rethrow;
+  }
 });
 
 // Current track provider

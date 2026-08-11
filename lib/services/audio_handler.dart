@@ -406,8 +406,9 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       }
 
       await _player.play();
-    } catch (e) {
-      // Handle error
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('MoodAudioHandler: failed to play "${item.title}": $e\n$st');
       playbackState.add(playbackState.value.copyWith(
         processingState: AudioProcessingState.idle,
         playing: false,

@@ -14,6 +14,11 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
 
+    <!-- Required on Android 13+ to show the ongoing playback notification
+         (audio_service). Without it the foreground media service can fail
+         to start cleanly on newer targetSdk versions. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <application
         android:label="mood_player"
         android:name="${applicationName}"

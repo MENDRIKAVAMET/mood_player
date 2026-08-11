@@ -59,30 +59,57 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   Future<void> _playTrack() async {
     final audioHandlerAsync = ref.read(audioHandlerProvider);
-    audioHandlerAsync.whenData((handler) async {
-      if (widget.tracks != null && widget.initialIndex != null) {
-        // Play with queue context - replace queue
-        await handler.playTrackFromList(widget.tracks!, widget.initialIndex!);
-      } else {
-        // Check if there's an existing queue
-        final currentQueue = handler.queue.value;
-        if (currentQueue.isNotEmpty) {
-          // Find current track in queue and just play it
-          final index = currentQueue.indexWhere(
-            (item) => item.id == widget.track.id.toString(),
-          );
-          if (index >= 0) {
-            await handler.skipToQueueItem(index);
+    audioHandlerAsync.when(
+      data: (handler) async {
+        try {
+          if (widget.tracks != null && widget.initialIndex != null) {
+            // Play with queue context - replace queue
+            await handler.playTrackFromList(widget.tracks!, widget.initialIndex!);
           } else {
-            // Track not in queue, add and play
-            await handler.addAndPlayTrack(widget.track);
+            // Check if there's an existing queue
+            final currentQueue = handler.queue.value;
+            if (currentQueue.isNotEmpty) {
+              // Find current track in queue and just play it
+              final index = currentQueue.indexWhere(
+                (item) => item.id == widget.track.id.toString(),
+              );
+              if (index >= 0) {
+                await handler.skipToQueueItem(index);
+              } else {
+                // Track not in queue, add and play
+                await handler.addAndPlayTrack(widget.track);
+              }
+            } else {
+              // No queue, just play single track
+              await handler.addAndPlayTrack(widget.track);
+            }
           }
-        } else {
-          // No queue, just play single track
-          await handler.addAndPlayTrack(widget.track);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Impossible de lire ce morceau : $e')),
+            );
+          }
         }
-      }
-    });
+      },
+      loading: () {
+        // Audio service still starting up (e.g. very first launch): retry
+        // once it's ready instead of silently doing nothing.
+        ref.read(audioHandlerProvider.future).then((_) {
+          if (mounted) _playTrack();
+        });
+      },
+      error: (e, st) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lecteur audio indisponible : $e'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      },
+    );
   }
 
   @override
