@@ -46,6 +46,7 @@ subprojects {
 // to the same target everywhere avoids relying on each plugin's own,
 // inconsistent defaults.
 subprojects {
+    if (project.name == "app") return@subprojects
     afterEvaluate {
         extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.apply {
             compileOptions {
