@@ -38,37 +38,37 @@ const TrackSchema = CollectionSchema(
       type: IsarType.dateTime,
     ),
     r'duration': PropertySchema(
-      id: 10,
+      id: 4,
       name: r'duration',
       type: IsarType.long,
     ),
     r'filePath': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'filePath',
       type: IsarType.string,
     ),
     r'lastClassified': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'lastClassified',
       type: IsarType.dateTime,
     ),
     r'moodConfidence': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'moodConfidence',
       type: IsarType.double,
     ),
     r'moodIndex': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'moodIndex',
       type: IsarType.long,
     ),
     r'title': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'title',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -140,13 +140,13 @@ void _trackSerialize(
   writer.writeString(offsets[1], object.artist);
   writer.writeString(offsets[2], object.coverUrl);
   writer.writeDateTime(offsets[3], object.createdAt);
-  writer.writeLong(offsets[10], object.duration);
-  writer.writeString(offsets[4], object.filePath);
-  writer.writeDateTime(offsets[5], object.lastClassified);
-  writer.writeDouble(offsets[6], object.moodConfidence);
-  writer.writeLong(offsets[7], object.moodIndex);
-  writer.writeString(offsets[8], object.title);
-  writer.writeDateTime(offsets[9], object.updatedAt);
+  writer.writeLong(offsets[4], object.duration);
+  writer.writeString(offsets[5], object.filePath);
+  writer.writeDateTime(offsets[6], object.lastClassified);
+  writer.writeDouble(offsets[7], object.moodConfidence);
+  writer.writeLong(offsets[8], object.moodIndex);
+  writer.writeString(offsets[9], object.title);
+  writer.writeDateTime(offsets[10], object.updatedAt);
 }
 
 Track _trackDeserialize(
@@ -160,14 +160,14 @@ Track _trackDeserialize(
   object.artist = reader.readString(offsets[1]);
   object.coverUrl = reader.readStringOrNull(offsets[2]);
   object.createdAt = reader.readDateTimeOrNull(offsets[3]);
-  object.duration = reader.readLongOrNull(offsets[10]);
-  object.filePath = reader.readStringOrNull(offsets[4]);
+  object.duration = reader.readLongOrNull(offsets[4]);
+  object.filePath = reader.readStringOrNull(offsets[5]);
   object.id = id;
-  object.lastClassified = reader.readDateTimeOrNull(offsets[5]);
-  object.moodConfidence = reader.readDoubleOrNull(offsets[6]);
-  object.moodIndex = reader.readLongOrNull(offsets[7]);
-  object.title = reader.readString(offsets[8]);
-  object.updatedAt = reader.readDateTimeOrNull(offsets[9]);
+  object.lastClassified = reader.readDateTimeOrNull(offsets[6]);
+  object.moodConfidence = reader.readDoubleOrNull(offsets[7]);
+  object.moodIndex = reader.readLongOrNull(offsets[8]);
+  object.title = reader.readString(offsets[9]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[10]);
   return object;
 }
 
@@ -187,19 +187,19 @@ P _trackDeserializeProp<P>(
     case 3:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 4:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 5:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 7:
-      return (reader.readLongOrNull(offset)) as P;
-    case 8:
-      return (reader.readString(offset)) as P;
-    case 9:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 10:
+    case 7:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 8:
       return (reader.readLongOrNull(offset)) as P;
+    case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
+      return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
