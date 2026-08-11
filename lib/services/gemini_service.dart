@@ -22,7 +22,7 @@ class GeminiService {
     
     try {
       final response = await _dio.post(
-        '/models/gemini-pro:generateContent?key=$_apiKey',
+        '/models/gemini-2.0-flash:generateContent?key=$_apiKey',
         data: {
           'contents': [
             {

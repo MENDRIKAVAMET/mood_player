@@ -29,6 +29,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   PlayerRepeatMode _repeatMode = PlayerRepeatMode.off;
   bool _shuffleMode = false;
 
+  /// The track actually shown on screen. Starts as the track the user
+  /// tapped, then follows whatever the audio handler is really playing
+  /// (updated in build() below) so title/artist/cover stay in sync when
+  /// skipping to next/previous.
+  late Track _displayTrack = widget.track;
+
   @override
   void initState() {
     super.initState();
@@ -71,17 +77,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             if (currentQueue.isNotEmpty) {
               // Find current track in queue and just play it
               final index = currentQueue.indexWhere(
-                (item) => item.id == widget.track.id.toString(),
+                (item) => item.id == _displayTrack.id.toString(),
               );
               if (index >= 0) {
                 await handler.skipToQueueItem(index);
               } else {
                 // Track not in queue, add and play
-                await handler.addAndPlayTrack(widget.track);
+                await handler.addAndPlayTrack(_displayTrack);
               }
             } else {
               // No queue, just play single track
-              await handler.addAndPlayTrack(widget.track);
+              await handler.addAndPlayTrack(_displayTrack);
             }
           }
         } catch (e) {
@@ -114,13 +120,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final moodColors = MoodColors.forMood(widget.track.mood);
+    // Keep the displayed track in sync with whatever the audio handler is
+    // really playing (changes on skip/next/previous), falling back to the
+    // initially-tapped track if we can't resolve a match yet.
+    final currentMediaItem = ref.watch(currentTrackProvider).valueOrNull;
+    if (currentMediaItem != null && currentMediaItem.id != _displayTrack.id.toString()) {
+      final knownTracks = ref.watch(trackProvider).tracks;
+      final matched = knownTracks.where((t) => t.id.toString() == currentMediaItem.id);
+      if (matched.isNotEmpty) {
+        _displayTrack = matched.first;
+      }
+    }
+
+    final moodColors = MoodColors.forMood(_displayTrack.mood);
     final isPlaying = ref.watch(isPlayingProvider);
     final position = ref.watch(currentPositionProvider);
     final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
     
     // Extract dynamic colors from cover art if available
-    final coverColorsAsync = ref.watch(coverColorProvider(widget.track.coverUrl));
+    final coverColorsAsync = ref.watch(coverColorProvider(_displayTrack.coverUrl));
     final paletteColors = coverColorsAsync.valueOrNull;
     
     // Use extracted colors if available, otherwise fall back to mood colors
@@ -166,7 +184,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       _buildControls(moodColors, isPlaying),
                       const SizedBox(height: AppTheme.spacingXL),
                       // Mood info card
-                      if (widget.track.isClassified)
+                      if (_displayTrack.isClassified)
                         _buildMoodInfoCard(moodColors),
                       const SizedBox(height: AppTheme.spacingXXXL),
                     ],
@@ -216,7 +234,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 ),
               ),
               Text(
-                widget.track.moodDisplayName,
+                _displayTrack.moodDisplayName,
                 style: AppTheme.labelMedium.copyWith(
                   color: moodColors.primary,
                   fontWeight: FontWeight.w600,
@@ -248,7 +266,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   Widget _buildCoverArt(MoodColors moodColors, Color dynamicGlow) {
     return Hero(
-      tag: 'album_art_${widget.track.id}',
+      tag: 'album_art_${_displayTrack.id}',
       child: Container(
         width: 280,
         height: 280,
@@ -270,14 +288,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               offset: const Offset(0, 8),
             ),
           ],
-          image: widget.track.coverUrl != null
+          image: _displayTrack.coverUrl != null
               ? DecorationImage(
-                  image: NetworkImage(widget.track.coverUrl!),
+                  image: NetworkImage(_displayTrack.coverUrl!),
                   fit: BoxFit.cover,
                 )
               : null,
         ),
-        child: widget.track.coverUrl == null
+        child: _displayTrack.coverUrl == null
             ? Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -292,7 +310,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    widget.track.mood?.icon ?? '🎵',
+                    _displayTrack.mood?.icon ?? '🎵',
                     style: const TextStyle(fontSize: 80),
                   ),
                 ),
@@ -312,7 +330,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         children: [
           // Title
           Text(
-            widget.track.title,
+            _displayTrack.title,
             style: AppTheme.headlineLarge.copyWith(
               fontWeight: FontWeight.w800,
             ),
@@ -326,7 +344,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           const SizedBox(height: AppTheme.spacingS),
           // Artist
           Text(
-            widget.track.artist,
+            _displayTrack.artist,
             style: AppTheme.titleMedium.copyWith(
               color: AppTheme.textSecondary,
             ),
@@ -338,10 +356,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 delay: const Duration(milliseconds: 300),
               ),
           // Album
-          if (widget.track.album != null) ...[
+          if (_displayTrack.album != null) ...[
             const SizedBox(height: AppTheme.spacingXS),
             Text(
-              widget.track.album!,
+              _displayTrack.album!,
               style: AppTheme.bodySmall,
               textAlign: TextAlign.center,
               maxLines: 1,
@@ -650,7 +668,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ),
             child: Center(
               child: Text(
-                widget.track.mood?.icon ?? '🎵',
+                _displayTrack.mood?.icon ?? '🎵',
                 style: const TextStyle(fontSize: 28),
               ),
             ),
@@ -661,16 +679,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.track.moodDisplayName,
+                  _displayTrack.moodDisplayName,
                   style: AppTheme.titleMedium.copyWith(
                     color: moodColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (widget.track.moodConfidence != null) ...[
+                if (_displayTrack.moodConfidence != null) ...[
                   const SizedBox(height: AppTheme.spacingXXS),
                   Text(
-                    'Confiance: ${(widget.track.moodConfidence! * 100).toStringAsFixed(0)}%',
+                    'Confiance: ${(_displayTrack.moodConfidence! * 100).toStringAsFixed(0)}%',
                     style: AppTheme.bodySmall,
                   ),
                 ],

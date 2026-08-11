@@ -175,23 +175,32 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
   }
 
-  /// Classify a track using Gemini
+  /// Classify a track using Gemini. Updates the track in place in local
+  /// state (no full reload) so classifying doesn't flash the whole list
+  /// back to a loading skeleton for every single track.
   Future<void> classifyTrack(Track track) async {
     if (track.isClassified) return;
-    
+
     try {
       final result = await _geminiService.classifyTrack(track);
-      
+
       if (!result.hasError) {
         track.mood = result.mood;
         track.moodConfidence = result.confidence;
         track.lastClassified = DateTime.now();
         await _storageService.saveTrack(track);
-        await loadTracks();
+
+        final updatedTracks = [
+          for (final t in state.tracks) t.id == track.id ? track : t,
+        ];
+        state = state.copyWith(tracks: updatedTracks);
+        _applyFilters();
+      } else {
+        state = state.copyWith(error: result.error);
       }
     } catch (e) {
       state = state.copyWith(
-        error: 'Erreur lors de la classification: $e',
+        error: 'Erreur lors de la classification de "${track.title}": $e',
       );
     }
   }
@@ -199,20 +208,22 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// Classify all unclassified tracks
   Future<void> classifyAllUnclassified() async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       final unclassifiedTracks = await _storageService.getUnclassifiedTracks();
-      
+
       for (final track in unclassifiedTracks) {
         await classifyTrack(track);
       }
-      
-      await loadTracks();
     } catch (e) {
       state = state.copyWith(
-        isLoading: false,
         error: 'Erreur lors de la classification en lot: $e',
       );
+    } finally {
+      // Always clear the loading flag, whether every track succeeded,
+      // some failed, or the whole batch blew up - otherwise the list gets
+      // stuck showing the loading skeleton forever.
+      state = state.copyWith(isLoading: false);
     }
   }
 
