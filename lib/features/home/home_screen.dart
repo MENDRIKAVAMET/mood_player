@@ -11,6 +11,9 @@ import '../../widgets/track_tile.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/mini_player.dart';
 import '../../widgets/classify_progress_banner.dart';
+import '../../widgets/custom_mood_card.dart';
+import '../../widgets/mood_editor_dialog.dart';
+import '../mood/custom_mood_detail_screen.dart';
 import '../player/player_screen.dart';
 import '../mood/mood_detail_screen.dart';
 
@@ -34,6 +37,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // new files automatically and refreshes metadata/duration for tracks
       // already known, without touching their mood classification.
       ref.read(trackProvider.notifier).scanAndLoadTracks();
+      ref.read(customMoodProvider.notifier).loadMoods();
     });
   }
 
@@ -116,6 +120,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         // Action buttons
                         SliverToBoxAdapter(
                           child: _buildActionButtons(),
+                        ),
+
+                        // Custom user-created moods
+                        SliverToBoxAdapter(
+                          child: _buildCustomMoodsSection(),
                         ),
 
                         // Mood sections
@@ -374,6 +383,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCustomMoodsSection() {
+    final customMoods = ref.watch(customMoodProvider).moods;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Mes moods', customMoods.isEmpty ? null : customMoods.length),
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+            itemCount: customMoods.length + 1,
+            itemBuilder: (context, index) {
+              if (index == customMoods.length) {
+                return CreateMoodCard(onTap: _createCustomMood);
+              }
+              final mood = customMoods[index];
+              return CustomMoodCard(
+                mood: mood,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CustomMoodDetailScreen(mood: mood),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _createCustomMood() async {
+    final result = await showMoodEditorDialog(context);
+    if (result == null) return;
+    await ref.read(customMoodProvider.notifier).createMood(
+          name: result.$1,
+          icon: result.$2,
+          colorValue: result.$3,
+        );
   }
 
   Widget _buildMoodSections(Map<MoodType, int> trackCountByMood) {

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Status-bar / media-notification icon. Per Android's notification icon
+  guidelines this must be a simple, single-color (white) silhouette on a
+  transparent background - the system tints and masks it automatically.
+  Modern minimal equalizer/soundwave glyph: three rounded bars of varying
+  height, reads cleanly at 24dp and feels more distinctive than a generic
+  music note.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,10.5 L6,10.5 A1.5,1.5 0 0,1 7.5,12 L7.5,17 A1.5,1.5 0 0,1 6,18.5 L6,18.5 A1.5,1.5 0 0,1 4.5,17 L4.5,12 A1.5,1.5 0 0,1 6,10.5 Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,5.5 L12,5.5 A1.5,1.5 0 0,1 13.5,7 L13.5,17 A1.5,1.5 0 0,1 12,18.5 L12,18.5 A1.5,1.5 0 0,1 10.5,17 L10.5,7 A1.5,1.5 0 0,1 12,5.5 Z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18,8.5 L18,8.5 A1.5,1.5 0 0,1 19.5,10 L19.5,17 A1.5,1.5 0 0,1 18,18.5 L18,18.5 A1.5,1.5 0 0,1 16.5,17 L16.5,10 A1.5,1.5 0 0,1 18,8.5 Z"/>
+</vector>

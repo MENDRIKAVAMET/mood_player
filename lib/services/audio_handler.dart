@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/track.dart';
@@ -456,7 +457,8 @@ Future<MoodAudioHandler> initAudioService() async {
       androidNotificationChannelName: 'Mood Player',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
-      androidNotificationIcon: 'mipmap/ic_launcher',
+      androidNotificationIcon: 'drawable/ic_notification',
+      notificationColor: Color(0xFF1DB954),
       fastForwardInterval: Duration(seconds: 10),
       rewindInterval: Duration(seconds: 10),
     ),
