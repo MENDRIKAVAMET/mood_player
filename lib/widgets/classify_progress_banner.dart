@@ -7,11 +7,13 @@ import '../theme/app_theme.dart';
 class ClassifyProgressBanner extends StatefulWidget {
   final int progress;
   final int total;
+  final String? statusMessage;
 
   const ClassifyProgressBanner({
     super.key,
     required this.progress,
     required this.total,
+    this.statusMessage,
   });
 
   @override
@@ -101,8 +103,13 @@ class _ClassifyProgressBannerState extends State<ClassifyProgressBanner>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${widget.progress} / ${widget.total} morceaux',
-                    style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+                    widget.statusMessage ?? '${widget.progress} / ${widget.total} morceaux',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: widget.statusMessage != null
+                          ? AppTheme.accentPrimary
+                          : AppTheme.textTertiary,
+                      fontWeight: widget.statusMessage != null ? FontWeight.w600 : null,
+                    ),
                   ),
                 ],
               ),

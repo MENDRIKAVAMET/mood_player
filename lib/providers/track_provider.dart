@@ -58,6 +58,10 @@ class TrackState {
   final int? classifyProgress;
   final int? classifyTotal;
 
+  /// Short status line shown under the progress bar (e.g. waiting out a
+  /// rate limit). Null when there's nothing special to report.
+  final String? classifyStatusMessage;
+
   const TrackState({
     this.tracks = const [],
     this.filteredTracks = const [],
@@ -69,6 +73,7 @@ class TrackState {
     this.minDurationSeconds,
     this.classifyProgress,
     this.classifyTotal,
+    this.classifyStatusMessage,
   });
 
   bool get isClassifying => classifyTotal != null;
@@ -86,6 +91,8 @@ class TrackState {
     int? classifyProgress,
     int? classifyTotal,
     bool clearClassifyProgress = false,
+    String? classifyStatusMessage,
+    bool clearClassifyStatusMessage = false,
   }) {
     return TrackState(
       tracks: tracks ?? this.tracks,
@@ -104,6 +111,9 @@ class TrackState {
       classifyTotal: clearClassifyProgress
           ? null
           : (classifyTotal ?? this.classifyTotal),
+      classifyStatusMessage: clearClassifyProgress || clearClassifyStatusMessage
+          ? null
+          : (classifyStatusMessage ?? this.classifyStatusMessage),
     );
   }
 }
@@ -228,33 +238,70 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
   }
 
-  /// Classify a track using Gemini. Updates the track in place in local
+  /// Classify a track using Groq. Updates the track in place in local
   /// state (no full reload) so classifying doesn't flash the whole list
   /// back to a loading skeleton for every single track.
-  Future<void> classifyTrack(Track track) async {
+  ///
+  /// On a rate-limit response (HTTP 429), waits out the time Groq asks for
+  /// and retries automatically (up to [maxRateLimitRetries] times) instead
+  /// of just failing - so a batch run doesn't need to be manually relaunched
+  /// over and over.
+  Future<void> classifyTrack(Track track, {int maxRateLimitRetries = 5}) async {
     if (track.isClassified) return;
 
-    try {
-      final result = await _groqService.classifyTrack(track);
+    var attempt = 0;
+    while (true) {
+      try {
+        final result = await _groqService.classifyTrack(track);
 
-      if (!result.hasError) {
-        track.mood = result.mood;
-        track.moodConfidence = result.confidence;
-        track.lastClassified = DateTime.now();
-        await _storageService.saveTrack(track);
+        if (!result.hasError) {
+          track.mood = result.mood;
+          track.moodConfidence = result.confidence;
+          track.lastClassified = DateTime.now();
+          await _storageService.saveTrack(track);
 
-        final updatedTracks = [
-          for (final t in state.tracks) t.id == track.id ? track : t,
-        ];
-        state = state.copyWith(tracks: updatedTracks);
-        _applyFilters();
-      } else {
-        state = state.copyWith(error: result.error);
+          final updatedTracks = [
+            for (final t in state.tracks) t.id == track.id ? track : t,
+          ];
+          state = state.copyWith(
+            tracks: updatedTracks,
+            clearClassifyStatusMessage: true,
+          );
+          _applyFilters();
+        } else {
+          state = state.copyWith(error: result.error, clearClassifyStatusMessage: true);
+        }
+        return;
+      } on GroqRateLimitException catch (e) {
+        attempt++;
+        if (attempt > maxRateLimitRetries) {
+          state = state.copyWith(
+            error: 'Limite de requêtes Groq atteinte pour "${track.title}", '
+                'nouvelle tentative nécessaire plus tard.',
+            clearClassifyStatusMessage: true,
+          );
+          return;
+        }
+
+        // Count down visibly instead of freezing with no feedback.
+        var remaining = e.retryAfter.inSeconds.clamp(1, 120);
+        while (remaining > 0) {
+          state = state.copyWith(
+            error: state.error,
+            classifyStatusMessage:
+                'Limite Groq atteinte, reprise dans ${remaining}s…',
+          );
+          await Future.delayed(const Duration(seconds: 1));
+          remaining--;
+        }
+        // loop back around and retry this same track
+      } catch (e) {
+        state = state.copyWith(
+          error: 'Erreur lors de la classification de "${track.title}": $e',
+          clearClassifyStatusMessage: true,
+        );
+        return;
       }
-    } catch (e) {
-      state = state.copyWith(
-        error: 'Erreur lors de la classification de "${track.title}": $e',
-      );
     }
   }
 
@@ -274,6 +321,13 @@ class TrackNotifier extends StateNotifier<TrackState> {
       for (var i = 0; i < unclassifiedTracks.length; i++) {
         await classifyTrack(unclassifiedTracks[i]);
         state = state.copyWith(classifyProgress: i + 1, error: state.error);
+
+        // Proactive pacing: stay comfortably under Groq's free-tier rate
+        // limit (~30 requests/minute) instead of racing ahead and hitting
+        // 429s on every request.
+        if (i < unclassifiedTracks.length - 1) {
+          await Future.delayed(const Duration(milliseconds: 2200));
+        }
       }
     } catch (e) {
       state = state.copyWith(

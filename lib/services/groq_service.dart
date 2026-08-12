@@ -55,6 +55,15 @@ class GroqService {
       final serverMessage = e.response?.data is Map
           ? (e.response?.data['error']?['message'] ?? e.message)
           : e.message;
+
+      if (e.response?.statusCode == 429) {
+        throw GroqRateLimitException(
+          'Limite de requêtes Groq atteinte: $serverMessage',
+          retryAfter: _parseRetryAfter(e.response?.headers),
+          originalError: e,
+        );
+      }
+
       throw GroqServiceException(
         'Erreur réseau lors de la classification: $serverMessage',
         e,
@@ -65,6 +74,14 @@ class GroqService {
         e,
       );
     }
+  }
+
+  /// Reads the standard `Retry-After` header (seconds) Groq sends on 429
+  /// responses. Falls back to a conservative default if absent/unparsable.
+  Duration _parseRetryAfter(Headers? headers) {
+    final raw = headers?.value('retry-after');
+    final seconds = raw != null ? int.tryParse(raw) : null;
+    return Duration(seconds: seconds ?? 20);
   }
 
   /// Classify multiple tracks in batch
@@ -170,4 +187,16 @@ class GroqServiceException implements Exception {
 
   @override
   String toString() => 'GroqServiceException: $message';
+}
+
+/// Thrown when Groq responds with HTTP 429 (rate limit exceeded). Carries
+/// how long to wait before it's safe to retry.
+class GroqRateLimitException extends GroqServiceException {
+  final Duration retryAfter;
+
+  const GroqRateLimitException(
+    String message, {
+    required this.retryAfter,
+    dynamic originalError,
+  }) : super(message, originalError);
 }

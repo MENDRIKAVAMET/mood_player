@@ -135,6 +135,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: ClassifyProgressBanner(
                               progress: trackState.classifyProgress!,
                               total: trackState.classifyTotal!,
+                              statusMessage: trackState.classifyStatusMessage,
                             ),
                           ),
 
