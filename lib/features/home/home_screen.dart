@@ -10,6 +10,7 @@ import '../../widgets/mood_card.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/mini_player.dart';
+import '../../widgets/classify_progress_banner.dart';
 import '../player/player_screen.dart';
 import '../mood/mood_detail_screen.dart';
 
@@ -125,8 +126,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                         // All tracks section
                         SliverToBoxAdapter(
-                          child: _buildSectionHeader('Tous les morceaux', trackState.tracks.length),
+                          child: _buildAllTracksHeader(trackState),
                         ),
+
+                        // Classification progress (elegant, non-spinner)
+                        if (trackState.isClassifying)
+                          SliverToBoxAdapter(
+                            child: ClassifyProgressBanner(
+                              progress: trackState.classifyProgress!,
+                              total: trackState.classifyTotal!,
+                            ),
+                          ),
 
                         // Track list
                         if (trackState.isLoading)
@@ -433,6 +443,160 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAllTracksHeader(TrackState trackState) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingXL,
+        AppTheme.spacingXL,
+        AppTheme.spacingL,
+        AppTheme.spacingS,
+      ),
+      child: Row(
+        children: [
+          Text('Tous les morceaux', style: AppTheme.headlineMedium),
+          const SizedBox(width: AppTheme.spacingS),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacingS,
+              vertical: AppTheme.spacingXXS,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(AppTheme.radiusS),
+            ),
+            child: Text(
+              '${trackState.filteredTracks.length}',
+              style: AppTheme.labelSmall.copyWith(color: AppTheme.accentPrimary),
+            ),
+          ),
+          const Spacer(),
+          if (trackState.minDurationSeconds != null)
+            IconButton(
+              tooltip: 'Filtre de durée actif (${trackState.minDurationSeconds}s min)',
+              icon: Icon(Icons.timer_outlined, color: AppTheme.accentPrimary, size: 20),
+              onPressed: _showMinDurationDialog,
+            )
+          else
+            IconButton(
+              tooltip: 'Masquer les morceaux courts',
+              icon: Icon(Icons.timer_outlined, color: AppTheme.textSecondary, size: 20),
+              onPressed: _showMinDurationDialog,
+            ),
+          IconButton(
+            tooltip: 'Trier',
+            icon: Icon(Icons.sort_rounded, color: AppTheme.textSecondary, size: 22),
+            onPressed: () => _showSortMenu(trackState.sortOption),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSortMenu(TrackSortOption current) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.backgroundSecondary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusL)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: AppTheme.spacingM),
+              Text('Trier par', style: AppTheme.headlineMedium),
+              const SizedBox(height: AppTheme.spacingS),
+              for (final option in TrackSortOption.values)
+                ListTile(
+                  title: Text(option.label, style: AppTheme.bodyMedium),
+                  trailing: option == current
+                      ? Icon(Icons.check, color: AppTheme.accentPrimary)
+                      : null,
+                  onTap: () {
+                    ref.read(trackProvider.notifier).setSortOption(option);
+                    Navigator.pop(context);
+                  },
+                ),
+              const SizedBox(height: AppTheme.spacingM),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showMinDurationDialog() {
+    final current = ref.read(trackProvider).minDurationSeconds;
+    final controller = TextEditingController(
+      text: current != null ? current.toString() : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.backgroundSecondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        ),
+        title: Text('Masquer les morceaux courts', style: AppTheme.headlineMedium),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Masque de la liste les fichiers audio plus courts que la durée indiquée '
+              '(utile pour cacher les sonneries ou notifications importées avec le scan).',
+              style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: AppTheme.spacingM),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              style: AppTheme.bodyMedium,
+              decoration: InputDecoration(
+                hintText: 'Durée minimale en secondes',
+                hintStyle: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+                suffixText: 'secondes',
+                filled: true,
+                fillColor: AppTheme.backgroundCard,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (current != null)
+            TextButton(
+              onPressed: () {
+                ref.read(trackProvider.notifier).setMinDurationFilter(null);
+                Navigator.pop(context);
+              },
+              child: Text('Réinitialiser', style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Annuler', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              final seconds = int.tryParse(controller.text.trim());
+              if (seconds != null && seconds > 0) {
+                ref.read(trackProvider.notifier).setMinDurationFilter(seconds);
+              }
+              Navigator.pop(context);
+            },
+            child: Text('Appliquer', style: TextStyle(color: AppTheme.accentPrimary)),
+          ),
         ],
       ),
     );

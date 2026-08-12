@@ -1,10 +1,10 @@
 # 🎵 Mood Player
 
-Une application mobile Flutter qui organise vos playlists musicales par "mood" (ambiance) en utilisant l'API Gemini pour classifier automatiquement chaque morceau.
+Une application mobile Flutter qui organise vos playlists musicales par "mood" (ambiance) en utilisant l'API Groq pour classifier automatiquement chaque morceau.
 
 ## 🚀 Fonctionnalités
 
-- **Classification automatique par mood** : Utilise l'API Gemini pour analyser et classifier chaque morceau
+- **Classification automatique par mood** : Utilise l'API Groq pour analyser et classifier chaque morceau
 - **Moods supportés** : Énergique, Chill, Mélancolique, Festif, Romantique, Concentration, Motivant, Triste
 - **Cache local** : Stockage des classifications pour éviter les appels API répétés
 - **Lecteur audio** : Lecture avec contrôles depuis la notification/lock screen Android
@@ -19,7 +19,7 @@ mood_player/
 │   ├── models/
 │   │   └── track.dart               # Modèle de données Track avec Isar
 │   ├── services/
-│   │   ├── gemini_service.dart      # Service d'appel API Gemini
+│   │   ├── groq_service.dart      # Service d'appel API Groq
 │   │   ├── storage_service.dart     # Service de stockage local Isar
 │   │   └── audio_handler.dart       # Gestionnaire audio pour playback
 │   ├── providers/
@@ -45,15 +45,15 @@ mood_player/
 | Stockage local | Isar |
 | Réseau | Dio |
 | Audio | just_audio + audio_service |
-| API IA | Gemini |
+| API IA | Groq |
 | Config | flutter_dotenv |
 
 ## 📋 Prérequis
 
 1. Flutter SDK ≥ 3.11.1
 2. Android Studio / VS Code avec extensions Flutter
-3. Compte Google Cloud avec API Gemini activée
-4. Clé API Gemini
+3. Compte Groq (console.groq.com)
+4. Clé API Groq
 
 ## ⚙️ Configuration
 
@@ -69,7 +69,7 @@ flutter pub get
 Créez le fichier `.env` à la racine du projet :
 
 ```env
-GEMINI_API_KEY=votre_cle_api_ici
+GROQ_API_KEY=votre_cle_api_ici
 APP_NAME=Mood Player
 ```
 
@@ -121,9 +121,9 @@ class Track {
 }
 ```
 
-### Service Gemini
+### Service Groq
 - Construit un prompt de classification
-- Appelle l'API Gemini
+- Appelle l'API Groq
 - Parse la réponse JSON
 - Gère les erreurs et retries
 
@@ -138,11 +138,11 @@ class Track {
 - **Pas de backend** : Tout est géré côté client
 - **Pas d'authentification** : Application personnelle
 - **Clé API** : Ne jamais commiter le fichier `.env`
-- **API Gemini** : Vérifiez les quotas et tarifs
+- **API Groq** : Vérifiez les quotas et tarifs
 
 ## 🐛 Dépannage
 
-### Erreur "GEMINI_API_KEY not found"
+### Erreur "GROQ_API_KEY not found"
 - Vérifiez que le fichier `.env` existe
 - Vérifiez que `dotenv.load()` est appelé dans `main()`
 

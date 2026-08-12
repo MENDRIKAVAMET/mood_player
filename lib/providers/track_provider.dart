@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import '../models/track.dart';
 import '../services/storage_service.dart';
-import '../services/gemini_service.dart';
+import '../services/groq_service.dart';
 import '../services/library_scan_service.dart';
 
 // Service providers
@@ -10,13 +10,36 @@ final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
 });
 
-final geminiServiceProvider = Provider<GeminiService>((ref) {
-  return GeminiService();
+final groqServiceProvider = Provider<GroqService>((ref) {
+  return GroqService();
 });
 
 final libraryScanServiceProvider = Provider<LibraryScanService>((ref) {
   return LibraryScanService();
 });
+
+/// Available ways to sort the track list.
+enum TrackSortOption {
+  nameAsc,
+  nameDesc,
+  dateNewest,
+  dateOldest,
+}
+
+extension TrackSortOptionLabel on TrackSortOption {
+  String get label {
+    switch (this) {
+      case TrackSortOption.nameAsc:
+        return 'Nom (A → Z)';
+      case TrackSortOption.nameDesc:
+        return 'Nom (Z → A)';
+      case TrackSortOption.dateNewest:
+        return 'Plus récent';
+      case TrackSortOption.dateOldest:
+        return 'Plus ancien';
+    }
+  }
+}
 
 // Track state
 class TrackState {
@@ -26,6 +49,14 @@ class TrackState {
   final String searchQuery;
   final bool isLoading;
   final String? error;
+  final TrackSortOption sortOption;
+  final int? minDurationSeconds;
+
+  /// Non-null while a batch classification is in progress; tracks how many
+  /// of [classifyTotal] tracks have been processed so far, for the
+  /// progress indicator.
+  final int? classifyProgress;
+  final int? classifyTotal;
 
   const TrackState({
     this.tracks = const [],
@@ -34,7 +65,13 @@ class TrackState {
     this.searchQuery = '',
     this.isLoading = false,
     this.error,
+    this.sortOption = TrackSortOption.dateNewest,
+    this.minDurationSeconds,
+    this.classifyProgress,
+    this.classifyTotal,
   });
+
+  bool get isClassifying => classifyTotal != null;
 
   TrackState copyWith({
     List<Track>? tracks,
@@ -43,6 +80,12 @@ class TrackState {
     String? searchQuery,
     bool? isLoading,
     String? error,
+    TrackSortOption? sortOption,
+    int? minDurationSeconds,
+    bool clearMinDurationSeconds = false,
+    int? classifyProgress,
+    int? classifyTotal,
+    bool clearClassifyProgress = false,
   }) {
     return TrackState(
       tracks: tracks ?? this.tracks,
@@ -51,6 +94,16 @@ class TrackState {
       searchQuery: searchQuery ?? this.searchQuery,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      sortOption: sortOption ?? this.sortOption,
+      minDurationSeconds: clearMinDurationSeconds
+          ? null
+          : (minDurationSeconds ?? this.minDurationSeconds),
+      classifyProgress: clearClassifyProgress
+          ? null
+          : (classifyProgress ?? this.classifyProgress),
+      classifyTotal: clearClassifyProgress
+          ? null
+          : (classifyTotal ?? this.classifyTotal),
     );
   }
 }
@@ -58,10 +111,10 @@ class TrackState {
 // Track notifier
 class TrackNotifier extends StateNotifier<TrackState> {
   final StorageService _storageService;
-  final GeminiService _geminiService;
+  final GroqService _groqService;
   final LibraryScanService _libraryScanService;
 
-  TrackNotifier(this._storageService, this._geminiService, this._libraryScanService)
+  TrackNotifier(this._storageService, this._groqService, this._libraryScanService)
       : super(const TrackState());
 
   /// Load all tracks from storage
@@ -182,7 +235,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     if (track.isClassified) return;
 
     try {
-      final result = await _geminiService.classifyTrack(track);
+      final result = await _groqService.classifyTrack(track);
 
       if (!result.hasError) {
         track.mood = result.mood;
@@ -207,23 +260,29 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
   /// Classify all unclassified tracks
   Future<void> classifyAllUnclassified() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(error: null);
 
     try {
       final unclassifiedTracks = await _storageService.getUnclassifiedTracks();
+      if (unclassifiedTracks.isEmpty) return;
 
-      for (final track in unclassifiedTracks) {
-        await classifyTrack(track);
+      state = state.copyWith(
+        classifyProgress: 0,
+        classifyTotal: unclassifiedTracks.length,
+      );
+
+      for (var i = 0; i < unclassifiedTracks.length; i++) {
+        await classifyTrack(unclassifiedTracks[i]);
+        state = state.copyWith(classifyProgress: i + 1, error: state.error);
       }
     } catch (e) {
       state = state.copyWith(
         error: 'Erreur lors de la classification en lot: $e',
       );
     } finally {
-      // Always clear the loading flag, whether every track succeeded,
-      // some failed, or the whole batch blew up - otherwise the list gets
-      // stuck showing the loading skeleton forever.
-      state = state.copyWith(isLoading: false);
+      // Always clear the progress indicator, whether every track
+      // succeeded, some failed, or the whole batch blew up.
+      state = state.copyWith(clearClassifyProgress: true);
     }
   }
 
@@ -236,6 +295,22 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// Search tracks
   void searchTracks(String query) {
     state = state.copyWith(searchQuery: query);
+    _applyFilters();
+  }
+
+  /// Change how the "Tous les morceaux" list is ordered
+  void setSortOption(TrackSortOption option) {
+    state = state.copyWith(sortOption: option);
+    _applyFilters();
+  }
+
+  /// Hide tracks shorter than [seconds]. Pass null to remove the filter.
+  void setMinDurationFilter(int? seconds) {
+    if (seconds == null) {
+      state = state.copyWith(clearMinDurationSeconds: true);
+    } else {
+      state = state.copyWith(minDurationSeconds: seconds);
+    }
     _applyFilters();
   }
 
@@ -256,6 +331,36 @@ class TrackNotifier extends StateNotifier<TrackState> {
         track.artist.toLowerCase().contains(query) ||
         (track.album?.toLowerCase().contains(query) ?? false)
       ).toList();
+    }
+
+    // Hide short tracks (e.g. ringtones/notification sounds picked up by
+    // the device scan)
+    final minSeconds = state.minDurationSeconds;
+    if (minSeconds != null && minSeconds > 0) {
+      final minMs = minSeconds * 1000;
+      filtered = filtered
+          .where((track) => (track.duration ?? 0) >= minMs)
+          .toList();
+    }
+
+    // Sort
+    switch (state.sortOption) {
+      case TrackSortOption.nameAsc:
+        filtered.sort((a, b) =>
+            a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case TrackSortOption.nameDesc:
+        filtered.sort((a, b) =>
+            b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        break;
+      case TrackSortOption.dateNewest:
+        filtered.sort((a, b) => (b.createdAt ?? DateTime(0))
+            .compareTo(a.createdAt ?? DateTime(0)));
+        break;
+      case TrackSortOption.dateOldest:
+        filtered.sort((a, b) => (a.createdAt ?? DateTime(0))
+            .compareTo(b.createdAt ?? DateTime(0)));
+        break;
     }
     
     state = state.copyWith(filteredTracks: filtered);
@@ -295,9 +400,9 @@ class TrackNotifier extends StateNotifier<TrackState> {
 // Track provider
 final trackProvider = StateNotifierProvider<TrackNotifier, TrackState>((ref) {
   final storageService = ref.watch(storageServiceProvider);
-  final geminiService = ref.watch(geminiServiceProvider);
+  final groqService = ref.watch(groqServiceProvider);
   final libraryScanService = ref.watch(libraryScanServiceProvider);
-  return TrackNotifier(storageService, geminiService, libraryScanService);
+  return TrackNotifier(storageService, groqService, libraryScanService);
 });
 
 // Filtered tracks provider
