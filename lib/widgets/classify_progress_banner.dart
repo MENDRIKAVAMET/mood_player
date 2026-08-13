@@ -47,7 +47,7 @@ class _ClassifyProgressBannerState extends State<ClassifyProgressBanner>
         decoration: BoxDecoration(
           color: AppTheme.backgroundCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
-          border: Border.all(color: AppTheme.accentPrimary.withOpacity(0.25)),
+          border: Border.all(color: AppTheme.accentPrimary.withValues(alpha: 0.25)),
         ),
         child: Row(
           children: [
@@ -60,10 +60,10 @@ class _ClassifyProgressBannerState extends State<ClassifyProgressBanner>
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppTheme.accentPrimary.withOpacity(0.12),
+                    color: AppTheme.accentPrimary.withValues(alpha: 0.12),
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.accentPrimary.withOpacity(glow * 0.5),
+                        color: AppTheme.accentPrimary.withValues(alpha: glow * 0.5),
                         blurRadius: 12 + (_controller.value * 10),
                         spreadRadius: 1 + (_controller.value * 2),
                       ),
@@ -71,7 +71,7 @@ class _ClassifyProgressBannerState extends State<ClassifyProgressBanner>
                   ),
                   child: Icon(
                     Icons.auto_awesome,
-                    color: AppTheme.accentPrimary.withOpacity(0.7 + glow * 0.3),
+                    color: AppTheme.accentPrimary.withValues(alpha: 0.7 + glow * 0.3),
                     size: 20,
                   ),
                 );
