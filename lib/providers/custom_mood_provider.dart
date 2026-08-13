@@ -49,7 +49,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
   Future<void> createMood({
     required String name,
     String icon = '🎵',
-    int colorValue = 0xFF1DB954,
+    int colorValue = 0xFF7C6CFF,
   }) async {
     try {
       final storage = _ref.read(storageServiceProvider);

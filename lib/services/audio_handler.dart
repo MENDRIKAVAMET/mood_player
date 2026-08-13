@@ -458,7 +458,7 @@ Future<MoodAudioHandler> initAudioService() async {
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
       androidNotificationIcon: 'drawable/ic_notification',
-      notificationColor: Color(0xFF1DB954),
+      notificationColor: Color(0xFF7C6CFF),
       fastForwardInterval: Duration(seconds: 10),
       rewindInterval: Duration(seconds: 10),
     ),

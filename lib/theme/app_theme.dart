@@ -14,9 +14,13 @@ class AppTheme {
   static const Color backgroundCard = Color(0xFF1E1E1E);
   static const Color backgroundCardElevated = Color(0xFF282828);
 
-  // Accent colors
-  static const Color accentPrimary = Color(0xFF1DB954);
-  static const Color accentSecondary = Color(0xFF1ED760);
+  // Accent colors — "aurora" identity: an indigo-violet base (the app's
+  // ambient/mood-shifting glow ties directly into the product's premise)
+  // paired with a warm coral used sparingly for calls-to-action, instead
+  // of a flat single bright accent on black.
+  static const Color accentPrimary = Color(0xFF7C6CFF);
+  static const Color accentSecondary = Color(0xFFA78BFA);
+  static const Color accentWarm = Color(0xFFFF7A59);
   static const Color accentSuccess = Color(0xFF10B981);
   static const Color accentWarning = Color(0xFFFF6B35);
   static const Color accentError = Color(0xFFE63946);
@@ -102,34 +106,36 @@ class AppTheme {
   static const Duration animPageTransition = Duration(milliseconds: 350);
 
   // ═══════════════════════════════════════════════════════════════
-  // TEXT STYLES (using Google Fonts - Inter)
+  // TEXT STYLES — Space Grotesk for display/headlines (the app's
+  // wordmark and section titles get a bit of character), Inter for
+  // body/labels (stays neutral and legible at small sizes/high density).
   // ═══════════════════════════════════════════════════════════════
 
-  static TextStyle get displayLarge => GoogleFonts.inter(
+  static TextStyle get displayLarge => GoogleFonts.spaceGrotesk(
     fontSize: 34,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w700,
     color: textPrimary,
-    letterSpacing: -1.0,
-    height: 1.2,
+    letterSpacing: -0.8,
+    height: 1.15,
   );
 
-  static TextStyle get displayMedium => GoogleFonts.inter(
+  static TextStyle get displayMedium => GoogleFonts.spaceGrotesk(
     fontSize: 28,
     fontWeight: FontWeight.w700,
     color: textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
     height: 1.2,
   );
 
-  static TextStyle get headlineLarge => GoogleFonts.inter(
+  static TextStyle get headlineLarge => GoogleFonts.spaceGrotesk(
     fontSize: 24,
     fontWeight: FontWeight.w700,
     color: textPrimary,
-    letterSpacing: -0.3,
-    height: 1.3,
+    letterSpacing: -0.2,
+    height: 1.25,
   );
 
-  static TextStyle get headlineMedium => GoogleFonts.inter(
+  static TextStyle get headlineMedium => GoogleFonts.spaceGrotesk(
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: textPrimary,
@@ -216,6 +222,21 @@ class AppTheme {
     borderRadius: BorderRadius.circular(radiusL),
     border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
   );
+
+  /// The app's signature ambient treatment: a soft indigo-violet glow
+  /// that fades to warm coral, used behind the mini player and other
+  /// "always-on" surfaces so the app's mood-shifting identity is felt
+  /// even when nothing is playing yet. Pass a mood's own color to tint
+  /// it toward whatever's currently playing instead.
+  static LinearGradient auroraGradient({Color? tint}) => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          (tint ?? accentPrimary).withValues(alpha: 0.22),
+          accentSecondary.withValues(alpha: 0.10),
+          backgroundCard,
+        ],
+      );
 
   // ═══════════════════════════════════════════════════════════════
   // THEME DATA

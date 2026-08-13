@@ -51,10 +51,10 @@ class MiniPlayer extends ConsumerWidget {
           vertical: AppTheme.spacingS,
         ),
         decoration: BoxDecoration(
-          color: AppTheme.backgroundCardElevated,
+          gradient: AppTheme.auroraGradient(tint: moodColors.primary),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
-            color: moodColors.primary.withValues(alpha: 0.2),
+            color: moodColors.primary.withValues(alpha: 0.28),
             width: 1,
           ),
           boxShadow: [
@@ -62,6 +62,11 @@ class MiniPlayer extends ConsumerWidget {
               color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: moodColors.primary.withValues(alpha: 0.18),
+              blurRadius: 24,
+              spreadRadius: -6,
             ),
           ],
         ),
@@ -144,12 +149,19 @@ class MiniPlayer extends ConsumerWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: AppTheme.textPrimary,
+                          color: moodColors.primary,
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: moodColors.primary.withValues(alpha: 0.4),
+                              blurRadius: 12,
+                              spreadRadius: -1,
+                            ),
+                          ],
                         ),
                         child: Icon(
                           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                          color: AppTheme.backgroundPrimary,
+                          color: Colors.black,
                           size: 24,
                         ),
                       ),

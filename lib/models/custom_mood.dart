@@ -18,7 +18,7 @@ class CustomMood {
   String icon = '🎵';
 
   /// ARGB color value used to theme the mood's cards/screen.
-  int colorValue = 0xFF1DB954;
+  int colorValue = 0xFF7C6CFF;
 
   /// Track IDs in this mood, in the order they were added.
   List<int> trackIds = [];

@@ -8,7 +8,7 @@ const List<String> kMoodIconChoices = [
 ];
 
 const List<int> kMoodColorChoices = [
-  0xFF1DB954, // green
+  0xFF7C6CFF, // violet (default)
   0xFFE91E63, // pink
   0xFF9C27B0, // purple
   0xFF3F51B5, // indigo

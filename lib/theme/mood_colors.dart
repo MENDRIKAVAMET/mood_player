@@ -97,12 +97,12 @@ class MoodColors {
       case MoodType.unknown:
       default:
         return const MoodColors(
-          primary: Color(0xFF1DB954),
-          secondary: Color(0xFF1ED760),
-          gradientStart: Color(0xFF0A1508),
+          primary: Color(0xFF7C6CFF),
+          secondary: Color(0xFFA78BFA),
+          gradientStart: Color(0xFF120F24),
           gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x661DB954),
-          cardBg: Color(0xFF0A1508),
+          glow: Color(0x667C6CFF),
+          cardBg: Color(0xFF120F24),
         );
     }
   }

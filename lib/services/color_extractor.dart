@@ -85,7 +85,7 @@ class PaletteColors {
       darkVibrant ?? darkMuted ?? dominant ?? const Color(0xFF121212);
 
   /// Get the best color for accent
-  Color get accentColor => vibrant ?? dominant ?? const Color(0xFF1DB954);
+  Color get accentColor => vibrant ?? dominant ?? const Color(0xFF7C6CFF);
 
   /// Get gradient colors
   List<Color> get gradientColors => [
