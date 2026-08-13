@@ -238,46 +238,60 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
   }
 
-  /// Classify a track using Groq. Updates the track in place in local
-  /// state (no full reload) so classifying doesn't flash the whole list
-  /// back to a loading skeleton for every single track.
-  ///
-  /// On a rate-limit response (HTTP 429), waits out the time Groq asks for
-  /// and retries automatically (up to [maxRateLimitRetries] times) instead
-  /// of just failing - so a batch run doesn't need to be manually relaunched
-  /// over and over.
-  Future<void> classifyTrack(Track track, {int maxRateLimitRetries = 5}) async {
+  /// Classify a single track (kept for completeness/manual use elsewhere -
+  /// batch classification below is the path actually used for bulk work).
+  Future<void> classifyTrack(Track track) async {
     if (track.isClassified) return;
+    await _classifyChunk([track], maxRateLimitRetries: 5);
+  }
 
+  /// Sends one Groq request classifying every track in [chunk] together,
+  /// applies the results, and retries the whole chunk automatically if
+  /// Groq responds with a rate limit (429).
+  Future<void> _classifyChunk(List<Track> chunk, {required int maxRateLimitRetries}) async {
     var attempt = 0;
     while (true) {
       try {
-        final result = await _groqService.classifyTrack(track);
+        final results = await _groqService.classifyTracksBatch(chunk);
 
-        if (!result.hasError) {
-          track.mood = result.mood;
-          track.moodConfidence = result.confidence;
-          track.lastClassified = DateTime.now();
-          await _storageService.saveTrack(track);
+        final updatedTracks = List<Track>.from(state.tracks);
+        String? lastError;
+        final toSave = <Track>[];
 
-          final updatedTracks = [
-            for (final t in state.tracks) t.id == track.id ? track : t,
-          ];
-          state = state.copyWith(
-            tracks: updatedTracks,
-            clearClassifyStatusMessage: true,
-          );
-          _applyFilters();
-        } else {
-          state = state.copyWith(error: result.error, clearClassifyStatusMessage: true);
+        for (var i = 0; i < chunk.length; i++) {
+          final track = chunk[i];
+          final result = results[i];
+
+          if (!result.hasError) {
+            track.mood = result.mood;
+            track.moodConfidence = result.confidence;
+            track.lastClassified = DateTime.now();
+            toSave.add(track);
+
+            final index = updatedTracks.indexWhere((t) => t.id == track.id);
+            if (index != -1) updatedTracks[index] = track;
+          } else {
+            lastError = 'Erreur lors de la classification de "${track.title}": ${result.error}';
+          }
         }
+
+        if (toSave.isNotEmpty) {
+          await _storageService.saveTracks(toSave);
+        }
+
+        state = state.copyWith(
+          tracks: updatedTracks,
+          error: lastError,
+          clearClassifyStatusMessage: true,
+        );
+        _applyFilters();
         return;
       } on GroqRateLimitException catch (e) {
         attempt++;
         if (attempt > maxRateLimitRetries) {
           state = state.copyWith(
-            error: 'Limite de requêtes Groq atteinte pour "${track.title}", '
-                'nouvelle tentative nécessaire plus tard.',
+            error: 'Limite de requêtes Groq atteinte pour ce lot de '
+                '${chunk.length} morceaux, nouvelle tentative nécessaire plus tard.',
             clearClassifyStatusMessage: true,
           );
           return;
@@ -294,10 +308,10 @@ class TrackNotifier extends StateNotifier<TrackState> {
           await Future.delayed(const Duration(seconds: 1));
           remaining--;
         }
-        // loop back around and retry this same track
+        // loop back around and retry this same chunk
       } catch (e) {
         state = state.copyWith(
-          error: 'Erreur lors de la classification de "${track.title}": $e',
+          error: 'Erreur lors de la classification du lot: $e',
           clearClassifyStatusMessage: true,
         );
         return;
@@ -305,8 +319,11 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
   }
 
-  /// Classify all unclassified tracks
-  Future<void> classifyAllUnclassified() async {
+  /// Classify all unclassified tracks, sent in batches (default 50 tracks
+  /// per Groq request) instead of one request per track - cuts the number
+  /// of API calls by ~50x, which matters a lot against free-tier rate
+  /// limits when classifying a whole library.
+  Future<void> classifyAllUnclassified({int batchSize = 50}) async {
     state = state.copyWith(error: null);
 
     try {
@@ -318,15 +335,20 @@ class TrackNotifier extends StateNotifier<TrackState> {
         classifyTotal: unclassifiedTracks.length,
       );
 
-      for (var i = 0; i < unclassifiedTracks.length; i++) {
-        await classifyTrack(unclassifiedTracks[i]);
-        state = state.copyWith(classifyProgress: i + 1, error: state.error);
+      var processed = 0;
+      for (var start = 0; start < unclassifiedTracks.length; start += batchSize) {
+        final end = (start + batchSize).clamp(0, unclassifiedTracks.length);
+        final chunk = unclassifiedTracks.sublist(start, end);
 
-        // Proactive pacing: stay comfortably under Groq's free-tier rate
-        // limit (~30 requests/minute) instead of racing ahead and hitting
-        // 429s on every request.
-        if (i < unclassifiedTracks.length - 1) {
-          await Future.delayed(const Duration(milliseconds: 2200));
+        await _classifyChunk(chunk, maxRateLimitRetries: 5);
+        processed += chunk.length;
+        state = state.copyWith(classifyProgress: processed, error: state.error);
+
+        // Small pause between batches - with 50 tracks/request there are
+        // far fewer calls overall, but this still keeps us clear of
+        // Groq's free-tier rate limit if batches are small/numerous.
+        if (end < unclassifiedTracks.length) {
+          await Future.delayed(const Duration(milliseconds: 1500));
         }
       }
     } catch (e) {
