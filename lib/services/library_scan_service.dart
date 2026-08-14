@@ -52,19 +52,32 @@ class LibraryScanService {
     return LibraryScanResult(songs: songs, permissionGranted: true);
   }
 
-  /// Runs querySongs(), retrying once after a short delay if the plugin
-  /// throws the "lateinit property context has not been initialized" race
-  /// described above. A real permission/query error is rethrown as-is.
+  /// Runs querySongs(), retrying the "lateinit property context has not
+  /// been initialized" race described above with backoff. On slower
+  /// devices/cold starts, on_audio_query's native side can still not be
+  /// attached to the Activity a full second after the first frame, so a
+  /// single 500ms retry wasn't always enough - this retries up to 5 times
+  /// with growing delays (total ~6s worst case) before giving up. A real
+  /// permission/query error (not this race) is rethrown immediately.
   Future<List<SongModel>> _querySongsWithRetry() async {
-    try {
-      return await _querySongs();
-    } on PlatformException catch (e) {
-      final isContextRace =
-          (e.message ?? '').contains('has not been initialized');
-      if (!isContextRace) rethrow;
+    const delays = [
+      Duration(milliseconds: 500),
+      Duration(milliseconds: 800),
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+      Duration(seconds: 2),
+    ];
 
-      await Future.delayed(const Duration(milliseconds: 500));
-      return await _querySongs();
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await _querySongs();
+      } on PlatformException catch (e) {
+        final isContextRace =
+            (e.message ?? '').contains('has not been initialized');
+        if (!isContextRace || attempt >= delays.length) rethrow;
+
+        await Future.delayed(delays[attempt]);
+      }
     }
   }
 
