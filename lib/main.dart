@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'features/debug/crash_log_screen.dart';
 import 'features/home/home_screen.dart';
+import 'services/crash_log_service.dart';
 import 'services/storage_service.dart';
 import 'theme/app_theme.dart';
 
@@ -31,12 +33,19 @@ Future<void> main() async {
 
   // Initialize local storage
   await StorageService.initialize();
-  
-  runApp(const ProviderScope(child: MyApp()));
+
+  // If the previous run died from an uncaught (often native) exception,
+  // CrashHandlerApplication will have written its stack trace to a file.
+  // Surface it here so it can be diagnosed without adb/logcat access.
+  final crashLog = await CrashLogService.getLastCrashLog();
+
+  runApp(ProviderScope(child: MyApp(crashLog: crashLog)));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final String? crashLog;
+
+  const MyApp({super.key, this.crashLog});
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +54,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
-      home: const HomeScreen(),
+      home: crashLog != null ? CrashLogScreen(log: crashLog!) : const HomeScreen(),
     );
   }
 }

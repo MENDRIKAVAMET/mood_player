@@ -21,7 +21,7 @@
 
     <application
         android:label="mood_player"
-        android:name="${applicationName}"
+        android:name=".CrashHandlerApplication"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
