@@ -195,6 +195,20 @@ class TrackNotifier extends StateNotifier<TrackState> {
             ..updatedAt = now;
           toSave.add(existing);
         } else {
+          // Use the device's actual "date added" from MediaStore rather
+          // than the scan time. Using DateTime.now() here made every
+          // track added in the same scan (e.g. right after a fresh
+          // install, or after StorageService's corruption-recovery reset)
+          // get virtually the same timestamp, which made "Plus récent" /
+          // "Plus ancien" sorting look broken since there was nothing
+          // meaningful left to sort by. The real per-file date from the OS
+          // stays meaningful and stable regardless of when we happen to
+          // scan it.
+          final deviceDateAdded = song.dateAdded;
+          final createdAt = deviceDateAdded != null
+              ? DateTime.fromMillisecondsSinceEpoch(deviceDateAdded * 1000)
+              : now;
+
           final track = Track()
             ..title = song.title.isNotEmpty ? song.title : 'Titre inconnu'
             ..artist = (song.artist != null && song.artist!.isNotEmpty)
@@ -204,7 +218,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
             ..filePath = filePath
             ..uri = song.uri
             ..duration = song.duration
-            ..createdAt = now
+            ..createdAt = createdAt
             ..updatedAt = now;
           toSave.add(track);
         }

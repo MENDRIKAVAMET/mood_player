@@ -52,9 +52,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _requestNotificationPermission() async {
     try {
-      if (await Permission.notification.isDenied) {
-        await Permission.notification.request();
+      final status = await Permission.notification.status;
+      if (status.isGranted) return;
+
+      if (status.isPermanentlyDenied) {
+        // After a permanent denial (common after this app crashed a few
+        // times mid-request during earlier testing), Android will never
+        // show the system dialog again - request() would just silently
+        // return denied. The only way back in is the app's own settings
+        // page, so tell the user instead of failing invisibly.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                "La notification de lecture est désactivée. Active-la dans "
+                "les paramètres de l'app pour la voir apparaître.",
+              ),
+              action: SnackBarAction(
+                label: 'Paramètres',
+                onPressed: openAppSettings,
+              ),
+            ),
+          );
+        }
+        return;
       }
+
+      await Permission.notification.request();
     } catch (_) {
       // Non-critical: playback works regardless, just skip silently if the
       // platform can't handle the request for some reason.
