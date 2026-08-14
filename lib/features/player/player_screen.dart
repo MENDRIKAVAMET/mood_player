@@ -7,6 +7,7 @@ import '../../services/audio_handler.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import 'queue_screen.dart';
+import 'lyrics_screen.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final Track track;
@@ -242,22 +243,47 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
             ],
           ),
-          // More options
-          GestureDetector(
-            onTap: () => _showOptionsSheet(),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
+          // Actions: lyrics + more options
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => LyricsScreen(track: _displayTrack),
+                  ),
+                ),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  margin: const EdgeInsets.only(right: AppTheme.spacingS),
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.lyrics_outlined,
+                    size: 20,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
               ),
-              child: const Icon(
-                Icons.more_vert_rounded,
-                size: 20,
-                color: AppTheme.textPrimary,
+              GestureDetector(
+                onTap: () => _showOptionsSheet(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 20,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
