@@ -481,7 +481,13 @@ Future<MoodAudioHandler> initAudioService() async {
       androidNotificationChannelName: 'Mood Player',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
-      androidNotificationIcon: 'drawable/ic_notification',
+      // A PNG mipmap, not the XML vector drawable: Icon.createWithResource
+      // rejects some vector drawables at runtime on certain Android/OEM
+      // combos with "Invalid notification (no valid small icon)", which is
+      // a hard crash since it's thrown from inside the notification
+      // system, outside any Dart try/catch. A rasterized bitmap for this
+      // specific icon sidesteps that failure mode entirely.
+      androidNotificationIcon: 'mipmap/ic_notification',
       notificationColor: Color(0xFF7C6CFF),
       fastForwardInterval: Duration(seconds: 10),
       rewindInterval: Duration(seconds: 10),
