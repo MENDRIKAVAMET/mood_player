@@ -2,6 +2,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../services/import_service.dart';
@@ -38,7 +39,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // already known, without touching their mood classification.
       ref.read(trackProvider.notifier).scanAndLoadTracks();
       ref.read(customMoodProvider.notifier).loadMoods();
+
+      // Required on Android 13+ for the playback notification
+      // (audio_service). Requested here rather than before runApp() -
+      // doing it too early, before the Activity is fully attached to the
+      // Flutter engine, crashes permission_handler when the result comes
+      // back ("PluginProvider has not initialized"). Playback still works
+      // even if this is denied, just without a visible notification.
+      _requestNotificationPermission();
     });
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    try {
+      if (await Permission.notification.isDenied) {
+        await Permission.notification.request();
+      }
+    } catch (_) {
+      // Non-critical: playback works regardless, just skip silently if the
+      // platform can't handle the request for some reason.
+    }
   }
 
   @override
