@@ -65,21 +65,41 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         bufferedPosition: _player.bufferedPosition,
         speed: _player.speed,
       ));
-    });
+    }, onError: _handlePlaybackError);
 
     // Listen to position changes
     _player.positionStream.listen((position) {
       playbackState.add(playbackState.value.copyWith(
         updatePosition: position,
       ));
-    });
+    }, onError: _handlePlaybackError);
 
     // Listen to sequence state for auto-advance
     _player.processingStateStream.listen((processingState) {
       if (processingState == ProcessingState.completed) {
         _handleTrackComplete();
       }
-    });
+    }, onError: _handlePlaybackError);
+
+    // just_audio/ExoPlayer surfaces genuine playback failures (corrupt file,
+    // revoked content:// permission, unsupported codec, network hiccup for
+    // streamed sources, etc.) here rather than as a synchronous throw. Left
+    // unhandled this is an uncaught stream error that kills the isolate -
+    // exactly the crash-on-play bug. Treat it as non-fatal: log it, reset
+    // to an idle/stopped state, and let the user try another track.
+    _player.playbackEventStream.listen((_) {}, onError: _handlePlaybackError);
+  }
+
+  /// Handle a playback error surfaced asynchronously by just_audio. Never
+  /// lets a bad track take down the whole app - just stops cleanly so the
+  /// user can pick something else.
+  void _handlePlaybackError(Object error, StackTrace stackTrace) {
+    // ignore: avoid_print
+    print('MoodAudioHandler: playback stream error: $error\n$stackTrace');
+    playbackState.add(playbackState.value.copyWith(
+      processingState: AudioProcessingState.idle,
+      playing: false,
+    ));
   }
 
   /// Handle track completion based on repeat mode
@@ -115,7 +135,11 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   @override
   Future<void> play() async {
-    await _player.play();
+    try {
+      await _player.play();
+    } catch (e, st) {
+      _handlePlaybackError(e, st);
+    }
   }
 
   @override

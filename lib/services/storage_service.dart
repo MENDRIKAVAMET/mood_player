@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/track.dart';
@@ -12,10 +13,43 @@ class StorageService {
     if (_isar != null) return;
     
     final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open(
-      [TrackSchema, PlaylistSchema, CustomMoodSchema],
-      directory: dir.path,
-    );
+    try {
+      _isar = await Isar.open(
+        [TrackSchema, PlaylistSchema, CustomMoodSchema],
+        directory: dir.path,
+      );
+    } catch (e) {
+      // A crash mid-write can leave the Isar file corrupted, which then
+      // fails to open on every subsequent launch (not just the one right
+      // after the crash) - permanently soft-bricking the app with no way
+      // back in for the user. Self-heal by wiping the local database and
+      // retrying once. This loses the local library index, but the app
+      // rebuilds it from the device's media store on next scan, which is
+      // far better than the app refusing to open at all.
+      // ignore: avoid_print
+      print('StorageService: Isar.open failed ($e), resetting database and retrying');
+      await _deleteDatabaseFiles(dir.path);
+      _isar = await Isar.open(
+        [TrackSchema, PlaylistSchema, CustomMoodSchema],
+        directory: dir.path,
+      );
+    }
+  }
+
+  static Future<void> _deleteDatabaseFiles(String directoryPath) async {
+    final dir = Directory(directoryPath);
+    if (!await dir.exists()) return;
+    await for (final entity in dir.list()) {
+      if (entity is File && entity.path.contains('.isar')) {
+        try {
+          await entity.delete();
+        } catch (_) {
+          // Best effort - if a file can't be deleted, Isar.open's retry
+          // will surface its own error and the fallback screen still
+          // catches it.
+        }
+      }
+    }
   }
 
   /// Get all tracks
