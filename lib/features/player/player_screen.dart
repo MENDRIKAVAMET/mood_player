@@ -26,7 +26,6 @@ class PlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
-  bool _isLiked = false;
   PlayerRepeatMode _repeatMode = PlayerRepeatMode.off;
   bool _shuffleMode = false;
 
@@ -396,9 +395,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           // Like button
           GestureDetector(
             onTap: () {
-              setState(() {
-                _isLiked = !_isLiked;
-              });
+              ref.read(trackProvider.notifier).toggleLike(_displayTrack);
+              setState(() {});
             },
             child: AnimatedContainer(
               duration: AppTheme.animNormal,
@@ -407,12 +405,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 vertical: AppTheme.spacingS,
               ),
               decoration: BoxDecoration(
-                color: _isLiked
+                color: _displayTrack.isLiked
                     ? moodColors.primary.withValues(alpha: 0.2)
                     : AppTheme.backgroundCardElevated,
                 borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                 border: Border.all(
-                  color: _isLiked
+                  color: _displayTrack.isLiked
                       ? moodColors.primary.withValues(alpha: 0.3)
                       : AppTheme.border.withValues(alpha: 0.3),
                 ),
@@ -421,15 +419,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: _isLiked ? moodColors.primary : AppTheme.textSecondary,
+                    _displayTrack.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    color: _displayTrack.isLiked ? moodColors.primary : AppTheme.textSecondary,
                     size: 20,
                   ),
                   const SizedBox(width: AppTheme.spacingS),
                   Text(
-                    _isLiked ? 'Aimé' : 'Aimer',
+                    _displayTrack.isLiked ? 'Aimé' : 'Aimer',
                     style: AppTheme.labelMedium.copyWith(
-                      color: _isLiked ? moodColors.primary : AppTheme.textSecondary,
+                      color: _displayTrack.isLiked ? moodColors.primary : AppTheme.textSecondary,
                     ),
                   ),
                 ],

@@ -42,6 +42,12 @@ class Track {
 
   DateTime? updatedAt;
 
+  /// Whether the user marked this track as a favorite. Not persisted by
+  /// Isar directly - kept in sync by [StorageService]'s separate liked-ids
+  /// store so the schema doesn't need a migration.
+  @ignore
+  bool isLiked = false;
+
   @ignore
   bool get isClassified => mood != null;
 

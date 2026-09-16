@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -55,27 +56,33 @@ class StorageService {
   /// Get all tracks
   Future<List<Track>> getAllTracks() async {
     final isar = await _getIsar();
-    return await isar.tracks.where().findAll();
+    final tracks = await isar.tracks.where().findAll();
+    await _applyLikedStatus(tracks);
+    return tracks;
   }
 
   /// Get tracks by mood
   Future<List<Track>> getTracksByMood(MoodType mood) async {
     final isar = await _getIsar();
-    return await isar.tracks
+    final tracks = await isar.tracks
         .where()
         .filter()
         .moodIndexEqualTo(mood.index)
         .findAll();
+    await _applyLikedStatus(tracks);
+    return tracks;
   }
 
   /// Get unclassified tracks (mood is null)
   Future<List<Track>> getUnclassifiedTracks() async {
     final isar = await _getIsar();
-    return await isar.tracks
+    final tracks = await isar.tracks
         .where()
         .filter()
         .moodIndexIsNull()
         .findAll();
+    await _applyLikedStatus(tracks);
+    return tracks;
   }
 
   /// Search tracks by title or artist
@@ -83,20 +90,37 @@ class StorageService {
     final isar = await _getIsar();
     final lowerQuery = query.toLowerCase();
     
-    return await isar.tracks
+    final tracks = await isar.tracks
         .where()
         .filter()
         .titleContains(lowerQuery)
         .or()
         .artistContains(lowerQuery)
         .findAll();
+    await _applyLikedStatus(tracks);
+    return tracks;
   }
 
   /// Get a single track by ID
   Future<Track?> getTrackById(int id) async {
     final isar = await _getIsar();
-    return await isar.tracks.get(id);
+    final track = await isar.tracks.get(id);
+    if (track != null) {
+      track.isLiked = await isTrackLiked(track.id);
+    }
+    return track;
   }
+
+  /// Applies the persisted liked status (kept outside Isar, see
+  /// [setTrackLiked]) onto each track in [tracks], in place.
+  Future<void> _applyLikedStatus(List<Track> tracks) async {
+    if (tracks.isEmpty) return;
+    final likedIds = await getLikedTrackIds();
+    for (final track in tracks) {
+      track.isLiked = likedIds.contains(track.id);
+    }
+  }
+
 
   /// Insert or update a track
   Future<void> saveTrack(Track track) async {
@@ -104,6 +128,58 @@ class StorageService {
     await isar.writeTxn(() async {
       await isar.tracks.put(track);
     });
+  }
+
+  static Set<int>? _likedIdsCache;
+
+  Future<File> _likedIdsFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/liked_tracks.json');
+  }
+
+  Future<Set<int>> _loadLikedIds() async {
+    if (_likedIdsCache != null) return _likedIdsCache!;
+    try {
+      final file = await _likedIdsFile();
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final decoded = jsonDecode(content) as List<dynamic>;
+        _likedIdsCache = decoded.map((e) => e as int).toSet();
+      } else {
+        _likedIdsCache = <int>{};
+      }
+    } catch (_) {
+      _likedIdsCache = <int>{};
+    }
+    return _likedIdsCache!;
+  }
+
+  Future<void> _saveLikedIds(Set<int> ids) async {
+    _likedIdsCache = ids;
+    final file = await _likedIdsFile();
+    await file.writeAsString(jsonEncode(ids.toList()));
+  }
+
+  /// Returns whether [trackId] is marked as a favorite.
+  Future<bool> isTrackLiked(int trackId) async {
+    final ids = await _loadLikedIds();
+    return ids.contains(trackId);
+  }
+
+  /// Returns the set of all favorite track IDs.
+  Future<Set<int>> getLikedTrackIds() async {
+    return Set<int>.from(await _loadLikedIds());
+  }
+
+  /// Sets the favorite status of [trackId], persisted across app restarts.
+  Future<void> setTrackLiked(int trackId, bool liked) async {
+    final ids = await _loadLikedIds();
+    if (liked) {
+      ids.add(trackId);
+    } else {
+      ids.remove(trackId);
+    }
+    await _saveLikedIds(ids);
   }
 
   /// Insert or update multiple tracks

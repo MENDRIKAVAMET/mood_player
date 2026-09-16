@@ -252,6 +252,23 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
   }
 
+  /// Toggles the liked status of [track] and persists it, updating the
+  /// in-memory state without a full library reload.
+  Future<void> toggleLike(Track track) async {
+    final newValue = !track.isLiked;
+    track.isLiked = newValue;
+    try {
+      await _storageService.setTrackLiked(track.id, newValue);
+      final updatedTracks = [
+        for (final t in state.tracks) if (t.id == track.id) track else t,
+      ];
+      state = state.copyWith(tracks: updatedTracks);
+    } catch (e) {
+      track.isLiked = !newValue;
+      state = state.copyWith(error: 'Erreur lors de la mise à jour du favori: $e');
+    }
+  }
+
   /// Classify a single track (kept for completeness/manual use elsewhere -
   /// batch classification below is the path actually used for bulk work).
   Future<void> classifyTrack(Track track) async {

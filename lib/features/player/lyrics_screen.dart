@@ -120,7 +120,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                 final isActive = index == activeIndex;
                 final isPast = index < activeIndex;
                 return Container(
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.center,
                   child: AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 250),
                     style: (isActive
@@ -133,7 +133,10 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                               .withValues(alpha: isPast ? 0.35 : 0.6),
                       fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                     ),
-                    child: Text(lines[index].text),
+                    child: Text(
+                      lines[index].text,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 );
               },
@@ -145,6 +148,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
               padding: const EdgeInsets.all(AppTheme.spacingL),
               child: Text(
                 result.plain!,
+                textAlign: TextAlign.center,
                 style: AppTheme.bodyLarge.copyWith(
                   color: AppTheme.textPrimary.withValues(alpha: 0.85),
                   height: 1.8,
