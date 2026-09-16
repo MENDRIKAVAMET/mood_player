@@ -160,10 +160,30 @@ class TrackNotifier extends StateNotifier<TrackState> {
       if (!result.permissionGranted) {
         // No permission: fall back to whatever is already stored locally.
         await loadTracks();
+        final permanentlyDenied =
+            await _libraryScanService.isPermissionPermanentlyDenied();
         state = state.copyWith(
-          error: 'Autorisation d\'accès à la musique refusée. '
-              'Activez-la dans les paramètres pour scanner votre bibliothèque.',
+          error: permanentlyDenied
+              ? 'Autorisation d\'accès à la musique définitivement refusée. '
+                  'Activez-la dans les paramètres de l\'application.'
+              : 'Autorisation d\'accès à la musique refusée. '
+                  'Activez-la dans les paramètres pour scanner votre bibliothèque.',
         );
+        return;
+      }
+
+      if (result.songs.isEmpty) {
+        // Permission is granted but the OS reports no audio at all. Say so
+        // explicitly - otherwise this is indistinguishable from a bug,
+        // since the screen just shows an empty list either way.
+        await loadTracks();
+        if (state.tracks.isEmpty) {
+          state = state.copyWith(
+            error: 'Aucun fichier audio trouvé sur cet appareil. '
+                'Si vous avez de la musique, elle n\'est peut-être pas encore '
+                'indexée par le système.',
+          );
+        }
         return;
       }
 
@@ -263,6 +283,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
         for (final t in state.tracks) if (t.id == track.id) track else t,
       ];
       state = state.copyWith(tracks: updatedTracks);
+      _applyFilters();
     } catch (e) {
       track.isLiked = !newValue;
       state = state.copyWith(error: 'Erreur lors de la mise à jour du favori: $e');

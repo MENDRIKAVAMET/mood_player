@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Result of a device library scan.
 class LibraryScanResult {
@@ -22,6 +24,14 @@ class LibraryScanService {
 
   /// Request storage/audio permission if needed. Returns true if granted.
   ///
+  /// on_audio_query 2.x predates Android 13's split media permissions and
+  /// still asks for READ_EXTERNAL_STORAGE, which the system silently
+  /// ignores on API 33+: the dialog appears, the user grants it, and every
+  /// MediaStore query then comes back empty. permission_handler knows the
+  /// difference, so the actual request goes through it - Permission.audio
+  /// maps to READ_MEDIA_AUDIO on API 33+ and to READ_EXTERNAL_STORAGE
+  /// below that.
+  ///
   /// Right after the OS permission dialog is dismissed, the Activity can
   /// briefly detach/reattach from the Flutter engine on some devices. If
   /// on_audio_query's native side receives a query call during that window,
@@ -31,15 +41,46 @@ class LibraryScanService {
   /// *fresh* grant (not when permission was already granted) avoids that
   /// race without adding any perceptible delay in the common case.
   Future<bool> requestPermission() async {
-    final hasPermission = await _audioQuery.permissionsStatus();
-    if (hasPermission) return true;
-
-    final granted = await _audioQuery.permissionsRequest();
-    if (granted) {
-      await Future.delayed(const Duration(milliseconds: 300));
+    if (!Platform.isAndroid) {
+      // on_audio_query's own check is fine on other platforms.
+      return await _audioQuery.permissionsStatus();
     }
-    return granted;
+
+    // Permission.audio is READ_MEDIA_AUDIO (Android 13+);
+    // Permission.storage is READ_EXTERNAL_STORAGE (Android 12 and below).
+    // Rather than probing the SDK level, try whichever one the device
+    // actually honours: the irrelevant one simply reports as denied/
+    // restricted and is ignored.
+    if (await Permission.audio.isGranted) return true;
+    if (await Permission.storage.isGranted) return true;
+
+    final audioStatus = await Permission.audio.request();
+    if (audioStatus.isGranted) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      return true;
+    }
+
+    final storageStatus = await Permission.storage.request();
+    if (storageStatus.isGranted) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      return true;
+    }
+
+    return false;
   }
+
+  /// Whether the audio permission was permanently denied, meaning the OS
+  /// will no longer show the dialog and the user has to go through app
+  /// settings.
+  Future<bool> isPermissionPermanentlyDenied() async {
+    if (!Platform.isAndroid) return false;
+    return await Permission.audio.isPermanentlyDenied ||
+        await Permission.storage.isPermanentlyDenied;
+  }
+
+  /// Opens the app's system settings page so the user can grant the
+  /// permission after a permanent denial.
+  Future<void> openPermissionSettings() => openAppSettings();
 
   /// Query every audio file the device knows about.
   Future<LibraryScanResult> scan() async {

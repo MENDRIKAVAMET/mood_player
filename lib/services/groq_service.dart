@@ -15,7 +15,7 @@ class GroqService {
 
   /// Any current Groq-hosted instruction-following model works well for
   /// this simple JSON classification task.
-  static const String _model = 'qwen/qwen3-32b';
+  static const String _model = 'qwen/qwen3.6-27b';
 
   GroqService()
       : _apiKey = dotenv.isInitialized ? (dotenv.env['GROQ_API_KEY'] ?? '') : '' {
