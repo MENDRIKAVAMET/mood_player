@@ -46,3 +46,31 @@ List<LyricLine> parseLrc(String lrc) {
   lines.sort((a, b) => a.timestamp.compareTo(b.timestamp));
   return lines;
 }
+
+/// Reads the standard LRC `[offset:±ms]` metadata tag, which shifts all
+/// timestamps in the file. Returns [Duration.zero] when absent.
+///
+/// Note the sign convention: in LRC, a *positive* offset means the lyrics
+/// should appear *earlier*, so it is negated here to match the "shift the
+/// timeline forward" meaning used throughout the app.
+Duration readLrcOffset(String lrc) {
+  final match = RegExp(r'\[offset:\s*([+-]?\d+)\s*\]', caseSensitive: false)
+      .firstMatch(lrc);
+  if (match == null) return Duration.zero;
+  final value = int.tryParse(match.group(1)!);
+  if (value == null) return Duration.zero;
+  return Duration(milliseconds: -value);
+}
+
+/// Returns [lrc] with its `[offset:]` tag set to [offset], adding the tag
+/// at the top of the file if it isn't there yet. Used to persist the
+/// user's manual sync adjustment back into their own .lrc file.
+String writeLrcOffset(String lrc, Duration offset) {
+  final tag = '[offset:${-offset.inMilliseconds}]';
+  final existing = RegExp(r'^\[offset:[^\]]*\]\s*$',
+      caseSensitive: false, multiLine: true);
+  if (existing.hasMatch(lrc)) {
+    return lrc.replaceFirst(existing, tag);
+  }
+  return '$tag\n$lrc';
+}

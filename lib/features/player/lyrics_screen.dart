@@ -4,13 +4,18 @@ import '../../models/track.dart';
 import '../../models/lyric_line.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/lyrics_provider.dart';
+import '../../services/lyrics_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 
-/// Karaoke-style synced lyrics: fetches LRC lyrics for the given track and
-/// auto-scrolls, highlighting whichever line is current based on playback
-/// position - the classic line-by-line karaoke look, no AI/audio analysis
-/// involved, just timestamps matched against the position stream.
+/// How much one tap of the sync buttons shifts the lyrics. 300ms is small
+/// enough to fine-tune without overshooting, big enough to feel like it
+/// did something.
+const _kOffsetStep = Duration(milliseconds: 300);
+
+/// Karaoke-style synced lyrics: fetches LRC lyrics for the given track
+/// (preferring a .lrc sitting next to the audio file) and auto-scrolls,
+/// filling the current line word-by-word as playback advances.
 class LyricsScreen extends ConsumerStatefulWidget {
   final Track track;
 
@@ -23,6 +28,11 @@ class LyricsScreen extends ConsumerStatefulWidget {
 class _LyricsScreenState extends ConsumerState<LyricsScreen> {
   final ScrollController _scrollController = ScrollController();
   int _lastActiveIndex = -1;
+
+  /// Offset the user has dialled in this session. Initialised from
+  /// whatever was loaded with the lyrics, then edited by the +/- buttons.
+  Duration? _offset;
+  bool _showSyncControls = false;
 
   @override
   void dispose() {
@@ -43,15 +53,26 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
     return index;
   }
 
+  /// Fraction (0..1) of the way through the active line, used to sweep the
+  /// karaoke fill across the text.
+  double _lineProgress(List<LyricLine> lines, int index, Duration position) {
+    if (index < 0 || index >= lines.length) return 0;
+    final start = lines[index].timestamp;
+    final end = index + 1 < lines.length
+        ? lines[index + 1].timestamp
+        : start + const Duration(seconds: 4);
+    final total = (end - start).inMilliseconds;
+    if (total <= 0) return 1;
+    final elapsed = (position - start).inMilliseconds;
+    return (elapsed / total).clamp(0.0, 1.0);
+  }
+
   void _maybeAutoScroll(int activeIndex) {
     if (activeIndex == _lastActiveIndex || activeIndex < 0) return;
     _lastActiveIndex = activeIndex;
     if (!_scrollController.hasClients) return;
 
-    // Each line item is a fixed height (see itemExtent below), so the
-    // target offset is a simple multiply - centers the active line a
-    // little above screen middle rather than pinned to the very top.
-    const itemExtent = 56.0;
+    const itemExtent = 64.0;
     final target = (activeIndex * itemExtent) - 160;
     _scrollController.animateTo(
       target.clamp(0, _scrollController.position.maxScrollExtent),
@@ -60,12 +81,22 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
     );
   }
 
+  Future<void> _adjustOffset(LyricsResult result, Duration delta) async {
+    final next = (_offset ?? result.offset) + delta;
+    setState(() => _offset = next);
+
+    await ref.read(lyricsServiceProvider).saveOffset(
+          trackKey: '${widget.track.artist} - ${widget.track.title}',
+          offset: next,
+          localPath: result.localPath,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final moodColors = MoodColors.forMood(widget.track.mood);
     final position = ref.watch(currentPositionProvider);
-    final lyricsAsync =
-        ref.watch(lyricsProvider(lyricsKeyFor(widget.track)));
+    final lyricsAsync = ref.watch(lyricsProvider(lyricsKeyFor(widget.track)));
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
@@ -87,12 +118,28 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
           ],
         ),
         centerTitle: true,
+        actions: [
+          // Only meaningful for synced lyrics, so it's enabled below once
+          // we know we actually have some.
+          if (lyricsAsync.valueOrNull?.hasSynced == true)
+            IconButton(
+              icon: Icon(
+                Icons.tune_rounded,
+                color: _showSyncControls
+                    ? moodColors.primary
+                    : AppTheme.textSecondary,
+              ),
+              tooltip: 'Régler la synchronisation',
+              onPressed: () =>
+                  setState(() => _showSyncControls = !_showSyncControls),
+            ),
+        ],
       ),
       body: lyricsAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        error: (_, __) => _EmptyState(
+        error: (_, __) => const _EmptyState(
           icon: Icons.wifi_off_rounded,
           message: "Impossible de récupérer les paroles pour l'instant.",
         ),
@@ -106,40 +153,51 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
 
           if (result.hasSynced) {
             final lines = result.synced!;
-            final activeIndex = _activeIndex(lines, position);
+            final offset = _offset ?? result.offset;
+            final adjusted = position - offset;
+            final activeIndex = _activeIndex(lines, adjusted);
+            final progress = _lineProgress(lines, activeIndex, adjusted);
+
             WidgetsBinding.instance
                 .addPostFrameCallback((_) => _maybeAutoScroll(activeIndex));
 
-            return ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.spacingL, vertical: 200),
-              itemCount: lines.length,
-              itemExtent: 56,
-              itemBuilder: (context, index) {
-                final isActive = index == activeIndex;
-                final isPast = index < activeIndex;
-                return Container(
-                  alignment: Alignment.center,
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
-                    style: (isActive
-                            ? AppTheme.titleLarge
-                            : AppTheme.bodyLarge)
-                        .copyWith(
-                      color: isActive
-                          ? moodColors.primary
-                          : AppTheme.textPrimary
-                              .withValues(alpha: isPast ? 0.35 : 0.6),
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                    child: Text(
-                      lines[index].text,
-                      textAlign: TextAlign.center,
-                    ),
+            return Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spacingL, vertical: 200),
+                    itemCount: lines.length,
+                    itemExtent: 64,
+                    itemBuilder: (context, index) {
+                      return _KaraokeLine(
+                        text: lines[index].text,
+                        isActive: index == activeIndex,
+                        isPast: index < activeIndex,
+                        progress: index == activeIndex ? progress : 0,
+                        color: moodColors.primary,
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+                if (_showSyncControls)
+                  _SyncControls(
+                    offset: offset,
+                    color: moodColors.primary,
+                    onEarlier: () => _adjustOffset(result, -_kOffsetStep),
+                    onLater: () => _adjustOffset(result, _kOffsetStep),
+                    onReset: () async {
+                      setState(() => _offset = Duration.zero);
+                      await ref.read(lyricsServiceProvider).saveOffset(
+                            trackKey:
+                                '${widget.track.artist} - ${widget.track.title}',
+                            offset: Duration.zero,
+                            localPath: result.localPath,
+                          );
+                    },
+                  ),
+              ],
             );
           }
 
@@ -162,6 +220,206 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
             message: "Paroles introuvables pour ce morceau.",
           );
         },
+      ),
+    );
+  }
+}
+
+/// One lyric line. The active line is drawn twice: a dim base layer and a
+/// bright copy clipped to [progress], which produces the classic karaoke
+/// left-to-right fill as the line is sung.
+class _KaraokeLine extends StatelessWidget {
+  final String text;
+  final bool isActive;
+  final bool isPast;
+  final double progress;
+  final Color color;
+
+  const _KaraokeLine({
+    required this.text,
+    required this.isActive,
+    required this.isPast,
+    required this.progress,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = (isActive ? AppTheme.titleLarge : AppTheme.bodyLarge)
+        .copyWith(
+      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+    );
+
+    if (!isActive) {
+      return Container(
+        alignment: Alignment.center,
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 250),
+          style: baseStyle.copyWith(
+            color: AppTheme.textPrimary.withValues(alpha: isPast ? 0.35 : 0.6),
+          ),
+          child: Text(text, textAlign: TextAlign.center),
+        ),
+      );
+    }
+
+    return Container(
+      alignment: Alignment.center,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: baseStyle.copyWith(
+              color: AppTheme.textPrimary.withValues(alpha: 0.35),
+            ),
+          ),
+          ClipRect(
+            clipper: _ProgressClipper(progress),
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: baseStyle.copyWith(color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Clips its child to the left [progress] fraction of its width.
+class _ProgressClipper extends CustomClipper<Rect> {
+  final double progress;
+
+  const _ProgressClipper(this.progress);
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTWH(0, 0, size.width * progress, size.height);
+
+  @override
+  bool shouldReclip(_ProgressClipper oldClipper) =>
+      oldClipper.progress != progress;
+}
+
+/// Bottom bar letting the user nudge the lyrics earlier or later when a
+/// .lrc's timings don't quite line up with their copy of the song.
+class _SyncControls extends StatelessWidget {
+  final Duration offset;
+  final Color color;
+  final VoidCallback onEarlier;
+  final VoidCallback onLater;
+  final VoidCallback onReset;
+
+  const _SyncControls({
+    required this.offset,
+    required this.color,
+    required this.onEarlier,
+    required this.onLater,
+    required this.onReset,
+  });
+
+  String get _label {
+    final ms = offset.inMilliseconds;
+    if (ms == 0) return 'Synchronisé';
+    final seconds = (ms / 1000).toStringAsFixed(1);
+    return ms > 0 ? 'Retardé de ${seconds}s' : 'Avancé de ${seconds.substring(1)}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacingL,
+        vertical: AppTheme.spacingM,
+      ),
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundCardElevated,
+        border: Border(
+          top: BorderSide(color: AppTheme.border.withValues(alpha: 0.3)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _label,
+              style: AppTheme.labelSmall.copyWith(color: AppTheme.textTertiary),
+            ),
+            const SizedBox(height: AppTheme.spacingS),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _SyncButton(
+                  icon: Icons.fast_rewind_rounded,
+                  label: '-0,3 s',
+                  color: color,
+                  onTap: onEarlier,
+                ),
+                const SizedBox(width: AppTheme.spacingM),
+                TextButton(
+                  onPressed: onReset,
+                  child: Text(
+                    'Réinitialiser',
+                    style: AppTheme.labelSmall
+                        .copyWith(color: AppTheme.textSecondary),
+                  ),
+                ),
+                const SizedBox(width: AppTheme.spacingM),
+                _SyncButton(
+                  icon: Icons.fast_forward_rounded,
+                  label: '+0,3 s',
+                  color: color,
+                  onTap: onLater,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SyncButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SyncButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spacingM,
+          vertical: AppTheme.spacingS,
+        ),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: AppTheme.spacingXS),
+            Text(label, style: AppTheme.labelSmall.copyWith(color: color)),
+          ],
+        ),
       ),
     );
   }
