@@ -7,33 +7,78 @@ class AppTheme {
   // COLORS
   // ═══════════════════════════════════════════════════════════════
 
-  // Background colors
-  static const Color backgroundPrimary = Color(0xFF0A0A0A);
-  static const Color backgroundSecondary = Color(0xFF121212);
-  static const Color backgroundTertiary = Color(0xFF181818);
-  static const Color backgroundCard = Color(0xFF1E1E1E);
-  static const Color backgroundCardElevated = Color(0xFF282828);
+  // Palette dérivée directement de l'icône de l'app : un dégradé
+  // magenta-violet (#BF00FE) vers indigo (#5D00FF). Tout part de ces deux
+  // teintes plutôt que d'un violet générique, pour que l'app et son icône
+  // se ressemblent vraiment.
+  static const Color brandTop = Color(0xFFBF00FE);
+  static const Color brandBottom = Color(0xFF5D00FF);
+  static const Color brandMid = Color(0xFF8A00FF);
 
-  // Accent colors — "aurora" identity: an indigo-violet base (the app's
-  // ambient/mood-shifting glow ties directly into the product's premise)
-  // paired with a warm coral used sparingly for calls-to-action, instead
-  // of a flat single bright accent on black.
-  static const Color accentPrimary = Color(0xFF7C6CFF);
-  static const Color accentSecondary = Color(0xFFA78BFA);
-  static const Color accentWarm = Color(0xFFFF7A59);
+  // Fonds : quasi-noirs très légèrement teintés de violet plutôt que du
+  // gris neutre, pour que le dégradé de marque ne flotte pas au-dessus
+  // d'un fond qui n'a rien à voir.
+  static const Color backgroundPrimary = Color(0xFF07040D);
+  static const Color backgroundSecondary = Color(0xFF0D0716);
+  static const Color backgroundTertiary = Color(0xFF130B20);
+  static const Color backgroundCard = Color(0xFF16102A);
+  static const Color backgroundCardElevated = Color(0xFF1F1738);
+
+  // Surfaces translucides : à poser sur un fond dégradé, elles laissent la
+  // couleur transparaître au lieu de l'aplatir. C'est ce qui donne de la
+  // profondeur sans multiplier les aplats.
+  static const Color surfaceGlass = Color(0x14FFFFFF);
+  static const Color surfaceGlassStrong = Color(0x1FFFFFFF);
+  static const Color surfaceTint = Color(0x1A8A00FF);
+
+  static const Color accentPrimary = Color(0xFFA855F7);
+  static const Color accentSecondary = Color(0xFFC94DFF);
+  static const Color accentWarm = Color(0xFFFF5FA2);
   static const Color accentSuccess = Color(0xFF10B981);
   static const Color accentWarning = Color(0xFFFF6B35);
   static const Color accentError = Color(0xFFE63946);
 
   // Text colors
   static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFB3B3B3);
-  static const Color textTertiary = Color(0xFF6A6A6A);
-  static const Color textInverse = Color(0xFF000000);
+  static const Color textSecondary = Color(0xFFBFB3D4);
+  static const Color textTertiary = Color(0xFF76688F);
+  static const Color textInverse = Color(0xFF07040D);
 
-  // Divider / Border
-  static const Color divider = Color(0xFF282828);
-  static const Color border = Color(0xFF333333);
+  // Divider / Border — translucides, pour qu'ils se fondent sur n'importe
+  // quel fond au lieu de tracer une ligne grise franche.
+  static const Color divider = Color(0x1AFFFFFF);
+  static const Color border = Color(0x26FFFFFF);
+
+  // ═══════════════════════════════════════════════════════════════
+  // DÉGRADÉS
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Le dégradé de marque, tel quel (boutons pleins, éléments actifs).
+  static const LinearGradient brandGradient = LinearGradient(
+    colors: [brandTop, brandBottom],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Fond d'écran : la marque en très faible opacité en haut, qui se fond
+  /// dans le noir. Remplace l'ancien bloc bleu-gris plaqué en haut.
+  static const LinearGradient screenGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0x3DBF00FE),
+      Color(0x1A5D00FF),
+      backgroundPrimary,
+    ],
+    stops: [0.0, 0.22, 0.55],
+  );
+
+  /// Surface de carte : un voile clair très léger, en diagonale.
+  static const LinearGradient cardGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0x1FFFFFFF), Color(0x0AFFFFFF)],
+  );
 
   // ═══════════════════════════════════════════════════════════════
   // SPACING
@@ -205,22 +250,51 @@ class AppTheme {
   // DECORATIONS
   // ═══════════════════════════════════════════════════════════════
 
+  /// Carte translucide : un voile clair en dégradé posé sur le fond, au
+  /// lieu d'un aplat gris. Le fond de l'écran transparaît, ce qui évite
+  /// l'effet « rectangles gris empilés ».
   static BoxDecoration get cardDecoration => BoxDecoration(
-    color: backgroundCard,
+    gradient: cardGradient,
     borderRadius: BorderRadius.circular(radiusL),
-    border: Border.all(color: border.withValues(alpha: 0.3), width: 1),
+    border: Border.all(color: border, width: 1),
+  );
+
+  /// Variante teintée par une couleur d'ambiance (mood, pochette…).
+  static BoxDecoration tintedCardDecoration(Color tint) => BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        tint.withValues(alpha: 0.20),
+        tint.withValues(alpha: 0.04),
+      ],
+    ),
+    borderRadius: BorderRadius.circular(radiusL),
+    border: Border.all(color: tint.withValues(alpha: 0.28), width: 1),
   );
 
   static BoxDecoration get cardElevatedDecoration => BoxDecoration(
-    color: backgroundCardElevated,
+    gradient: const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0x2EFFFFFF), Color(0x14FFFFFF)],
+    ),
     borderRadius: BorderRadius.circular(radiusL),
+    border: Border.all(color: border, width: 1),
     boxShadow: shadowSmall,
   );
 
   static BoxDecoration get glassDecoration => BoxDecoration(
-    color: Colors.black.withValues(alpha: 0.5),
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Colors.white.withValues(alpha: 0.14),
+        Colors.white.withValues(alpha: 0.04),
+      ],
+    ),
     borderRadius: BorderRadius.circular(radiusL),
-    border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+    border: Border.all(color: Colors.white.withValues(alpha: 0.16), width: 1),
   );
 
   /// The app's signature ambient treatment: a soft indigo-violet glow

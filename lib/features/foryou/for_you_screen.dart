@@ -29,14 +29,7 @@ class ForYouScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A1A2E), AppTheme.backgroundPrimary],
-            stops: [0.0, 0.3],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
           child: CustomScrollView(
@@ -49,6 +42,18 @@ class ForYouScreen extends ConsumerWidget {
                   child: _buildEmptyState(),
                 )
               else ...[
+                // Les suggestions passent en tête : c'est la seule section
+                // que l'utilisateur ne peut pas retrouver ailleurs dans
+                // l'app, donc c'est elle qui justifie la page.
+                _section(
+                  context: context,
+                  title: 'Suggestions pour toi',
+                  subtitle: 'À partir de ce que tu écoutes et de ce que tu aimes',
+                  tracks: suggested,
+                  emptyMessage:
+                      'Les suggestions arrivent dès que tu as écouté ou aimé '
+                      'quelques morceaux.',
+                ),
                 _section(
                   context: context,
                   title: 'Ajoutés récemment',
@@ -76,15 +81,6 @@ class ForYouScreen extends ConsumerWidget {
                   emptyMessage:
                       'Aucun favori pour le moment. Touche le cœur dans le '
                       'lecteur pour en ajouter.',
-                ),
-                _section(
-                  context: context,
-                  title: 'Suggestions pour toi',
-                  subtitle: 'À partir de ce que tu écoutes et de ce que tu aimes',
-                  tracks: suggested,
-                  emptyMessage:
-                      'Les suggestions arrivent dès que tu as écouté ou aimé '
-                      'quelques morceaux.',
                 ),
               ],
               const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -152,77 +148,89 @@ class ForYouScreen extends ConsumerWidget {
     }
 
     return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTheme.spacingXL,
-              AppTheme.spacingXL,
-              AppTheme.spacingXL,
-              AppTheme.spacingXS,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: AppTheme.headlineMedium),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textTertiary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (tracks.isNotEmpty) ...[
-                  IconButton(
-                    tooltip: 'Tout lire',
-                    icon: Icon(Icons.play_arrow_rounded,
-                        color: AppTheme.accentPrimary, size: 24),
-                    onPressed: () => playAll(context, tracks),
-                  ),
-                  IconButton(
-                    tooltip: 'Lecture aléatoire',
-                    icon: Icon(Icons.shuffle_rounded,
-                        color: AppTheme.accentPrimary, size: 22),
-                    onPressed: () => playShuffled(context, tracks),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: AppTheme.spacingS),
-          if (tracks.isEmpty)
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          AppTheme.spacingL,
+          AppTheme.spacingL,
+          AppTheme.spacingL,
+          0,
+        ),
+        padding: const EdgeInsets.only(bottom: AppTheme.spacingL),
+        decoration: AppTheme.cardDecoration,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXL),
-              child: Text(
-                emptyMessage!,
-                style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spacingL,
+                AppTheme.spacingL,
+                AppTheme.spacingS,
+                AppTheme.spacingXS,
               ),
-            )
-          else
-            SizedBox(
-              height: 196,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXL),
-                itemCount: tracks.length,
-                itemBuilder: (context, index) {
-                  final track = tracks[index];
-                  return CompactTrackCard(
-                    track: track,
-                    badge: badgeBuilder?.call(track),
-                    onTap: () => openPlayer(context, track: track, tracks: tracks),
-                  );
-                },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: AppTheme.headlineMedium),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: AppTheme.bodySmall.copyWith(
+                            color: AppTheme.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (tracks.isNotEmpty) ...[
+                    IconButton(
+                      tooltip: 'Tout lire',
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.play_arrow_rounded,
+                          color: AppTheme.accentPrimary, size: 24),
+                      onPressed: () => playAll(context, tracks),
+                    ),
+                    IconButton(
+                      tooltip: 'Lecture aléatoire',
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.shuffle_rounded,
+                          color: AppTheme.accentPrimary, size: 22),
+                      onPressed: () => playShuffled(context, tracks),
+                    ),
+                  ],
+                ],
               ),
             ),
-        ],
+            const SizedBox(height: AppTheme.spacingS),
+            if (tracks.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                child: Text(
+                  emptyMessage!,
+                  style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+                ),
+              )
+            else
+              SizedBox(
+                height: 196,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                  itemCount: tracks.length,
+                  itemBuilder: (context, index) {
+                    final track = tracks[index];
+                    return CompactTrackCard(
+                      track: track,
+                      badge: badgeBuilder?.call(track),
+                      onTap: () => openPlayer(context, track: track, tracks: tracks),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

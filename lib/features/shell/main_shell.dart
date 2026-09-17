@@ -54,31 +54,44 @@ class _MainShellState extends ConsumerState<MainShell> {
             ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        backgroundColor: AppTheme.backgroundSecondary,
-        indicatorColor: AppTheme.accentPrimary.withValues(alpha: 0.18),
-        surfaceTintColor: Colors.transparent,
-        height: 64,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.library_music_outlined),
-            selectedIcon: Icon(Icons.library_music_rounded, color: AppTheme.accentPrimary),
-            label: 'Bibliothèque',
+      // Barre translucide posée sur un léger voile de marque plutôt qu'un
+      // aplat opaque : le dégradé de l'écran continue derrière elle.
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x005D00FF), Color(0x335D00FF)],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.auto_awesome_outlined),
-            selectedIcon: Icon(Icons.auto_awesome_rounded, color: AppTheme.accentPrimary),
-            label: 'Pour vous',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.graphic_eq_outlined),
-            selectedIcon: Icon(Icons.graphic_eq_rounded, color: AppTheme.accentPrimary),
-            label: 'Ambiances',
-          ),
-        ],
+          border: Border(top: BorderSide(color: AppTheme.divider)),
+        ),
+        child: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          backgroundColor: Colors.transparent,
+          indicatorColor: AppTheme.accentPrimary.withValues(alpha: 0.22),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          height: 64,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.library_music_outlined),
+              selectedIcon: Icon(Icons.library_music_rounded, color: AppTheme.accentPrimary),
+              label: 'Bibliothèque',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.auto_awesome_outlined),
+              selectedIcon: Icon(Icons.auto_awesome_rounded, color: AppTheme.accentPrimary),
+              label: 'Pour vous',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.graphic_eq_outlined),
+              selectedIcon: Icon(Icons.graphic_eq_rounded, color: AppTheme.accentPrimary),
+              label: 'Ambiances',
+            ),
+          ],
+        ),
       ),
     );
   }

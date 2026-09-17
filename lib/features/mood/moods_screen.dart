@@ -32,14 +32,7 @@ class MoodsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A1A2E), AppTheme.backgroundPrimary],
-            stops: [0.0, 0.3],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
           child: ListView(

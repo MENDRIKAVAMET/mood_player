@@ -125,14 +125,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A1A2E), AppTheme.backgroundPrimary],
-            stops: [0.0, 0.3],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
           child: CustomScrollView(
@@ -239,12 +232,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppTheme.backgroundCard,
+                gradient: AppTheme.cardGradient,
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                border: Border.all(
-                  color: AppTheme.border.withValues(alpha: 0.3),
-                  width: 1,
-                ),
+                border: Border.all(color: AppTheme.border, width: 1),
               ),
               child: const Icon(
                 Icons.more_horiz_rounded,
@@ -273,12 +263,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         child: Container(
           height: 48,
           decoration: BoxDecoration(
-            color: AppTheme.backgroundCard,
+            gradient: AppTheme.cardGradient,
             borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-            border: Border.all(
-              color: AppTheme.border.withValues(alpha: 0.3),
-              width: 1,
-            ),
+            border: Border.all(color: AppTheme.border, width: 1),
           ),
           child: Row(
             children: [
@@ -343,12 +330,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         child: Container(
           height: 44,
           decoration: BoxDecoration(
-            color: AppTheme.backgroundCard,
+            gradient: AppTheme.cardGradient,
             borderRadius: BorderRadius.circular(AppTheme.radiusM),
-            border: Border.all(
-              color: AppTheme.border.withValues(alpha: 0.3),
-              width: 1,
-            ),
+            border: Border.all(color: AppTheme.border, width: 1),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -588,18 +572,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   vertical: AppTheme.spacingM,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentPrimary,
+                  gradient: AppTheme.brandGradient,
                   borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  boxShadow: AppTheme.coloredShadow(AppTheme.brandMid),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.file_upload_rounded,
-                        size: 18, color: AppTheme.textInverse),
+                        size: 18, color: AppTheme.textPrimary),
                     const SizedBox(width: AppTheme.spacingS),
                     Text(
                       'Importer',
-                      style: AppTheme.labelLarge.copyWith(color: AppTheme.textInverse),
+                      style: AppTheme.labelLarge.copyWith(color: AppTheme.textPrimary),
                     ),
                   ],
                 ),

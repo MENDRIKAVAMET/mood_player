@@ -80,7 +80,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
-      body: SafeArea(
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
+        child: SafeArea(
         child: Column(
           children: [
             _buildSearchField(),
@@ -129,6 +131,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -151,9 +154,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             child: Container(
               height: 48,
               decoration: BoxDecoration(
-                color: AppTheme.backgroundCard,
+                gradient: AppTheme.cardGradient,
                 borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                border: Border.all(color: AppTheme.border.withValues(alpha: 0.3)),
+                border: Border.all(color: AppTheme.border),
               ),
               child: Row(
                 children: [

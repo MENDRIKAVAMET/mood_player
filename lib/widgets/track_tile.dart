@@ -81,13 +81,25 @@ class _TrackTileState extends State<TrackTile> {
             ),
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            // Surtout PAS CrossAxisAlignment.stretch ici. Dans une liste
+            // (SliverList / ListView), la contrainte de hauteur reçue est
+            // infinie ; `stretch` demande alors aux enfants une hauteur
+            // tight de `constraints.maxHeight`, donc l'infini. En debug ça
+            // lève « BoxConstraints forces an infinite height », et en
+            // release la tuile se replie à zéro pixel : les morceaux sont
+            // bien là, la liste a la bonne longueur, mais plus rien ne se
+            // dessine. C'était exactement le bug — et ça expliquait aussi
+            // pourquoi « Ajoutés récemment » s'affichait, lui : ses cartes
+            // ne passent pas par cette Row.
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Accent rail — only present on the active track.
+              // Liseré d'accent — présent uniquement sur la piste active.
+              // Hauteur explicite plutôt que `stretch`, pour la même raison.
               AnimatedContainer(
                 duration: AppTheme.animNormal,
                 width: isPlaying ? 3 : 0,
-                margin: const EdgeInsets.symmetric(vertical: AppTheme.spacingS),
+                height: 48,
+                margin: const EdgeInsets.symmetric(vertical: AppTheme.spacingXS),
                 decoration: BoxDecoration(
                   color: moodColors.primary,
                   borderRadius: BorderRadius.circular(AppTheme.radiusFull),
