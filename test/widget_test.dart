@@ -8,7 +8,7 @@ void main() {
   testWidgets('Mood Player smoke test', (WidgetTester tester) async {
     // Override the audio handler provider so the test does not depend on
     // platform channels (audio_service) that are unavailable in tests.
-    // The HomeScreen only needs the provider to resolve (or fail) gracefully.
+    // The first tab only needs the provider to resolve (or fail) gracefully.
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -30,7 +30,7 @@ void main() {
     // a `Shimmer` skeleton loader, whose animation repeats forever and would
     // make `pumpAndSettle()` time out. Instead, pump a fixed number of
     // frames covering the longest entrance-animation duration used in the
-    // app (see AppTheme.animSlow and the explicit delays in home_screen.dart).
+    // app (see AppTheme.animSlow and the explicit delays in library_screen.dart).
     for (var i = 0; i < 15; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }

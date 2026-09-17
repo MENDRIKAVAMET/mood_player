@@ -430,6 +430,126 @@ class StorageService {
     return allMoods.where((m) => m.trackIds.contains(trackId)).toList();
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // ÉCOUTES RÉELLES (≥ 80 % de la durée) + RECHERCHES RÉCENTES
+  // ═══════════════════════════════════════════════════════════════
+  //
+  // Stockés dans de simples fichiers JSON à côté de la base Isar, comme
+  // les favoris : ce sont des données purement dérivées/annexes, et les
+  // garder hors du schéma Isar évite une migration de base (et évite que
+  // la réinitialisation d'urgence d'Isar les emporte avec elle).
+
+  static Map<int, int>? _playCountsCache;
+  static List<String>? _recentSearchesCache;
+
+  /// Nombre max de recherches récentes conservées.
+  static const int _maxRecentSearches = 15;
+
+  Future<File> _playCountsFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/play_counts.json');
+  }
+
+  Future<File> _recentSearchesFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/recent_searches.json');
+  }
+
+  Future<Map<int, int>> _loadPlayCounts() async {
+    if (_playCountsCache != null) return _playCountsCache!;
+    try {
+      final file = await _playCountsFile();
+      if (await file.exists()) {
+        final decoded = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        _playCountsCache = {
+          for (final entry in decoded.entries)
+            int.parse(entry.key): (entry.value as num).toInt(),
+        };
+      } else {
+        _playCountsCache = <int, int>{};
+      }
+    } catch (_) {
+      _playCountsCache = <int, int>{};
+    }
+    return _playCountsCache!;
+  }
+
+  /// Compteurs d'écoute « réelles » par id de morceau.
+  Future<Map<int, int>> getPlayCounts() async {
+    return Map<int, int>.from(await _loadPlayCounts());
+  }
+
+  /// Incrémente le compteur d'un morceau. À n'appeler que lorsque le
+  /// morceau a réellement été écouté à plus de 80 % de sa durée — un
+  /// simple « lancé puis zappé » ne doit pas compter.
+  Future<Map<int, int>> incrementPlayCount(int trackId) async {
+    final counts = await _loadPlayCounts();
+    counts[trackId] = (counts[trackId] ?? 0) + 1;
+    _playCountsCache = counts;
+    try {
+      final file = await _playCountsFile();
+      await file.writeAsString(
+        jsonEncode({for (final e in counts.entries) e.key.toString(): e.value}),
+      );
+    } catch (_) {
+      // Non critique : le compteur reste au moins correct en mémoire
+      // pour la session en cours.
+    }
+    return Map<int, int>.from(counts);
+  }
+
+  Future<List<String>> _loadRecentSearches() async {
+    if (_recentSearchesCache != null) return _recentSearchesCache!;
+    try {
+      final file = await _recentSearchesFile();
+      if (await file.exists()) {
+        final decoded = jsonDecode(await file.readAsString()) as List<dynamic>;
+        _recentSearchesCache = decoded.map((e) => e as String).toList();
+      } else {
+        _recentSearchesCache = <String>[];
+      }
+    } catch (_) {
+      _recentSearchesCache = <String>[];
+    }
+    return _recentSearchesCache!;
+  }
+
+  Future<void> _saveRecentSearches(List<String> searches) async {
+    _recentSearchesCache = searches;
+    try {
+      final file = await _recentSearchesFile();
+      await file.writeAsString(jsonEncode(searches));
+    } catch (_) {}
+  }
+
+  Future<List<String>> getRecentSearches() async {
+    return List<String>.from(await _loadRecentSearches());
+  }
+
+  /// Ajoute une recherche en tête de liste, sans doublon (comparaison
+  /// insensible à la casse) et en bornant la taille de l'historique.
+  Future<void> addRecentSearch(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+    final searches = await _loadRecentSearches();
+    searches.removeWhere((s) => s.toLowerCase() == trimmed.toLowerCase());
+    searches.insert(0, trimmed);
+    if (searches.length > _maxRecentSearches) {
+      searches.removeRange(_maxRecentSearches, searches.length);
+    }
+    await _saveRecentSearches(searches);
+  }
+
+  Future<void> removeRecentSearch(String query) async {
+    final searches = await _loadRecentSearches();
+    searches.removeWhere((s) => s.toLowerCase() == query.toLowerCase());
+    await _saveRecentSearches(searches);
+  }
+
+  Future<void> clearRecentSearches() async {
+    await _saveRecentSearches(<String>[]);
+  }
+
   Future<Isar> _getIsar() async {
     if (_isar == null) {
       await initialize();

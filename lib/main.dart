@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/debug/crash_log_screen.dart';
-import 'features/home/home_screen.dart';
+import 'features/shell/main_shell.dart';
 import 'services/crash_log_service.dart';
 import 'services/storage_service.dart';
 import 'theme/app_theme.dart';
@@ -95,7 +95,7 @@ class MyApp extends StatelessWidget {
     } else if (startupError != null) {
       home = _StartupErrorScreen(message: startupError!);
     } else {
-      home = const HomeScreen();
+      home = const MainShell();
     }
 
     return MaterialApp(
