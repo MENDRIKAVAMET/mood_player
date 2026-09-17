@@ -250,6 +250,15 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
       await loadTracks();
     } catch (e) {
+      // Whatever went wrong during the scan itself (permission plugin
+      // hiccup, MediaStore query error, merge bug, etc.), don't leave the
+      // screen showing an empty list when storage already has tracks from
+      // a previous successful scan - fall back to those.
+      try {
+        await loadTracks();
+      } catch (_) {
+        // Storage itself is also failing - nothing more we can recover.
+      }
       state = state.copyWith(
         isLoading: false,
         error: 'Erreur lors du scan de la bibliothèque: $e',
