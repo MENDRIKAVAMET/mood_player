@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cross_file/cross_file.dart';
 import '../models/track.dart';
 import '../models/playlist.dart';
 import '../providers/providers.dart';
@@ -56,11 +55,9 @@ class _TrackOptionsSheet extends ConsumerWidget {
     final path = track.filePath;
     try {
       if (path != null && path.isNotEmpty) {
-        await SharePlus.instance.share(
-          ShareParams(text: text, files: [XFile(path)]),
-        );
+        await Share.shareXFiles([XFile(path)], text: text);
       } else {
-        await SharePlus.instance.share(ShareParams(text: text));
+        await Share.share(text);
       }
     } catch (e) {
       if (context.mounted) {
