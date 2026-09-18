@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/track.dart';
+import 'storage_service.dart';
 
 /// Repeat mode enum (renamed to avoid clashing with Flutter's own RepeatMode)
 enum PlayerRepeatMode {
@@ -18,6 +19,9 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final List<MediaItem> _originalQueue = []; // Store original order for unshuffle
   final _repeatModeController = StreamController<PlayerRepeatMode>.broadcast();
   final _shuffleModeController = StreamController<bool>.broadcast();
+  final _likeChangedController =
+      StreamController<(int trackId, bool liked)>.broadcast();
+  final StorageService _storageService = StorageService();
   PlayerRepeatMode _repeatMode = PlayerRepeatMode.off;
   bool _shuffleMode = false;
 
@@ -26,6 +30,12 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   /// Stream of shuffle mode changes
   Stream<bool> get shuffleModeStream => _shuffleModeController.stream;
+
+  /// Fires whenever the "like" notification button toggles a track, so the
+  /// rest of the app (track list, player screen heart icon) can stay in
+  /// sync without polling.
+  Stream<(int trackId, bool liked)> get likeChangedStream =>
+      _likeChangedController.stream;
 
   /// Stream of the current track duration
   Stream<Duration> get durationStream =>
@@ -41,25 +51,112 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _init();
   }
 
+  /// Notification "like" button, dedicated close (X) icon/label - moved to
+  /// the far right - in place of the old plain "Stop" both in icon and
+  /// position, and the play/pause + skip controls in between.
+  static final _likeControl = MediaControl.custom(
+    androidIcon: 'mipmap/ic_favorite_border',
+    label: 'Aimer',
+    name: 'toggleLike',
+  );
+  static final _likedControl = MediaControl.custom(
+    androidIcon: 'mipmap/ic_favorite',
+    label: 'Retirer des favoris',
+    name: 'toggleLike',
+  );
+  static const _closeControl = MediaControl(
+    androidIcon: 'mipmap/ic_close',
+    label: 'Fermer',
+    action: MediaAction.stop,
+  );
+
+  List<MediaControl> _buildControls(bool isPlaying, bool isLiked) {
+    return [
+      MediaControl.skipToPrevious,
+      if (isPlaying) MediaControl.pause else MediaControl.play,
+      MediaControl.skipToNext,
+      isLiked ? _likedControl : _likeControl,
+      // Far right, as requested: was a plain "Stop" icon before, now a
+      // dedicated close (X) icon/label. Same underlying stop action, so
+      // behavior (closes the notification and playback) is unchanged.
+      _closeControl,
+    ];
+  }
+
+  /// Re-pushes playbackState with fresh controls, e.g. after the like
+  /// button changes the current track's liked state - the icon needs to
+  /// flip immediately rather than waiting for the next player state event.
+  void _pushControls() {
+    final isPlaying = _player.playing;
+    final isLiked = mediaItem.value?.extras?['isLiked'] == true;
+    playbackState.add(playbackState.value.copyWith(
+      controls: _buildControls(isPlaying, isLiked),
+      androidCompactActionIndices: const [0, 1, 2],
+    ));
+  }
+
+  @override
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
+    if (name == 'toggleLike') {
+      await _toggleLikeCurrentTrack();
+      return;
+    }
+    return super.customAction(name, extras);
+  }
+
+  /// Flips the current track's liked state from the notification button:
+  /// persists it, updates the notification's own media item so the icon
+  /// flips immediately, and broadcasts the change so any open screen
+  /// (player, track list) can stay in sync without polling.
+  Future<void> _toggleLikeCurrentTrack() async {
+    final current = mediaItem.value;
+    if (current == null) return;
+
+    final trackId = int.tryParse(current.id);
+    if (trackId == null) return;
+
+    final wasLiked = current.extras?['isLiked'] == true;
+    final newLiked = !wasLiked;
+
+    try {
+      await _storageService.setTrackLiked(trackId, newLiked);
+    } catch (e) {
+      // ignore: avoid_print
+      print('MoodAudioHandler: failed to persist like for $trackId: $e');
+      return;
+    }
+
+    final updatedExtras = {...?current.extras, 'isLiked': newLiked};
+    final updatedItem = current.copyWith(extras: updatedExtras);
+    mediaItem.add(updatedItem);
+
+    final queueIndex = _queue.indexWhere((item) => item.id == current.id);
+    if (queueIndex >= 0) {
+      _queue[queueIndex] = updatedItem;
+      queue.add(List.unmodifiable(_queue));
+    }
+
+    _pushControls();
+    _likeChangedController.add((trackId, newLiked));
+  }
+
   void _init() {
     // Listen to player state changes
     _player.playerStateStream.listen((playerState) {
       final isPlaying = playerState.playing;
       final processingState = _mapProcessingState(playerState.processingState);
-      
+      final isLiked = mediaItem.value?.extras?['isLiked'] == true;
+
       playbackState.add(playbackState.value.copyWith(
-        controls: [
-          MediaControl.skipToPrevious,
-          if (isPlaying) MediaControl.pause else MediaControl.play,
-          MediaControl.stop,
-          MediaControl.skipToNext,
-        ],
+        controls: _buildControls(isPlaying, isLiked),
         systemActions: const {
           MediaAction.seek,
           MediaAction.seekForward,
           MediaAction.seekBackward,
         },
-        androidCompactActionIndices: const [0, 1, 3],
+        // Previous / play-pause / next stay in the compact (collapsed)
+        // notification view; like and close only show in the expanded one.
+        androidCompactActionIndices: const [0, 1, 2],
         processingState: processingState,
         playing: isPlaying,
         updatePosition: _player.position,
@@ -499,6 +596,10 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         'coverUrl': track.coverUrl,
         'mood': track.mood?.displayName,
         'moodConfidence': track.moodConfidence,
+        // Used by the notification's "like" button to persist/reflect the
+        // right track's favorite state.
+        'trackId': track.id,
+        'isLiked': track.isLiked,
       },
     );
   }
@@ -512,6 +613,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Future<void> close() async {
     await _repeatModeController.close();
     await _shuffleModeController.close();
+    await _likeChangedController.close();
     await _player.dispose();
   }
 }

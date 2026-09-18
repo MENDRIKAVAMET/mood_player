@@ -359,6 +359,21 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
   }
 
+  /// Updates a track's in-memory liked state to match a change that was
+  /// already persisted elsewhere - the notification's own "like" button
+  /// writes straight to storage (it doesn't have access to this
+  /// provider), so this just reflects that change here without writing to
+  /// storage again.
+  void syncLikedFromExternal(int trackId, bool liked) {
+    final index = state.tracks.indexWhere((t) => t.id == trackId);
+    if (index == -1 || state.tracks[index].isLiked == liked) return;
+
+    state.tracks[index].isLiked = liked;
+    final updatedTracks = [...state.tracks];
+    state = state.copyWith(tracks: updatedTracks);
+    _applyFilters();
+  }
+
   /// Toggles the liked status of [track] and persists it, updating the
   /// in-memory state without a full library reload.
   Future<void> toggleLike(Track track) async {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,12 +26,36 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
+  StreamSubscription<(int, bool)>? _likeChangedSub;
 
   static const List<Widget> _screens = [
     LibraryScreen(),
     ForYouScreen(),
     MoodsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // The notification's own "like" button persists straight to storage
+    // (it has no access to Riverpod), so mirror that change into the
+    // track list/player state here - this is the one widget that's
+    // guaranteed to live for the whole app session.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(audioHandlerProvider).whenData((handler) {
+        _likeChangedSub = handler.likeChangedStream.listen((event) {
+          final (trackId, liked) = event;
+          ref.read(trackProvider.notifier).syncLikedFromExternal(trackId, liked);
+        });
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _likeChangedSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

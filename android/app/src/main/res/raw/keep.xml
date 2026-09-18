@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ic_notification is only ever referenced from Dart (a raw string passed to
-  AudioServiceConfig.androidNotificationIcon), never from native code or
+  These icons are only ever referenced from Dart (raw strings passed to
+  AudioServiceConfig/MediaControl), never from native code or
   AndroidManifest.xml. If resource shrinking is ever turned on for a
-  release build, AAPT/R8 would have no static reference to prove this
-  resource is used and could strip it - which resolves to id 0 at runtime
-  and reproduces "Invalid notification (no valid small icon)". This keep
-  rule makes sure that can never happen, on this build or any future one.
+  release build, AAPT/R8 would have no static reference to prove they're
+  used and could strip them - which resolves to id 0 at runtime and
+  reproduces "Invalid notification (no valid small icon)". This keep rule
+  makes sure that can never happen, on this build or any future one.
 -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@mipmap/ic_notification" />
+    tools:keep="@mipmap/ic_notification,@mipmap/ic_close,@mipmap/ic_favorite,@mipmap/ic_favorite_border" />
+

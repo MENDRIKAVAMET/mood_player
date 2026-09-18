@@ -73,22 +73,36 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             // Play with queue context - replace queue
             await handler.playTrackFromList(widget.tracks!, widget.initialIndex!);
           } else {
-            // Check if there's an existing queue
-            final currentQueue = handler.queue.value;
-            if (currentQueue.isNotEmpty) {
-              // Find current track in queue and just play it
-              final index = currentQueue.indexWhere(
-                (item) => item.id == _displayTrack.id.toString(),
-              );
-              if (index >= 0) {
-                await handler.skipToQueueItem(index);
-              } else {
-                // Track not in queue, add and play
-                await handler.addAndPlayTrack(_displayTrack);
+            // If this is already the track that's currently loaded (e.g.
+            // tapping the mini player to open the full player while a
+            // song is mid-playback), don't touch the queue position at
+            // all - skipToQueueItem() seeks back to 0, which is exactly
+            // the "restarts from the beginning" bug. Just make sure it's
+            // playing (in case it was paused) and leave position alone.
+            final activeItem = handler.mediaItem.value;
+            if (activeItem != null &&
+                activeItem.id == _displayTrack.id.toString()) {
+              if (!handler.playbackState.value.playing) {
+                await handler.play();
               }
             } else {
-              // No queue, just play single track
-              await handler.addAndPlayTrack(_displayTrack);
+              // Check if there's an existing queue
+              final currentQueue = handler.queue.value;
+              if (currentQueue.isNotEmpty) {
+                // Find the tapped track in queue and just play it
+                final index = currentQueue.indexWhere(
+                  (item) => item.id == _displayTrack.id.toString(),
+                );
+                if (index >= 0) {
+                  await handler.skipToQueueItem(index);
+                } else {
+                  // Track not in queue, add and play
+                  await handler.addAndPlayTrack(_displayTrack);
+                }
+              } else {
+                // No queue, just play single track
+                await handler.addAndPlayTrack(_displayTrack);
+              }
             }
           }
         } catch (e) {
