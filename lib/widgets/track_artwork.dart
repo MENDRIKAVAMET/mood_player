@@ -83,9 +83,10 @@ class TrackArtwork extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Text(
-          track.mood?.icon ?? '🎵',
-          style: TextStyle(fontSize: placeholderFontSize ?? size * 0.4),
+        child: Icon(
+          track.mood?.iconData ?? Icons.music_note_rounded,
+          size: placeholderFontSize ?? size * 0.4,
+          color: Colors.white.withValues(alpha: 0.85),
         ),
       ),
     );

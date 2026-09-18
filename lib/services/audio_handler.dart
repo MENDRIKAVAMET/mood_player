@@ -343,6 +343,29 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     queue.add(List.unmodifiable(_queue));
   }
 
+  /// Insère [track] juste après le morceau en cours de lecture, pour une
+  /// lecture immédiate au morceau suivant sans perturber le reste de la
+  /// file. Si rien ne joue, revient à un simple ajout en fin de file.
+  Future<void> playNext(Track track) async {
+    final item = _trackToMediaItem(track);
+
+    // Un même morceau ne doit pas apparaître deux fois dans la file :
+    // s'il y est déjà, on le déplace plutôt que de le dupliquer.
+    _queue.removeWhere((existing) => existing.id == item.id);
+
+    final currentItem = mediaItem.value;
+    final currentIndex =
+        currentItem != null ? _queue.indexWhere((e) => e.id == currentItem.id) : -1;
+
+    if (currentIndex >= 0) {
+      _queue.insert(currentIndex + 1, item);
+    } else {
+      _queue.add(item);
+    }
+
+    queue.add(List.unmodifiable(_queue));
+  }
+
   /// Clear the queue
   Future<void> clearQueue() async {
     await _player.stop();

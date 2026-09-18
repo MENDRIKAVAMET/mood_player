@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/mood_icons.dart';
 import '../models/custom_mood.dart';
 
 /// Card for a user-created [CustomMood] on the home screen, styled like
@@ -75,7 +76,11 @@ class CustomMoodCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     ),
                     child: Center(
-                      child: Text(mood.icon, style: const TextStyle(fontSize: 28)),
+                      child: Icon(
+                        MoodIcons.iconDataForKey(mood.icon),
+                        size: 24,
+                        color: color,
+                      ),
                     ),
                   ),
                   const Spacer(),

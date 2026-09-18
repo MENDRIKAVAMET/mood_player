@@ -87,9 +87,10 @@ class MoodCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(AppTheme.radiusM),
                     ),
                     child: Center(
-                      child: Text(
-                        mood.icon,
-                        style: const TextStyle(fontSize: 28),
+                      child: Icon(
+                        mood.iconData,
+                        size: 24,
+                        color: moodColors.primary,
                       ),
                     ),
                   ),

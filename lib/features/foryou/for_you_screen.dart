@@ -6,6 +6,7 @@ import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/compact_track_card.dart';
+import '../../widgets/foryou_list_row.dart';
 import '../search/search_screen.dart';
 
 /// Page « Pour vous » : ajouts récents, morceaux réellement les plus
@@ -45,38 +46,31 @@ class ForYouScreen extends ConsumerWidget {
                 // Les suggestions passent en tête : c'est la seule section
                 // que l'utilisateur ne peut pas retrouver ailleurs dans
                 // l'app, donc c'est elle qui justifie la page.
-                _section(
+                _carouselSection(
                   context: context,
                   title: 'Suggestions pour toi',
-                  subtitle: 'À partir de ce que tu écoutes et de ce que tu aimes',
                   tracks: suggested,
                   emptyMessage:
                       'Les suggestions arrivent dès que tu as écouté ou aimé '
                       'quelques morceaux.',
                 ),
-                _section(
+                _carouselSection(
                   context: context,
                   title: 'Ajoutés récemment',
-                  subtitle: 'Les derniers morceaux arrivés dans ta bibliothèque',
                   tracks: recentlyAdded,
                 ),
-                _section(
+                _listSection(
                   context: context,
                   title: 'Les plus écoutés',
-                  subtitle: 'Écoutés à plus de 80 % de leur durée',
                   tracks: mostPlayed,
-                  badgeBuilder: (track) {
-                    final count = playCounts[track.id] ?? 0;
-                    return count > 1 ? '$count écoutes' : '1 écoute';
-                  },
+                  badgeBuilder: (track) => '${playCounts[track.id] ?? 0}',
                   emptyMessage:
                       'Rien encore. Un morceau apparaît ici une fois écouté '
                       'à plus de 80 % — le passer en vitesse ne compte pas.',
                 ),
-                _section(
+                _listSection(
                   context: context,
                   title: 'Tes morceaux aimés',
-                  subtitle: 'Tout ce que tu as mis en favori',
                   tracks: liked,
                   emptyMessage:
                       'Aucun favori pour le moment. Touche le cœur dans le '
@@ -131,14 +125,133 @@ class ForYouScreen extends ConsumerWidget {
     );
   }
 
-  /// Une section horizontale. Si [tracks] est vide et qu'un
-  /// [emptyMessage] est fourni, la section reste visible avec une
-  /// explication — c'est plus utile qu'une section qui disparaît sans
-  /// que l'utilisateur comprenne pourquoi.
-  Widget _section({
+  /// En-tête de section commun aux deux gabarits : titre à gauche, pastille
+  /// « Jouer » pleine et bouton shuffle à droite — repris directement du
+  /// placement des en-têtes « Recommandé » / « Récemment Écouté » des
+  /// captures de référence, plutôt que les icônes nues utilisées avant.
+  Widget _sectionHeader(BuildContext context, String title, List<Track> tracks) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingL,
+        AppTheme.spacingXL,
+        AppTheme.spacingL,
+        AppTheme.spacingM,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: AppTheme.headlineLarge,
+            ),
+          ),
+          if (tracks.isNotEmpty) ...[
+            GestureDetector(
+              onTap: () => playAll(context, tracks),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacingM,
+                  vertical: AppTheme.spacingXS,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  border: Border.all(color: AppTheme.border, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.play_arrow_rounded,
+                        color: AppTheme.textPrimary, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Jouer',
+                      style: AppTheme.labelMedium.copyWith(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: AppTheme.spacingS),
+            GestureDetector(
+              onTap: () => playShuffled(context, tracks),
+              child: Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.border, width: 1),
+                ),
+                child: const Icon(
+                  Icons.shuffle_rounded,
+                  color: AppTheme.textSecondary,
+                  size: 16,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Gabarit carrousel (« Recommandé » / « Dernier Ajout ») : cartes
+  /// carrées avec médaillon lecture, titre et artiste en dessous.
+  Widget _carouselSection({
     required BuildContext context,
     required String title,
-    required String subtitle,
+    required List<Track> tracks,
+    String? emptyMessage,
+  }) {
+    if (tracks.isEmpty && emptyMessage == null) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(context, title, tracks),
+          if (tracks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+              child: Text(
+                emptyMessage!,
+                style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+              ),
+            )
+          else
+            SizedBox(
+              height: 196,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                itemCount: tracks.length,
+                itemBuilder: (context, index) {
+                  final track = tracks[index];
+                  return CompactTrackCard(
+                    track: track,
+                    onTap: () => openPlayer(context, track: track, tracks: tracks),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Gabarit liste (« Récemment Écouté » / « Les Plus Joués ») : lignes
+  /// empilées verticalement, jusqu'à 6 pour ne pas transformer la page en
+  /// simple doublon de la bibliothèque.
+  Widget _listSection({
+    required BuildContext context,
+    required String title,
     required List<Track> tracks,
     String Function(Track track)? badgeBuilder,
     String? emptyMessage,
@@ -147,90 +260,33 @@ class ForYouScreen extends ConsumerWidget {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
+    final shown = tracks.take(6).toList();
+
     return SliverToBoxAdapter(
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(
-          AppTheme.spacingL,
-          AppTheme.spacingL,
-          AppTheme.spacingL,
-          0,
-        ),
-        padding: const EdgeInsets.only(bottom: AppTheme.spacingL),
-        decoration: AppTheme.cardDecoration,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(context, title, tracks),
+          if (shown.isEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.spacingL,
-                AppTheme.spacingL,
-                AppTheme.spacingS,
-                AppTheme.spacingXS,
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+              child: Text(
+                emptyMessage!,
+                style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title, style: AppTheme.headlineMedium),
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          style: AppTheme.bodySmall.copyWith(
-                            color: AppTheme.textTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
+            )
+          else
+            Column(
+              children: [
+                for (final track in shown)
+                  ForYouListRow(
+                    track: track,
+                    badge: badgeBuilder?.call(track),
+                    onTap: () => openPlayer(context, track: track, tracks: tracks),
                   ),
-                  if (tracks.isNotEmpty) ...[
-                    IconButton(
-                      tooltip: 'Tout lire',
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(Icons.play_arrow_rounded,
-                          color: AppTheme.accentPrimary, size: 24),
-                      onPressed: () => playAll(context, tracks),
-                    ),
-                    IconButton(
-                      tooltip: 'Lecture aléatoire',
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(Icons.shuffle_rounded,
-                          color: AppTheme.accentPrimary, size: 22),
-                      onPressed: () => playShuffled(context, tracks),
-                    ),
-                  ],
-                ],
-              ),
+              ],
             ),
-            const SizedBox(height: AppTheme.spacingS),
-            if (tracks.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-                child: Text(
-                  emptyMessage!,
-                  style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
-                ),
-              )
-            else
-              SizedBox(
-                height: 196,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-                  itemCount: tracks.length,
-                  itemBuilder: (context, index) {
-                    final track = tracks[index];
-                    return CompactTrackCard(
-                      track: track,
-                      badge: badgeBuilder?.call(track),
-                      onTap: () => openPlayer(context, track: track, tracks: tracks),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

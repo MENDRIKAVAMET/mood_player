@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 
 part 'track.g.dart';
@@ -127,6 +128,9 @@ extension MoodTypeExtension on MoodType {
     }
   }
 
+  /// Conservé pour les endroits qui affichent encore un caractère brut
+  /// (aucun, après le passage aux icônes Material — gardé au cas où un
+  /// texte narratif en aurait besoin).
   String get icon {
     switch (this) {
       case MoodType.energetic:
@@ -147,6 +151,32 @@ extension MoodTypeExtension on MoodType {
         return '😢';
       case MoodType.unknown:
         return '🎵';
+    }
+  }
+
+  /// Icône Material de l'ambiance — utilisée partout où l'app affichait
+  /// un emoji, pour un rendu cohérent avec le reste de l'UI (taille et
+  /// couleur pilotables, pas de variation de police selon l'appareil).
+  IconData get iconData {
+    switch (this) {
+      case MoodType.energetic:
+        return Icons.bolt_rounded;
+      case MoodType.chill:
+        return Icons.waves_rounded;
+      case MoodType.melancholic:
+        return Icons.water_drop_rounded;
+      case MoodType.festive:
+        return Icons.celebration_rounded;
+      case MoodType.romantic:
+        return Icons.favorite_rounded;
+      case MoodType.concentration:
+        return Icons.psychology_alt_rounded;
+      case MoodType.motivating:
+        return Icons.local_fire_department_rounded;
+      case MoodType.sad:
+        return Icons.cloud_rounded;
+      case MoodType.unknown:
+        return Icons.music_note_rounded;
     }
   }
 

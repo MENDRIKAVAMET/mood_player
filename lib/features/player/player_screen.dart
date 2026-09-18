@@ -671,9 +671,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
             ),
             child: Center(
-              child: Text(
-                _displayTrack.mood?.icon ?? '🎵',
-                style: const TextStyle(fontSize: 28),
+              child: Icon(
+                _displayTrack.mood?.iconData ?? Icons.music_note_rounded,
+                size: 24,
+                color: moodColors.primary,
               ),
             ),
           ),

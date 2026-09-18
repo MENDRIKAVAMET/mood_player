@@ -13,9 +13,10 @@ class CustomMood {
   @Index()
   late String name;
 
-  /// Emoji shown as the mood's icon (kept simple - no icon-picker asset
-  /// pipeline needed).
-  String icon = '🎵';
+  /// Clé d'icône Material (voir [MoodIcons]) — les moods créés avant ce
+  /// changement peuvent encore contenir un glyphe emoji ; [MoodIcons]
+  /// sait convertir les deux.
+  String icon = 'music';
 
   /// ARGB color value used to theme the mood's cards/screen.
   int colorValue = 0xFF7C6CFF;

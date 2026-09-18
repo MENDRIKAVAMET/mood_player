@@ -197,9 +197,10 @@ class MoodDetailScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
             ),
             child: Center(
-              child: Text(
-                mood.icon,
-                style: const TextStyle(fontSize: 28),
+              child: Icon(
+                mood.iconData,
+                size: 24,
+                color: moodColors.primary,
               ),
             ),
           ),
@@ -258,9 +259,10 @@ class MoodDetailScreen extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Center(
-              child: Text(
-                mood.icon,
-                style: const TextStyle(fontSize: 40),
+              child: Icon(
+                mood.iconData,
+                size: 36,
+                color: moodColors.primary,
               ),
             ),
           ),

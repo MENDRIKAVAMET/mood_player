@@ -176,11 +176,22 @@ class _TrackTileState extends State<TrackTile> {
                                 color: moodColors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(AppTheme.radiusS),
                               ),
-                              child: Text(
-                                '${track.mood?.icon ?? ''} ${track.moodDisplayName}',
-                                style: AppTheme.labelSmall.copyWith(
-                                  color: moodColors.primary,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    track.mood?.iconData ?? Icons.music_note_rounded,
+                                    size: 11,
+                                    color: moodColors.primary,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    track.moodDisplayName,
+                                    style: AppTheme.labelSmall.copyWith(
+                                      color: moodColors.primary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: AppTheme.spacingS),

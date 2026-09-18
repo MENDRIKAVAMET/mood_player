@@ -73,6 +73,31 @@ class CompactTrackCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                    // Médaillon lecture, plaqué à cheval sur le coin —
+                    // même emplacement que les cartes "Recommandé" /
+                    // "Dernier Ajout" de référence, plutôt qu'un badge
+                    // texte seul.
+                    Positioned(
+                      right: AppTheme.spacingS,
+                      bottom: AppTheme.spacingS,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withValues(alpha: 0.55),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

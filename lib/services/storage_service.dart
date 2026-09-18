@@ -326,7 +326,7 @@ class StorageService {
   /// Create a new custom mood
   Future<CustomMood> createCustomMood({
     required String name,
-    String icon = '🎵',
+    String icon = 'music',
     int colorValue = 0xFF7C6CFF,
   }) async {
     final isar = await _getIsar();

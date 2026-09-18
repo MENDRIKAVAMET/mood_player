@@ -4,6 +4,7 @@ import '../../models/custom_mood.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/mood_icons.dart';
 import '../../widgets/add_tracks_to_mood_sheet.dart';
 import '../../widgets/mood_editor_dialog.dart';
 import '../player/player_screen.dart';
@@ -152,7 +153,7 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
                   color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
-                child: Center(child: Text(mood.icon, style: const TextStyle(fontSize: 18))),
+                child: Center(child: Icon(MoodIcons.iconDataForKey(mood.icon), size: 18, color: color)),
               ),
               const SizedBox(width: AppTheme.spacingS),
               Expanded(

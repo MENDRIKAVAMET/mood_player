@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/custom_mood.dart';
 import '../theme/app_theme.dart';
+import '../theme/mood_icons.dart';
 
+/// Clés proposées dans le sélecteur, dans l'ordre d'affichage.
 const List<String> kMoodIconChoices = [
-  '🎵', '🔥', '💤', '😢', '🎉', '💖', '🧠', '💪',
-  '🌙', '⚡', '🎧', '🌸', '☀️', '🌧️', '🚗', '📚',
+  'music', 'fire', 'sleep', 'sad', 'party', 'heart', 'brain', 'strength',
+  'moon', 'bolt', 'headphones', 'flower', 'sun', 'rain', 'car', 'book',
 ];
 
 const List<int> kMoodColorChoices = [
@@ -28,7 +30,7 @@ Future<(String name, String icon, int colorValue)?> showMoodEditorDialog(
   CustomMood? existing,
 }) {
   final controller = TextEditingController(text: existing?.name ?? '');
-  String selectedIcon = existing?.icon ?? kMoodIconChoices.first;
+  String selectedIcon = existing?.icon ?? MoodIcons.defaultKey;
   int selectedColor = existing?.colorValue ?? kMoodColorChoices.first;
 
   return showDialog<(String, String, int)>(
@@ -72,23 +74,29 @@ Future<(String name, String icon, int colorValue)?> showMoodEditorDialog(
                     spacing: AppTheme.spacingS,
                     runSpacing: AppTheme.spacingS,
                     children: [
-                      for (final icon in kMoodIconChoices)
+                      for (final iconKey in kMoodIconChoices)
                         GestureDetector(
-                          onTap: () => setState(() => selectedIcon = icon),
+                          onTap: () => setState(() => selectedIcon = iconKey),
                           child: Container(
                             width: 40,
                             height: 40,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: icon == selectedIcon
+                              color: iconKey == selectedIcon
                                   ? Color(selectedColor).withValues(alpha: 0.25)
                                   : AppTheme.backgroundCard,
                               borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                              border: icon == selectedIcon
+                              border: iconKey == selectedIcon
                                   ? Border.all(color: Color(selectedColor), width: 1.5)
                                   : null,
                             ),
-                            child: Text(icon, style: const TextStyle(fontSize: 18)),
+                            child: Icon(
+                              MoodIcons.iconDataForKey(iconKey),
+                              size: 20,
+                              color: iconKey == selectedIcon
+                                  ? Color(selectedColor)
+                                  : AppTheme.textSecondary,
+                            ),
                           ),
                         ),
                     ],
