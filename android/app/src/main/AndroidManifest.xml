@@ -33,7 +33,7 @@
         tools:ignore="ScopedStorage"/>
 
     <application
-        android:label="mood_player"
+        android:label="Mood Player"
         android:name=".CrashHandlerApplication"
         android:icon="@mipmap/ic_launcher">
         <activity

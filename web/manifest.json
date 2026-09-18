@@ -1,6 +1,6 @@
 {
-    "name": "mood_player",
-    "short_name": "mood_player",
+    "name": "Mood Player",
+    "short_name": "Mood Player",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
