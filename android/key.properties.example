@@ -1,0 +1,8 @@
+# Copie ce fichier en "key.properties" (même dossier, sans le .example),
+# et remplis-le avec tes vraies valeurs. NE JAMAIS commiter le fichier
+# "key.properties" ni le fichier .jks/.keystore qu'il pointe : les deux
+# ensemble permettent de signer des mises à jour à ta place.
+storePassword=motdepasse_du_keystore
+keyPassword=motdepasse_de_la_cle
+keyAlias=upload
+storeFile=/chemin/absolu/vers/mood-player-release.jks

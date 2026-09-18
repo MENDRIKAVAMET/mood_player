@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'track_artwork.dart';
@@ -316,26 +314,6 @@ class _AlbumArt extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            moodColors.primary.withValues(alpha: 0.35),
-            moodColors.secondary.withValues(alpha: 0.15),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Text(
-          track.mood?.icon ?? '🎵',
-          style: const TextStyle(fontSize: 26),
-        ),
-      ),
-    );
-  }
 }
 
 /// Small live-looking equalizer made of three bars animating in a loop —

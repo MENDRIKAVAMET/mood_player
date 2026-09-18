@@ -163,7 +163,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        error: (_, __) => const _EmptyState(
+        error: (_, _) => const _EmptyState(
           icon: Icons.wifi_off_rounded,
           message: "Impossible de récupérer les paroles pour l'instant.",
         ),

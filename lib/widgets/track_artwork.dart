@@ -50,7 +50,7 @@ class TrackArtwork extends StatelessWidget {
         return Image.network(
           cover,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(),
+          errorBuilder: (_, _, _) => _placeholder(),
         );
       }
 
@@ -62,7 +62,7 @@ class TrackArtwork extends StatelessWidget {
         fit: BoxFit.cover,
         // Évite de décoder une image 512px pour une vignette de 56px.
         cacheWidth: (size * 3).round().clamp(64, 1024),
-        errorBuilder: (_, __, ___) => _placeholder(),
+        errorBuilder: (_, _, _) => _placeholder(),
       );
     }
 
