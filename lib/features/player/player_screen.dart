@@ -9,6 +9,7 @@ import '../../widgets/track_artwork.dart';
 import '../../theme/mood_colors.dart';
 import 'queue_screen.dart';
 import 'lyrics_screen.dart';
+import '../../widgets/track_options_sheet.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final Track track;
@@ -743,53 +744,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   void _showOptionsSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.backgroundSecondary,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppTheme.radiusXL),
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(top: AppTheme.spacingM),
-                decoration: BoxDecoration(
-                  color: AppTheme.textTertiary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: AppTheme.spacingL),
-              ListTile(
-                leading: const Icon(Icons.queue_music_rounded),
-                title: Text('Voir la file d\'attente', style: AppTheme.bodyLarge),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showQueueScreen();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.playlist_add_rounded),
-                title: Text('Ajouter à une playlist', style: AppTheme.bodyLarge),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                leading: const Icon(Icons.share_rounded),
-                title: Text('Partager', style: AppTheme.bodyLarge),
-                onTap: () => Navigator.pop(context),
-              ),
-              const SizedBox(height: AppTheme.spacingM),
-            ],
-          ),
-        ),
-      ),
+    showTrackOptionsSheet(
+      context,
+      ref,
+      _displayTrack,
+      onShowQueue: _showQueueScreen,
     );
   }
 }

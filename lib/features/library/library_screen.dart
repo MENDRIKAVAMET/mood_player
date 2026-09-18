@@ -11,6 +11,7 @@ import '../../utils/playback_navigation.dart';
 import '../../widgets/classify_progress_banner.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/track_tile.dart';
+import '../../widgets/track_options_sheet.dart';
 import '../search/search_screen.dart';
 
 /// Onglet « Bibliothèque » : uniquement la liste complète des morceaux.
@@ -176,6 +177,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                           track: track,
                           tracks: trackState.filteredTracks,
                         ),
+                        onMore: () => showTrackOptionsSheet(context, ref, track),
                       );
                     },
                     childCount: trackState.filteredTracks.length,

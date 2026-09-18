@@ -6,6 +6,7 @@ import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/track_tile.dart';
+import '../../widgets/track_options_sheet.dart';
 
 /// Recherche en plein écran, en remplacement de l'ancienne boîte de
 /// dialogue : une vraie page laisse la place à un historique de
@@ -125,6 +126,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 _commitSearch(_query);
                                 openPlayer(context, track: track, tracks: results);
                               },
+                              onMore: () => showTrackOptionsSheet(context, ref, track),
                             );
                           },
                         ),

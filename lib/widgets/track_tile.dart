@@ -14,6 +14,7 @@ class TrackTile extends StatefulWidget {
   final Track track;
   final VoidCallback onTap;
   final VoidCallback? onPlay;
+  final VoidCallback? onMore;
   final bool isPlaying;
   final int index;
 
@@ -22,6 +23,7 @@ class TrackTile extends StatefulWidget {
     required this.track,
     required this.onTap,
     this.onPlay,
+    this.onMore,
     this.isPlaying = false,
     this.index = 0,
   });
@@ -259,6 +261,24 @@ class _TrackTileState extends State<TrackTile> {
                           size: 20,
                         ),
                       ),
+                    ),
+                  ),
+                ),
+
+              // Three-dot options button
+              if (widget.onMore != null)
+                GestureDetector(
+                  onTap: widget.onMore,
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacingXS,
+                      vertical: AppTheme.spacingS,
+                    ),
+                    child: Icon(
+                      Icons.more_vert_rounded,
+                      size: 20,
+                      color: AppTheme.textTertiary,
                     ),
                   ),
                 ),

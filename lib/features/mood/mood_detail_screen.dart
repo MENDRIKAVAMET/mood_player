@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../models/track.dart';
 import '../../widgets/track_tile.dart';
+import '../../widgets/track_options_sheet.dart';
 import '../player/player_screen.dart';
 
 /// Detailed mood screen showing all tracks for a specific mood
-class MoodDetailScreen extends StatelessWidget {
+class MoodDetailScreen extends ConsumerWidget {
   final MoodType mood;
   final List<Track> tracks;
 
@@ -18,7 +20,7 @@ class MoodDetailScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final moodColors = MoodColors.forMood(mood);
 
     return Scaffold(
@@ -145,6 +147,7 @@ class MoodDetailScreen extends StatelessWidget {
                                 ),
                               );
                             },
+                            onMore: () => showTrackOptionsSheet(context, ref, track),
                           );
                         },
                       ),

@@ -9,6 +9,7 @@ import '../../services/import_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/mood_card.dart';
 import '../../widgets/track_tile.dart';
+import '../../widgets/track_options_sheet.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/mini_player.dart';
 import '../../widgets/classify_progress_banner.dart';
@@ -218,6 +219,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   isPlaying: isPlaying,
                                   onTap: () => _playTrack(track),
                                   onPlay: () => _playTrack(track),
+                                  onMore: () => showTrackOptionsSheet(context, ref, track),
                                 );
                               },
                               childCount: trackState.filteredTracks.length,
