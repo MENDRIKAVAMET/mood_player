@@ -7,6 +7,7 @@ import '../../providers/lyrics_provider.dart';
 import '../../services/lyrics_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
+import 'lyrics_search_screen.dart';
 
 /// How much one tap of the sync buttons shifts the lyrics. 300ms is small
 /// enough to fine-tune without overshooting, big enough to feel like it
@@ -25,7 +26,8 @@ class LyricsScreen extends ConsumerStatefulWidget {
   ConsumerState<LyricsScreen> createState() => _LyricsScreenState();
 }
 
-class _LyricsScreenState extends ConsumerState<LyricsScreen> {
+class _LyricsScreenState extends ConsumerState<LyricsScreen>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   int _lastActiveIndex = -1;
 
@@ -37,10 +39,31 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
   /// Accès à tous les fichiers accordé ? Null tant qu'on n'a pas vérifié.
   bool? _hasFileAccess;
 
+  /// True entre le moment où on ouvre l'écran système "Accès à tous les
+  /// fichiers" et le retour de l'utilisateur dans l'app.
+  ///
+  /// Nécessaire parce que `Permission.manageExternalStorage.request()`
+  /// n'attend pas vraiment que l'utilisateur bascule le réglage : cet
+  /// écran système n'est pas une boîte de dialogue de permission normale,
+  /// Android ne renvoie donc pas de résultat à `permission_handler`, et
+  /// son Future se termine avant que la permission soit réellement
+  /// accordée. La seule façon fiable de savoir ce qui s'est passé est de
+  /// revérifier la permission quand l'app redevient active.
+  bool _awaitingFileAccessResume = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkFileAccess();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _awaitingFileAccessResume) {
+      _awaitingFileAccessResume = false;
+      _recheckFileAccessAfterSettings();
+    }
   }
 
   Future<void> _checkFileAccess() async {
@@ -49,7 +72,15 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
   }
 
   Future<void> _requestFileAccess() async {
-    final granted = await LyricsService.requestAllFilesAccess();
+    _awaitingFileAccessResume = true;
+    // Ouvre l'écran système. On ignore volontairement la valeur renvoyée
+    // (voir la note sur `_awaitingFileAccessResume`) : la vérité vient de
+    // `_recheckFileAccessAfterSettings`, appelé au retour dans l'app.
+    await LyricsService.requestAllFilesAccess();
+  }
+
+  Future<void> _recheckFileAccessAfterSettings() async {
+    final granted = await LyricsService.hasAllFilesAccess();
     if (!mounted) return;
     setState(() => _hasFileAccess = granted);
     if (granted) {
@@ -60,6 +91,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     super.dispose();
   }
@@ -116,6 +148,18 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
         );
   }
 
+  Future<void> _openSearch() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LyricsSearchScreen(track: widget.track),
+      ),
+    );
+    // Au retour, même sans import (l'utilisateur a juste regardé), pas de
+    // souci à revalider : le provider garde son cache si rien n'a changé.
+    if (mounted) ref.invalidate(lyricsProvider(lyricsKeyFor(widget.track)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final moodColors = MoodColors.forMood(widget.track.mood);
@@ -143,6 +187,15 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
         ),
         centerTitle: true,
         actions: [
+          // Toujours disponible : les paroles trouvées automatiquement
+          // peuvent être fausses (mauvaise version, mauvais artiste...),
+          // l'utilisateur doit pouvoir corriger à la main à tout moment,
+          // pas seulement quand rien n'a été trouvé.
+          IconButton(
+            icon: const Icon(Icons.search_rounded),
+            tooltip: 'Rechercher les paroles',
+            onPressed: () => _openSearch(),
+          ),
           // Only meaningful for synced lyrics, so it's enabled below once
           // we know we actually have some.
           if (lyricsAsync.valueOrNull?.hasSynced == true)
@@ -188,19 +241,38 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
             return Column(
               children: [
                 Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.spacingL, vertical: 200),
-                    itemCount: lines.length,
-                    itemExtent: 64,
-                    itemBuilder: (context, index) {
-                      return _KaraokeLine(
-                        text: lines[index].text,
-                        isActive: index == activeIndex,
-                        isPast: index < activeIndex,
-                        progress: index == activeIndex ? progress : 0,
-                        color: moodColors.primary,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Padding vertical fixe habituel (200) pour garder
+                      // l'effet "focus" pendant le défilement des longues
+                      // paroles - mais si le morceau est court et que tout
+                      // tient sur l'écran, ça laisse le texte collé en
+                      // haut au lieu d'être centré. On agrandit alors le
+                      // padding pour centrer réellement le contenu.
+                      const itemExtent = 64.0;
+                      final contentHeight = lines.length * itemExtent;
+                      final extraPadding =
+                          (constraints.maxHeight - contentHeight) / 2;
+                      final verticalPadding =
+                          extraPadding > 200 ? extraPadding : 200.0;
+
+                      return ListView.builder(
+                        controller: _scrollController,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppTheme.spacingL,
+                          vertical: verticalPadding,
+                        ),
+                        itemCount: lines.length,
+                        itemExtent: itemExtent,
+                        itemBuilder: (context, index) {
+                          return _KaraokeLine(
+                            text: lines[index].text,
+                            isActive: index == activeIndex,
+                            isPast: index < activeIndex,
+                            progress: index == activeIndex ? progress : 0,
+                            color: moodColors.primary,
+                          );
+                        },
                       );
                     },
                   ),
@@ -226,16 +298,34 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
           }
 
           if (result.plain != null && result.plain!.isNotEmpty) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(AppTheme.spacingL),
-              child: Text(
-                result.plain!,
-                textAlign: TextAlign.center,
-                style: AppTheme.bodyLarge.copyWith(
-                  color: AppTheme.textPrimary.withValues(alpha: 0.85),
-                  height: 1.8,
-                ),
-              ),
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppTheme.spacingL),
+                  child: ConstrainedBox(
+                    // Force le contenu à occuper au moins toute la
+                    // hauteur visible : quand le texte est plus court que
+                    // l'écran, le Center ci-dessous peut alors vraiment
+                    // centrer verticalement au lieu de rester collé en
+                    // haut. Quand le texte est plus long, ce minimum n'a
+                    // aucun effet et le défilement normal reprend.
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight -
+                          (AppTheme.spacingL * 2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        result.plain!,
+                        textAlign: TextAlign.center,
+                        style: AppTheme.bodyLarge.copyWith(
+                          color: AppTheme.textPrimary.withValues(alpha: 0.85),
+                          height: 1.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             );
           }
 
@@ -253,7 +343,10 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                     label: "Autoriser l'accès aux fichiers",
                     onPressed: _requestFileAccess,
                   )
-                : null,
+                : _EmptyStateAction(
+                    label: 'Rechercher les paroles',
+                    onPressed: _openSearch,
+                  ),
           );
         },
       ),

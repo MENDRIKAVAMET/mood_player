@@ -42,6 +42,50 @@ class LyricsResult {
   bool get hasAny => hasSynced || (plain != null && plain!.isNotEmpty) || instrumental;
 }
 
+/// One candidate returned by a manual lyrics search - the user picks one
+/// of these and imports it, exactly like Muso Player's "search and pick"
+/// flow when the automatic lookup comes up empty.
+class LyricsSearchResult {
+  final String trackName;
+  final String artistName;
+  final String? albumName;
+  final int? durationSeconds;
+  final String? syncedLyrics;
+  final String? plainLyrics;
+  final bool instrumental;
+
+  const LyricsSearchResult({
+    required this.trackName,
+    required this.artistName,
+    this.albumName,
+    this.durationSeconds,
+    this.syncedLyrics,
+    this.plainLyrics,
+    this.instrumental = false,
+  });
+
+  bool get hasSynced => syncedLyrics != null && syncedLyrics!.isNotEmpty;
+  bool get hasPlain => plainLyrics != null && plainLyrics!.isNotEmpty;
+  bool get hasAny => hasSynced || hasPlain || instrumental;
+
+  /// Aperçu (quelques lignes) affiché dans la liste de résultats, pour que
+  /// l'utilisateur puisse choisir le bon sans tout lire.
+  String get preview {
+    final raw = hasSynced
+        ? (syncedLyrics!.split('\n')
+            ..removeWhere((l) => l.trim().isEmpty))
+        : hasPlain
+            ? plainLyrics!.split('\n')
+            : const <String>[];
+    final cleaned = raw
+        .map((l) => l.replaceAll(RegExp(r'\[[^\]]*\]'), '').trim())
+        .where((l) => l.isNotEmpty)
+        .take(3)
+        .join(' · ');
+    return cleaned.isEmpty ? '' : cleaned;
+  }
+}
+
 /// Looks up song lyrics from lrclib.net - a free, keyless, community-run
 /// lyrics database built specifically for synced (LRC) lyrics, which is
 /// exactly what a karaoke-style line highlight needs. No API key, no
@@ -66,6 +110,19 @@ class LyricsService {
     String? filePath,
   }) async {
     final trackKey = '$artist - $title';
+
+    // Ce que l'utilisateur a importé lui-même via la recherche manuelle
+    // passe avant tout le reste : c'est un choix explicite, il ne doit
+    // jamais être écrasé par une recherche automatique qui trouverait
+    // (mal) autre chose.
+    final imported = await _readImported(trackKey);
+    if (imported != null) {
+      if (imported.offset == Duration.zero) {
+        final stored = await loadStoredOffset(trackKey);
+        if (stored != null) return imported.copyWith(offset: stored);
+      }
+      return imported;
+    }
 
     // A .lrc sitting next to the audio file is the user's own copy - it
     // wins over anything online, and it's also the file we write timing
@@ -298,6 +355,116 @@ class LyricsService {
     );
 
     return _parseResponseMap(_asMap(withSynced));
+  }
+
+  /// Recherche manuelle : renvoie tous les candidats trouvés par lrclib
+  /// pour ce couple titre/artiste (fournis par l'utilisateur, pas
+  /// forcément identiques aux tags du fichier), pour que l'utilisateur
+  /// choisisse lui-même le bon plutôt que de subir le premier résultat.
+  Future<List<LyricsSearchResult>> search({
+    required String title,
+    required String artist,
+  }) async {
+    try {
+      final response = await _dio.get('$_baseUrl/search', queryParameters: {
+        'track_name': title,
+        'artist_name': artist,
+      });
+      if (response.statusCode != 200) return const [];
+
+      final decoded = response.data;
+      final list = decoded is String ? jsonDecode(decoded) : decoded;
+      if (list is! List) return const [];
+
+      return list
+          .whereType<Map>()
+          .map((raw) => _toSearchResult(Map<String, dynamic>.from(raw)))
+          .where((r) => r.hasAny)
+          .toList();
+    } catch (_) {
+      // Pas de réseau, réponse inattendue... on renvoie une liste vide,
+      // l'écran affichera "aucun résultat" plutôt que de planter.
+      return const [];
+    }
+  }
+
+  LyricsSearchResult _toSearchResult(Map<String, dynamic> map) {
+    final durationRaw = map['duration'];
+    return LyricsSearchResult(
+      trackName: (map['trackName'] as String?) ?? '',
+      artistName: (map['artistName'] as String?) ?? '',
+      albumName: map['albumName'] as String?,
+      durationSeconds: durationRaw is num ? durationRaw.round() : null,
+      syncedLyrics: map['syncedLyrics'] as String?,
+      plainLyrics: map['plainLyrics'] as String?,
+      instrumental: map['instrumental'] == true,
+    );
+  }
+
+  /// Importe le résultat choisi par l'utilisateur : il devient les paroles
+  /// de ce morceau, avec la priorité maximale (voir [fetch]).
+  Future<void> importResult({
+    required String trackKey,
+    required LyricsSearchResult result,
+  }) async {
+    final imports = await _loadImports();
+    imports[trackKey] = {
+      'syncedLyrics': result.syncedLyrics,
+      'plainLyrics': result.plainLyrics,
+      'instrumental': result.instrumental,
+    };
+    _importCache = imports;
+    try {
+      final file = await _importsFile();
+      await file.writeAsString(jsonEncode(imports));
+    } catch (_) {
+      // Le cache mémoire tient bon pour la session en cours même si
+      // l'écriture disque échoue.
+    }
+  }
+
+  /// Supprime l'import manuel d'un morceau (ex: l'utilisateur veut
+  /// remplacer son choix par un nouveau résultat).
+  Future<void> clearImport(String trackKey) async {
+    final imports = await _loadImports();
+    imports.remove(trackKey);
+    _importCache = imports;
+    try {
+      final file = await _importsFile();
+      await file.writeAsString(jsonEncode(imports));
+    } catch (_) {}
+  }
+
+  Future<LyricsResult?> _readImported(String trackKey) async {
+    final imports = await _loadImports();
+    final raw = imports[trackKey];
+    if (raw == null) return null;
+    final map = Map<String, dynamic>.from(raw as Map);
+    final result = _parseResponseMap(map);
+    return result.hasAny ? result : null;
+  }
+
+  static Map<String, dynamic>? _importCache;
+
+  Future<File> _importsFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/lyrics_imports.json');
+  }
+
+  Future<Map<String, dynamic>> _loadImports() async {
+    if (_importCache != null) return _importCache!;
+    try {
+      final file = await _importsFile();
+      if (await file.exists()) {
+        _importCache =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      } else {
+        _importCache = <String, dynamic>{};
+      }
+    } catch (_) {
+      _importCache = <String, dynamic>{};
+    }
+    return _importCache!;
   }
 
   Map<String, dynamic> _asMap(dynamic data) {    if (data is Map<String, dynamic>) return data;

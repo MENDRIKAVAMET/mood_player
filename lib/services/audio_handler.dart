@@ -606,7 +606,12 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   @override
   Future<void> onTaskRemoved() async {
-    await stop();
+    // Fermer l'app depuis les tâches récentes (swipe) ne doit pas couper
+    // la lecture net : au retour dans l'app, l'utilisateur doit retrouver
+    // le même morceau, juste en pause - pas un lecteur vide. `stop()`
+    // décharge complètement la source audio ; `pause()` garde le morceau
+    // (et sa position) chargés, ce qui est ce qu'on veut ici.
+    await pause();
     await super.onTaskRemoved();
   }
 

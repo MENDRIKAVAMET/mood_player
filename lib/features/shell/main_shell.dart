@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
@@ -27,6 +28,9 @@ class MainShell extends ConsumerStatefulWidget {
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
   StreamSubscription<(int, bool)>? _likeChangedSub;
+
+  static const _navigationChannel =
+      MethodChannel('com.example.mood_player/navigation');
 
   static const List<Widget> _screens = [
     LibraryScreen(),
@@ -57,12 +61,34 @@ class _MainShellState extends ConsumerState<MainShell> {
     super.dispose();
   }
 
+  /// Renvoie la tâche en arrière-plan (comme le bouton Accueil) au lieu
+  /// de laisser le bouton retour tuer l'app depuis cet écran racine.
+  Future<void> _moveToBackground() async {
+    try {
+      await _navigationChannel.invokeMethod('moveTaskToBack');
+    } catch (_) {
+      // Si l'appel natif échoue pour une raison ou une autre, mieux vaut
+      // ne rien faire (l'app reste ouverte) que risquer une fermeture
+      // brutale non maîtrisée.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentTrack = ref.watch(currentTrackProvider);
     final mediaItem = currentTrack.valueOrNull;
 
-    return Scaffold(
+    return PopScope(
+      // MainShell est la racine de l'app : il n'y a rien "en dessous" à
+      // afficher si on laisse le pop se faire, ça fermerait l'app. On
+      // intercepte donc systématiquement et on redirige vers un simple
+      // retour en arrière-plan.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _moveToBackground();
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Stack(
         children: [
@@ -117,6 +143,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

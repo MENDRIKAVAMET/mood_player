@@ -16,6 +16,7 @@ import java.io.File
 
 class MainActivity : AudioServiceFragmentActivity() {
     private val crashLogChannelName = "com.example.mood_player/crash_log"
+    private val navigationChannelName = "com.example.mood_player/navigation"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -33,6 +34,24 @@ class MainActivity : AudioServiceFragmentActivity() {
                     }
                     "clearCrashLog" -> {
                         if (file.exists()) file.delete()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // Le bouton retour système, à la racine de l'app (rien à dépiler
+        // côté Navigator Flutter), ne doit pas fermer l'app comme le
+        // ferait un `finish()` classique : on veut le même effet que le
+        // bouton Accueil, qui renvoie juste la tâche en arrière-plan sans
+        // tuer l'Activity ni interrompre la lecture en cours. On gère ça
+        // nous-mêmes plutôt que de compter sur le comportement par défaut
+        // de Flutter, pour être sûr que ça marche sur tous les appareils.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, navigationChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "moveTaskToBack" -> {
+                        moveTaskToBack(true)
                         result.success(null)
                     }
                     else -> result.notImplemented()
