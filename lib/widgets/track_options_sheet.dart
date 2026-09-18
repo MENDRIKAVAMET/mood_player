@@ -5,7 +5,6 @@ import 'package:cross_file/cross_file.dart';
 import '../models/track.dart';
 import '../models/playlist.dart';
 import '../providers/providers.dart';
-import '../providers/audio_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Shows the "..." options sheet for a single [track]. Shared between
