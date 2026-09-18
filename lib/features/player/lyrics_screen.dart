@@ -34,6 +34,30 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
   Duration? _offset;
   bool _showSyncControls = false;
 
+  /// Accès à tous les fichiers accordé ? Null tant qu'on n'a pas vérifié.
+  bool? _hasFileAccess;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFileAccess();
+  }
+
+  Future<void> _checkFileAccess() async {
+    final granted = await LyricsService.hasAllFilesAccess();
+    if (mounted) setState(() => _hasFileAccess = granted);
+  }
+
+  Future<void> _requestFileAccess() async {
+    final granted = await LyricsService.requestAllFilesAccess();
+    if (!mounted) return;
+    setState(() => _hasFileAccess = granted);
+    if (granted) {
+      // Relance la recherche : les .lrc du téléphone sont enfin lisibles.
+      ref.invalidate(lyricsProvider(lyricsKeyFor(widget.track)));
+    }
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -215,9 +239,21 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
             );
           }
 
-          return const _EmptyState(
+          return _EmptyState(
             icon: Icons.lyrics_outlined,
-            message: "Paroles introuvables pour ce morceau.",
+            message: _hasFileAccess == false
+                ? "Aucune parole trouvée en ligne, et l'app n'a pas encore le "
+                    "droit de lire les fichiers .lrc de ton téléphone.\n\n"
+                    "Android ne considère pas un .lrc comme un fichier "
+                    "musical : la permission « musique » ne suffit pas, il "
+                    "faut l'accès à tous les fichiers."
+                : "Paroles introuvables pour ce morceau.",
+            action: _hasFileAccess == false
+                ? _EmptyStateAction(
+                    label: "Autoriser l'accès aux fichiers",
+                    onPressed: _requestFileAccess,
+                  )
+                : null,
           );
         },
       ),
@@ -425,11 +461,20 @@ class _SyncButton extends StatelessWidget {
   }
 }
 
+/// Bouton optionnel affiché sous un message d'état vide.
+class _EmptyStateAction {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _EmptyStateAction({required this.label, required this.onPressed});
+}
+
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
+  final _EmptyStateAction? action;
 
-  const _EmptyState({required this.icon, required this.message});
+  const _EmptyState({required this.icon, required this.message, this.action});
 
   @override
   Widget build(BuildContext context) {
@@ -446,6 +491,17 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
             ),
+            if (action != null) ...[
+              const SizedBox(height: AppTheme.spacingL),
+              FilledButton(
+                onPressed: action!.onPressed,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.accentPrimary,
+                  foregroundColor: AppTheme.textPrimary,
+                ),
+                child: Text(action!.label),
+              ),
+            ],
           ],
         ),
       ),

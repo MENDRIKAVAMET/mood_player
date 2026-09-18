@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/lyric_line.dart';
 
 /// Result of a lyrics lookup: synced (line-by-line timestamped) lyrics
@@ -69,7 +70,7 @@ class LyricsService {
     // A .lrc sitting next to the audio file is the user's own copy - it
     // wins over anything online, and it's also the file we write timing
     // offsets back to.
-    final local = await _readLocalLrc(filePath);
+    final local = await _readLocalLrc(filePath, title: title, artist: artist);
     if (local != null) {
       // A stored offset only applies when the .lrc itself carries none
       // (i.e. we couldn't write to the file and fell back to our store).
@@ -96,31 +97,163 @@ class LyricsService {
     }
   }
 
-  /// Looks for a `.lrc` file alongside the track's audio file (same
-  /// directory, same base name) and parses it if present.
-  Future<LyricsResult?> _readLocalLrc(String? filePath) async {
+  /// L'app a-t-elle le droit de lire des fichiers non-média (donc les
+  /// `.lrc`) sur le stockage partagé ?
+  ///
+  /// Sur Android 11+, la permission audio ne suffit pas : un `.lrc` n'est
+  /// pas un fichier média aux yeux du système, et `File.readAsString()`
+  /// échoue même sur un fichier posé juste à côté du MP3.
+  static Future<bool> hasAllFilesAccess() async {
+    if (!Platform.isAndroid) return true;
+    return await Permission.manageExternalStorage.isGranted;
+  }
+
+  /// Ouvre l'écran système « Accès à tous les fichiers ». Renvoie true si
+  /// l'utilisateur a accordé la permission.
+  static Future<bool> requestAllFilesAccess() async {
+    if (!Platform.isAndroid) return true;
+    final status = await Permission.manageExternalStorage.request();
+    return status.isGranted;
+  }
+
+  /// Dossiers où chercher des `.lrc` en plus du dossier du morceau.
+  ///
+  /// Beaucoup d'applis (et de sites de téléchargement) rangent les
+  /// paroles à part au lieu de les poser à côté du fichier audio. Chercher
+  /// uniquement `<même dossier>/<même nom>.lrc` rate tous ces cas — c'est
+  /// exactement pourquoi rien ne se trouvait.
+  static const _extraLyricsDirs = [
+    '/storage/emulated/0/Lyrics',
+    '/storage/emulated/0/Music/Lyrics',
+    '/storage/emulated/0/Download/Lyrics',
+    '/storage/emulated/0/Android/data/com.example.mood_player/files/Lyrics',
+  ];
+
+  /// Normalise un nom pour comparer « Bob Marley - War (Live).lrc » et
+  /// « bob_marley war live.mp3 » : minuscules, accents et ponctuation
+  /// retirés, espaces écrasés.
+  static String _normalize(String input) {
+    final lower = input.toLowerCase();
+    final buffer = StringBuffer();
+    for (final rune in lower.runes) {
+      final ch = String.fromCharCode(rune);
+      if (RegExp(r'[a-z0-9]').hasMatch(ch)) {
+        buffer.write(ch);
+      } else if ('àâäáãåÀÂÄ'.contains(ch)) {
+        buffer.write('a');
+      } else if ('éèêëÉÈÊË'.contains(ch)) {
+        buffer.write('e');
+      } else if ('îïíìÎÏ'.contains(ch)) {
+        buffer.write('i');
+      } else if ('ôöóòõÔÖ'.contains(ch)) {
+        buffer.write('o');
+      } else if ('ûüùúÛÜ'.contains(ch)) {
+        buffer.write('u');
+      }
+    }
+    return buffer.toString();
+  }
+
+  /// Cherche un `.lrc` correspondant au morceau.
+  ///
+  /// Trois passes, de la plus sûre à la plus permissive :
+  /// 1. même dossier, même nom de base (le cas standard) ;
+  /// 2. n'importe quel `.lrc` du même dossier dont le nom normalisé
+  ///    correspond au fichier, au titre, ou à « artiste titre » ;
+  /// 3. les dossiers de paroles dédiés listés ci-dessus.
+  Future<LyricsResult?> _readLocalLrc(
+    String? filePath, {
+    String? title,
+    String? artist,
+  }) async {
     if (filePath == null || filePath.isEmpty) return null;
+
     try {
       final lastDot = filePath.lastIndexOf('.');
       final base = lastDot > 0 ? filePath.substring(0, lastDot) : filePath;
+
+      // 1. Le cas évident.
       for (final candidate in ['$base.lrc', '$base.LRC']) {
-        final file = File(candidate);
-        if (await file.exists()) {
-          final content = await file.readAsString();
-          final lines = parseLrc(content);
-          if (lines.isEmpty) continue;
-          return LyricsResult(
-            synced: lines,
-            localPath: candidate,
-            offset: readLrcOffset(content),
-          );
-        }
+        final parsed = await _tryParseLrc(candidate);
+        if (parsed != null) return parsed;
+      }
+
+      // Noms acceptables, normalisés.
+      final lastSlash = filePath.lastIndexOf('/');
+      final dirPath = lastSlash > 0 ? filePath.substring(0, lastSlash) : null;
+      final fileStem = base.substring(base.lastIndexOf('/') + 1);
+
+      final targets = <String>{
+        _normalize(fileStem),
+        if (title != null && title.isNotEmpty) _normalize(title),
+        if (title != null && artist != null) _normalize('$artist $title'),
+        if (title != null && artist != null) _normalize('$title $artist'),
+      }..removeWhere((t) => t.length < 3);
+
+      // 2. Le dossier du morceau.
+      if (dirPath != null) {
+        final found = await _scanDirForLrc(dirPath, targets);
+        if (found != null) return found;
+      }
+
+      // 3. Les dossiers de paroles dédiés.
+      for (final dir in _extraLyricsDirs) {
+        final found = await _scanDirForLrc(dir, targets);
+        if (found != null) return found;
       }
     } catch (_) {
-      // Unreadable/permission-denied file - fall through to the online
-      // lookup rather than failing the whole screen.
+      // Dossier illisible, permission refusée : on bascule sur la
+      // recherche en ligne plutôt que de planter l'écran.
     }
     return null;
+  }
+
+  /// Parcourt un dossier (sans récursion) à la recherche d'un `.lrc` dont
+  /// le nom normalisé correspond à l'une des [targets].
+  Future<LyricsResult?> _scanDirForLrc(String dirPath, Set<String> targets) async {
+    if (targets.isEmpty) return null;
+    try {
+      final dir = Directory(dirPath);
+      if (!await dir.exists()) return null;
+
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final name = entity.path.split('/').last;
+        if (!name.toLowerCase().endsWith('.lrc')) continue;
+
+        final stem = _normalize(name.substring(0, name.length - 4));
+        if (stem.isEmpty) continue;
+
+        final matches = targets.any(
+          (t) => stem == t || stem.contains(t) || t.contains(stem),
+        );
+        if (!matches) continue;
+
+        final parsed = await _tryParseLrc(entity.path);
+        if (parsed != null) return parsed;
+      }
+    } catch (_) {
+      // Un dossier inaccessible ne doit pas interrompre les suivants.
+    }
+    return null;
+  }
+
+  /// Lit et parse un `.lrc` s'il existe et contient des lignes horodatées.
+  Future<LyricsResult?> _tryParseLrc(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return null;
+      final content = await file.readAsString();
+      final lines = parseLrc(content);
+      if (lines.isEmpty) return null;
+      return LyricsResult(
+        synced: lines,
+        localPath: path,
+        offset: readLrcOffset(content),
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<LyricsResult?> _getExact({

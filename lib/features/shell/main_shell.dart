@@ -104,6 +104,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       ..artist = item.artist ?? 'Artiste inconnu'
       ..album = (item.album?.isNotEmpty ?? false) ? item.album : null
       ..filePath = item.extras?['filePath'] as String?
+      ..coverUrl = item.extras?['coverUrl'] as String?
       ..moodIndex = item.extras?['mood'] != null
           ? MoodTypeExtension.fromString(item.extras!['mood'] as String).index
           : null

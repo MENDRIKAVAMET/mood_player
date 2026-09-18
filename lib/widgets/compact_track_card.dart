@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/track.dart';
 import '../theme/app_theme.dart';
-import '../theme/mood_colors.dart';
+import 'track_artwork.dart';
 
 /// Carte compacte utilisée dans les carrousels horizontaux de « Pour vous ».
 ///
@@ -26,8 +26,6 @@ class CompactTrackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final moodColors = MoodColors.forMood(track.mood);
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -48,14 +46,12 @@ class CompactTrackCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (track.coverUrl != null)
-                      Image.network(
-                        track.coverUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholder(moodColors),
-                      )
-                    else
-                      _placeholder(moodColors),
+                    TrackArtwork(
+                      track: track,
+                      size: 132,
+                      radius: AppTheme.radiusM,
+                      placeholderFontSize: 36,
+                    ),
                     if (badge != null)
                       Positioned(
                         left: AppTheme.spacingS,
@@ -99,27 +95,6 @@ class CompactTrackCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _placeholder(MoodColors moodColors) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            moodColors.primary.withValues(alpha: 0.4),
-            moodColors.secondary.withValues(alpha: 0.15),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Text(
-          track.mood?.icon ?? '🎵',
-          style: const TextStyle(fontSize: 36),
         ),
       ),
     );

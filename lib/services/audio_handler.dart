@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
@@ -441,6 +442,17 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
   }
 
+  /// Convertit une pochette (chemin local ou URL) en URI exploitable par
+  /// la notification média.
+  Uri? _artUriFor(String? cover) {
+    if (cover == null || cover.isEmpty) return null;
+    if (cover.startsWith('http://') || cover.startsWith('https://')) {
+      return Uri.tryParse(cover);
+    }
+    final file = File(cover);
+    return file.existsSync() ? Uri.file(cover) : null;
+  }
+
   MediaItem _trackToMediaItem(Track track) {
     return MediaItem(
       id: track.id.toString(),
@@ -450,9 +462,18 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       duration: track.duration != null
           ? Duration(milliseconds: track.duration!)
           : null,
+      // C'est ce champ, et lui seul, qui met la pochette sur l'écran
+      // verrouillé et dans la notification de lecture. Android exige une
+      // URI : le chemin local extrait des tags devient donc file://…,
+      // une URL http passe telle quelle.
+      artUri: _artUriFor(track.coverUrl),
       extras: {
         'filePath': track.filePath,
         'uri': track.uri,
+        // Transporté ici aussi : le mini-lecteur reconstruit un Track à
+        // partir du MediaItem, et artUri seul ne suffit pas à le lui
+        // redonner.
+        'coverUrl': track.coverUrl,
         'mood': track.mood?.displayName,
         'moodConfidence': track.moodConfidence,
       },
@@ -489,7 +510,12 @@ Future<MoodAudioHandler> initAudioService() async {
       // resource resolving to a null/0 id that caused
       // "Invalid notification (no valid small icon)" here before.
       androidNotificationIcon: 'mipmap/ic_notification',
-      notificationColor: Color(0xFF7C6CFF),
+      notificationColor: Color(0xFF8A00FF),
+      // Les pochettes extraites font 512 px ; les redescendre à 256 évite
+      // qu'Android recharge et redimensionne une grosse bitmap à chaque
+      // mise à jour de la notification.
+      artDownscaleWidth: 256,
+      artDownscaleHeight: 256,
       fastForwardInterval: Duration(seconds: 10),
       rewindInterval: Duration(seconds: 10),
     ),

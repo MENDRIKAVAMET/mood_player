@@ -5,6 +5,7 @@ import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../services/audio_handler.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/track_artwork.dart';
 import '../../theme/mood_colors.dart';
 import 'queue_screen.dart';
 import 'lyrics_screen.dart';
@@ -299,54 +300,33 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppTheme.radiusXL),
           boxShadow: [
-            // Color glow shadow - dynamic from cover art
+            // Halo coloré, teinté par la pochette elle-même.
             BoxShadow(
               color: dynamicGlow,
               blurRadius: 60,
               spreadRadius: -8,
               offset: const Offset(0, 16),
             ),
-            // Standard shadow
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 32,
               offset: const Offset(0, 8),
             ),
           ],
-          image: _displayTrack.coverUrl != null
-              ? DecorationImage(
-                  image: NetworkImage(_displayTrack.coverUrl!),
-                  fit: BoxFit.cover,
-                )
-              : null,
         ),
-        child: _displayTrack.coverUrl == null
-            ? Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      moodColors.primary.withValues(alpha: 0.3),
-                      moodColors.secondary.withValues(alpha: 0.2),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-                ),
-                child: Center(
-                  child: Text(
-                    _displayTrack.mood?.icon ?? '🎵',
-                    style: const TextStyle(fontSize: 80),
-                  ),
-                ),
-              )
-            : null,
+        child: TrackArtwork(
+          track: _displayTrack,
+          size: 280,
+          radius: AppTheme.radiusXL,
+          placeholderFontSize: 80,
+        ),
       ),
     ).animate().scale(
           duration: AppTheme.animVerySlow,
           curve: Curves.easeOutBack,
         );
   }
+
 
   Widget _buildTrackInfo(MoodColors moodColors) {
     return Padding(

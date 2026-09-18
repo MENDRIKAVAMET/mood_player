@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Required for network access (Gemini API, album covers) -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
@@ -18,6 +19,18 @@
          (audio_service). Without it the foreground media service can fail
          to start cleanly on newer targetSdk versions. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Lecture des fichiers .lrc rangés à côté de la musique.
+
+         READ_MEDIA_AUDIO ne donne accès qu'aux fichiers que MediaStore
+         indexe comme de l'audio. Un .lrc n'en est pas : sur Android 11+,
+         l'ouvrir avec un chemin direct lève une PathAccessException même
+         quand la permission audio est accordée. Le seul moyen de lire des
+         paroles posées dans /Music ou /Download est l'accès à tous les
+         fichiers, demandé uniquement quand l'utilisateur ouvre les
+         paroles et qu'aucun .lrc n'a pu être lu. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage"/>
 
     <application
         android:label="mood_player"

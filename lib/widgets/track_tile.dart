@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'track_artwork.dart';
 import '../theme/mood_colors.dart';
 import '../models/track.dart';
 
@@ -293,14 +294,12 @@ class _AlbumArt extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (track.coverUrl != null)
-              Image.network(
-                track.coverUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _placeholder(),
-              )
-            else
-              _placeholder(),
+            TrackArtwork(
+              track: track,
+              size: 56,
+              radius: AppTheme.radiusM,
+              placeholderFontSize: 24,
+            ),
 
             // Subtle inner border for definition against dark backgrounds.
             Container(

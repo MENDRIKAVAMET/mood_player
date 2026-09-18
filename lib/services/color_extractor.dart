@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:palette_generator/palette_generator.dart';
 
@@ -8,8 +9,16 @@ class ColorExtractor {
     if (imageUrl == null || imageUrl.isEmpty) return null;
 
     try {
+      // La pochette est le plus souvent un fichier local extrait des tags
+      // du morceau, pas une URL. NetworkImage échouait dessus en silence,
+      // et le lecteur retombait sur sa couleur par défaut.
+      final ImageProvider provider =
+          imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
+              ? NetworkImage(imageUrl)
+              : FileImage(File(imageUrl));
+
       final PaletteGenerator palette = await PaletteGenerator.fromImageProvider(
-        NetworkImage(imageUrl),
+        provider,
         size: const Size(200, 200),
         maximumColorCount: 10,
       );
@@ -28,8 +37,16 @@ class ColorExtractor {
     }
 
     try {
+      // La pochette est le plus souvent un fichier local extrait des tags
+      // du morceau, pas une URL. NetworkImage échouait dessus en silence,
+      // et le lecteur retombait sur sa couleur par défaut.
+      final ImageProvider provider =
+          imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
+              ? NetworkImage(imageUrl)
+              : FileImage(File(imageUrl));
+
       final PaletteGenerator palette = await PaletteGenerator.fromImageProvider(
-        NetworkImage(imageUrl),
+        provider,
         size: const Size(200, 200),
         maximumColorCount: 10,
       );

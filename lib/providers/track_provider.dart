@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import '../models/track.dart';
 import '../services/storage_service.dart';
 import '../services/groq_service.dart';
 import '../services/library_scan_service.dart';
+import '../services/artwork_service.dart';
 
 // Service providers
 final storageServiceProvider = Provider<StorageService>((ref) {
@@ -16,6 +20,10 @@ final groqServiceProvider = Provider<GroqService>((ref) {
 
 final libraryScanServiceProvider = Provider<LibraryScanService>((ref) {
   return LibraryScanService();
+});
+
+final artworkServiceProvider = Provider<ArtworkService>((ref) {
+  return ArtworkService();
 });
 
 /// Available ways to sort the track list.
@@ -123,9 +131,59 @@ class TrackNotifier extends StateNotifier<TrackState> {
   final StorageService _storageService;
   final GroqService _groqService;
   final LibraryScanService _libraryScanService;
+  final ArtworkService _artworkService;
 
-  TrackNotifier(this._storageService, this._groqService, this._libraryScanService)
-      : super(const TrackState());
+  TrackNotifier(
+    this._storageService,
+    this._groqService,
+    this._libraryScanService,
+    this._artworkService,
+  ) : super(const TrackState());
+
+  /// Extrait les pochettes encore absentes du cache, puis met à jour les
+  /// morceaux concernés par petits lots.
+  ///
+  /// Les mises à jour partent par paquets plutôt qu'une par une : un
+  /// `state = ...` par pochette sur 300 titres, c'est 300 reconstructions
+  /// de la liste, et l'écran devient inutilisable pendant la passe.
+  Future<void> _backfillArtwork(Map<String, int> mediaStoreIdByPath) async {
+    if (mediaStoreIdByPath.isEmpty) return;
+
+    final missing = <String, int>{};
+    for (final entry in mediaStoreIdByPath.entries) {
+      if (await _artworkService.cachedPath(entry.value) == null) {
+        missing[entry.key] = entry.value;
+      }
+    }
+    if (missing.isEmpty) return;
+
+    final pending = <Track>[];
+
+    Future<void> flush() async {
+      if (pending.isEmpty) return;
+      final batch = List<Track>.from(pending);
+      pending.clear();
+      await _storageService.saveTracks(batch);
+      if (!mounted) return;
+      await loadTracks();
+    }
+
+    for (final entry in missing.entries) {
+      final path = await _artworkService.extract(entry.value);
+      if (path == null) continue;
+      if (!mounted) return;
+
+      final track = state.tracks.firstWhereOrNull((t) => t.filePath == entry.key);
+      if (track == null) continue;
+
+      track.coverUrl = path;
+      pending.add(track);
+
+      if (pending.length >= 25) await flush();
+    }
+
+    await flush();
+  }
 
   /// Load all tracks from storage
   Future<void> loadTracks() async {
@@ -196,9 +254,21 @@ class TrackNotifier extends StateNotifier<TrackState> {
       final now = DateTime.now();
       final toSave = <Track>[];
 
+      // Le chemin d'un fichier ne permet pas de retrouver sa pochette :
+      // elle est dans les tags, et seul MediaStore sait l'en extraire, à
+      // partir de l'identifiant du morceau. On garde donc la
+      // correspondance chemin -> id pour la passe d'extraction qui suit.
+      final mediaStoreIdByPath = <String, int>{};
+
       for (final SongModel song in result.songs) {
         final filePath = song.data;
         if (filePath.isEmpty) continue;
+
+        mediaStoreIdByPath[filePath] = song.id;
+
+        // Pochette déjà extraite lors d'un scan précédent : simple test
+        // d'existence de fichier, aucun appel natif.
+        final cachedArt = await _artworkService.cachedPath(song.id);
 
         final existing = byFilePath[filePath];
         if (existing != null) {
@@ -212,6 +282,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
             ..album = song.album ?? existing.album
             ..duration = song.duration ?? existing.duration
             ..uri = song.uri ?? existing.uri
+            ..coverUrl = cachedArt ?? existing.coverUrl
             ..updatedAt = now;
           toSave.add(existing);
         } else {
@@ -238,6 +309,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
             ..filePath = filePath
             ..uri = song.uri
             ..duration = song.duration
+            ..coverUrl = cachedArt
             ..createdAt = createdAt
             ..updatedAt = now;
           toSave.add(track);
@@ -249,6 +321,12 @@ class TrackNotifier extends StateNotifier<TrackState> {
       }
 
       await loadTracks();
+
+      // Extraction des pochettes manquantes en tâche de fond : le premier
+      // scan d'une grosse bibliothèque prend un moment, et l'utilisateur
+      // n'a aucune raison d'attendre devant une liste vide pour ça. Les
+      // scans suivants ne repassent que sur les nouveautés.
+      unawaited(_backfillArtwork(mediaStoreIdByPath));
     } catch (e) {
       // Whatever went wrong during the scan itself (permission plugin
       // hiccup, MediaStore query error, merge bug, etc.), don't leave the
@@ -539,7 +617,9 @@ final trackProvider = StateNotifierProvider<TrackNotifier, TrackState>((ref) {
   final storageService = ref.watch(storageServiceProvider);
   final groqService = ref.watch(groqServiceProvider);
   final libraryScanService = ref.watch(libraryScanServiceProvider);
-  return TrackNotifier(storageService, groqService, libraryScanService);
+  final artworkService = ref.watch(artworkServiceProvider);
+  return TrackNotifier(
+      storageService, groqService, libraryScanService, artworkService);
 });
 
 // Filtered tracks provider

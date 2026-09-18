@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
+import 'track_artwork.dart';
 import '../theme/mood_colors.dart';
 import '../models/track.dart';
 import '../providers/providers.dart';
@@ -82,27 +83,11 @@ class MiniPlayer extends ConsumerWidget {
                     // Album art with Hero
                     Hero(
                       tag: 'album_art_${currentTrack.id}',
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: moodColors.primary.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                          image: currentTrack.coverUrl != null
-                              ? DecorationImage(
-                                  image: NetworkImage(currentTrack.coverUrl!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: currentTrack.coverUrl == null
-                            ? Center(
-                                child: Text(
-                                  currentTrack.mood?.icon ?? '🎵',
-                                  style: const TextStyle(fontSize: 24),
-                                ),
-                              )
-                            : null,
+                      child: TrackArtwork(
+                        track: currentTrack,
+                        size: 48,
+                        radius: AppTheme.radiusM,
+                        placeholderFontSize: 24,
                       ),
                     ),
                     const SizedBox(width: AppTheme.spacingM),

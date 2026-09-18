@@ -60,6 +60,7 @@ dependencies:
   json_annotation: ^4.8.1
   file_picker: ^8.1.2
   path: ^1.9.0
+  collection: ^1.18.0
 
   # Device audio library scanning (all formats indexed by Android MediaStore)
   on_audio_query: ^2.9.0
