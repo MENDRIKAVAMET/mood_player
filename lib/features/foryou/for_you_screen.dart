@@ -24,6 +24,8 @@ class ForYouScreen extends ConsumerWidget {
     final mostPlayed = ref.watch(mostPlayedTracksProvider);
     final liked = ref.watch(likedTracksProvider);
     final suggested = ref.watch(suggestedTracksProvider);
+    final timeBasedSuggestions = ref.watch(timeBasedSuggestionsProvider);
+    final dayPeriod = ref.watch(dayPeriodProvider);
     final playCounts = ref.watch(playbackStatsProvider);
     final isEmpty = ref.watch(trackProvider).tracks.isEmpty;
 
@@ -43,6 +45,20 @@ class ForYouScreen extends ConsumerWidget {
                   child: _buildEmptyState(),
                 )
               else ...[
+                // Les suggestions du moment passent en tout premier :
+                // elles changent avec l'heure de la journée (matin/midi/
+                // soir), donc c'est le contenu le plus "vivant" de la
+                // page - contrairement aux autres sections qui ne
+                // bougent qu'avec de nouvelles écoutes.
+                _carouselSection(
+                  context: context,
+                  title: titleForPeriod(dayPeriod),
+                  tracks: timeBasedSuggestions,
+                  emptyMessage:
+                      'Classe quelques morceaux par ambiance pour voir des '
+                      'suggestions apparaître ici selon le moment de la '
+                      'journée.',
+                ),
                 // Les suggestions passent en tête : c'est la seule section
                 // que l'utilisateur ne peut pas retrouver ailleurs dans
                 // l'app, donc c'est elle qui justifie la page.
