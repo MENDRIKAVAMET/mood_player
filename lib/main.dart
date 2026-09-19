@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/debug/crash_log_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/shell/main_shell.dart';
 import 'services/crash_log_service.dart';
+import 'services/profile_service.dart';
 import 'services/storage_service.dart';
 import 'theme/app_theme.dart';
 
@@ -72,8 +74,25 @@ void main() {
       print('main: getLastCrashLog failed: $e\n$st');
     }
 
+    // First launch (or the welcome flow was never finished) - decided
+    // once here rather than inside a widget, so there's no flash of the
+    // main shell before redirecting to onboarding.
+    var needsOnboarding = true;
+    try {
+      final profile =
+          await ProfileService().load().timeout(_startupStepTimeout);
+      needsOnboarding = !profile.onboardingCompleted;
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('main: profile load failed: $e\n$st');
+    }
+
     runApp(ProviderScope(
-      child: MyApp(crashLog: crashLog, startupError: startupError),
+      child: MyApp(
+        crashLog: crashLog,
+        startupError: startupError,
+        needsOnboarding: needsOnboarding,
+      ),
     ));
   }, (error, stackTrace) {
     // ignore: avoid_print
@@ -84,8 +103,14 @@ void main() {
 class MyApp extends StatelessWidget {
   final String? crashLog;
   final String? startupError;
+  final bool needsOnboarding;
 
-  const MyApp({super.key, this.crashLog, this.startupError});
+  const MyApp({
+    super.key,
+    this.crashLog,
+    this.startupError,
+    this.needsOnboarding = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +119,8 @@ class MyApp extends StatelessWidget {
       home = CrashLogScreen(log: crashLog!);
     } else if (startupError != null) {
       home = _StartupErrorScreen(message: startupError!);
+    } else if (needsOnboarding) {
+      home = const OnboardingScreen();
     } else {
       home = const MainShell();
     }
