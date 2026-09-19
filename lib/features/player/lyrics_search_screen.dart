@@ -75,7 +75,11 @@ class _LyricsSearchScreenState extends ConsumerState<LyricsSearchScreen> {
 
     final service = ref.read(lyricsServiceProvider);
     final trackKey = '${widget.track.artist} - ${widget.track.title}';
-    await service.importResult(trackKey: trackKey, result: result);
+    await service.importResult(
+      trackKey: trackKey,
+      result: result,
+      filePath: widget.track.filePath,
+    );
 
     // Le prochain écran paroles doit relire (l'import a priorité sur tout
     // le reste), donc on invalide le cache pour ce morceau.

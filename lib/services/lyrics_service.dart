@@ -140,11 +140,33 @@ class LyricsService {
 
     final stored = await loadStoredOffset(trackKey) ?? Duration.zero;
 
+    // Paroles déjà trouvées en ligne lors d'une session précédente et
+    // mises en cache localement (voir [_writeLrc]) : pas besoin de
+    // retaper le réseau à chaque ouverture de l'écran.
+    final cached = await _readCachedLrc(trackKey);
+    if (cached != null) {
+      if (cached.offset == Duration.zero && stored != Duration.zero) {
+        return cached.copyWith(offset: stored);
+      }
+      return cached;
+    }
+
     try {
-      final exact = await _getExact(title: title, artist: artist, duration: duration);
+      final exact = await _getExact(
+        title: title,
+        artist: artist,
+        duration: duration,
+        trackKey: trackKey,
+        filePath: filePath,
+      );
       if (exact != null) return exact.copyWith(offset: stored);
 
-      final searched = await _search(title: title, artist: artist);
+      final searched = await _search(
+        title: title,
+        artist: artist,
+        trackKey: trackKey,
+        filePath: filePath,
+      );
       return searched?.copyWith(offset: stored) ?? const LyricsResult();
     } catch (_) {
       // Network failure, malformed response, etc. - just show "no lyrics"
@@ -302,12 +324,27 @@ class LyricsService {
       if (!await file.exists()) return null;
       final content = await file.readAsString();
       final lines = parseLrc(content);
-      if (lines.isEmpty) return null;
-      return LyricsResult(
-        synced: lines,
-        localPath: path,
-        offset: readLrcOffset(content),
-      );
+      if (lines.isNotEmpty) {
+        return LyricsResult(
+          synced: lines,
+          localPath: path,
+          offset: readLrcOffset(content),
+        );
+      }
+
+      // Pas de ligne horodatée : soit ce n'est pas vraiment un `.lrc`
+      // synchronisé, soit c'est un fichier qu'on a nous-mêmes écrit à
+      // partir de paroles collées à la main (donc sans timestamps). Dans
+      // les deux cas, le texte brut vaut mieux qu'un "introuvable" - on
+      // retire juste les éventuelles balises de métadonnées ([ar:], [ti:]…)
+      // avant de l'afficher en paroles simples.
+      final plain = content
+          .split('\n')
+          .where((line) => !RegExp(r'^\[[a-zA-Z]+:.*\]\s*$').hasMatch(line.trim()))
+          .join('\n')
+          .trim();
+      if (plain.isEmpty) return null;
+      return LyricsResult(plain: plain, localPath: path);
     } catch (_) {
       return null;
     }
@@ -317,6 +354,8 @@ class LyricsService {
     required String title,
     required String artist,
     Duration? duration,
+    required String trackKey,
+    String? filePath,
   }) async {
     try {
       final response = await _dio.get('$_baseUrl/get', queryParameters: {
@@ -325,7 +364,10 @@ class LyricsService {
         if (duration != null) 'duration': duration.inSeconds.toString(),
       });
       if (response.statusCode != 200 || response.data == null) return null;
-      return _parseResponseMap(_asMap(response.data));
+      final map = _asMap(response.data);
+      final result = _parseResponseMap(map);
+      if (!result.hasAny) return null;
+      return _persistFetched(result, map: map, trackKey: trackKey, filePath: filePath);
     } on DioException catch (e) {
       // 404 just means "no exact match" - fall through to search instead
       // of treating it as a hard failure.
@@ -337,6 +379,8 @@ class LyricsService {
   Future<LyricsResult?> _search({
     required String title,
     required String artist,
+    required String trackKey,
+    String? filePath,
   }) async {
     final response = await _dio.get('$_baseUrl/search', queryParameters: {
       'track_name': title,
@@ -354,7 +398,112 @@ class LyricsService {
       orElse: () => decoded.first,
     );
 
-    return _parseResponseMap(_asMap(withSynced));
+    final map = _asMap(withSynced);
+    final result = _parseResponseMap(map);
+    if (!result.hasAny) return null;
+    return _persistFetched(result, map: map, trackKey: trackKey, filePath: filePath);
+  }
+
+  /// Écrit le résultat trouvé en ligne dans un vrai fichier `.lrc`, pour
+  /// qu'il soit réellement "sur le téléphone" (visible par n'importe
+  /// quelle autre appli, survit à un vidage du cache de Mood Player) et
+  /// pas seulement gardé dans le stockage interne de l'app.
+  ///
+  /// Renvoie [result] tel quel si l'écriture échoue ou s'il n'y a rien à
+  /// écrire (morceau instrumental) - les paroles restent affichables pour
+  /// la session en cours même sans fichier.
+  Future<LyricsResult> _persistFetched(
+    LyricsResult result, {
+    required Map<String, dynamic> map,
+    required String trackKey,
+    String? filePath,
+  }) async {
+    if (result.instrumental) return result;
+
+    final syncedRaw = map['syncedLyrics'] as String?;
+    final plainRaw = map['plainLyrics'] as String?;
+    final content = (syncedRaw != null && syncedRaw.trim().isNotEmpty)
+        ? syncedRaw
+        : (plainRaw != null && plainRaw.trim().isNotEmpty)
+            ? plainRaw
+            : null;
+    if (content == null) return result;
+
+    final savedPath = await _writeLrc(
+      filePath: filePath,
+      trackKey: trackKey,
+      content: content,
+    );
+    if (savedPath == null) return result;
+
+    return LyricsResult(
+      synced: result.synced,
+      plain: result.plain,
+      instrumental: result.instrumental,
+      localPath: savedPath,
+      offset: result.offset,
+    );
+  }
+
+  /// Écrit [content] en `.lrc`, sous le même nom que le fichier audio et
+  /// dans le même dossier quand c'est possible. Si l'emplacement n'est pas
+  /// accessible en écriture (stockage cloisonné, morceau sur une source en
+  /// lecture seule…), retombe sur le cache interne de l'app - toujours un
+  /// vrai fichier `.lrc`, juste pas visible depuis un gestionnaire de
+  /// fichiers externe dans ce cas précis.
+  Future<String?> _writeLrc({
+    required String? filePath,
+    required String trackKey,
+    required String content,
+  }) async {
+    if (filePath != null && filePath.isNotEmpty) {
+      final lastDot = filePath.lastIndexOf('.');
+      final base = lastDot > 0 ? filePath.substring(0, lastDot) : filePath;
+      try {
+        final file = File('$base.lrc');
+        await file.writeAsString(content, flush: true);
+        return file.path;
+      } catch (_) {
+        // Lecture seule - on retombe sur le cache interne juste en dessous.
+      }
+    }
+
+    try {
+      final dir = await _lrcCacheDir();
+      final file = File('${dir.path}/${_safeFileName(trackKey)}.lrc');
+      await file.writeAsString(content, flush: true);
+      return file.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Relit un `.lrc` précédemment mis en cache en interne (voir
+  /// [_writeLrc]) pour ce morceau, sans repasser par le réseau.
+  Future<LyricsResult?> _readCachedLrc(String trackKey) async {
+    try {
+      final dir = await _lrcCacheDir();
+      final path = '${dir.path}/${_safeFileName(trackKey)}.lrc';
+      return await _tryParseLrc(path);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Directory> _lrcCacheDir() async {
+    final base = await getApplicationSupportDirectory();
+    final dir = Directory('${base.path}/lyrics_cache');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  /// Nom de fichier sûr dérivé de "Artiste - Titre" (mêmes caractères que
+  /// [trackKey]) : lettres, chiffres, espaces, tirets et underscores
+  /// seulement, pour éviter tout problème de caractères spéciaux dans un
+  /// nom de fichier.
+  String _safeFileName(String trackKey) {
+    final cleaned = trackKey.replaceAll(RegExp(r'[^a-zA-Z0-9 _-]'), '').trim();
+    return cleaned.isEmpty ? trackKey.hashCode.toString() : cleaned;
   }
 
   /// Recherche manuelle : renvoie tous les candidats trouvés par lrclib
@@ -403,9 +552,17 @@ class LyricsService {
 
   /// Importe le résultat choisi par l'utilisateur : il devient les paroles
   /// de ce morceau, avec la priorité maximale (voir [fetch]).
+  /// Importe le résultat choisi par l'utilisateur : il devient les paroles
+  /// de ce morceau, avec la priorité maximale (voir [fetch]).
+  ///
+  /// [filePath] est optionnel pour rester compatible avec les appels
+  /// existants, mais sans lui l'import ne peut être écrit qu'en interne
+  /// (pas de fichier `.lrc` visible à côté du morceau) - passe-le dès que
+  /// possible.
   Future<void> importResult({
     required String trackKey,
     required LyricsSearchResult result,
+    String? filePath,
   }) async {
     final imports = await _loadImports();
     imports[trackKey] = {
@@ -420,6 +577,20 @@ class LyricsService {
     } catch (_) {
       // Le cache mémoire tient bon pour la session en cours même si
       // l'écriture disque échoue.
+    }
+
+    // Même chose en vrai fichier `.lrc`, sous le nom du morceau - c'est
+    // lui que [fetch] retrouvera aux prochaines ouvertures, avant même de
+    // consulter le store JSON ci-dessus.
+    if (!result.instrumental) {
+      final content = result.hasSynced
+          ? result.syncedLyrics
+          : result.hasPlain
+              ? result.plainLyrics
+              : null;
+      if (content != null && content.trim().isNotEmpty) {
+        await _writeLrc(filePath: filePath, trackKey: trackKey, content: content);
+      }
     }
   }
 
