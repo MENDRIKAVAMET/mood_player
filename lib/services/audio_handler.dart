@@ -51,21 +51,27 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _init();
   }
 
-  /// Notification "like" button, dedicated close (X) icon/label - moved to
-  /// the far right - in place of the old plain "Stop" both in icon and
-  /// position, and the play/pause + skip controls in between.
+  /// Boutons "aimer" et "fermer" de la notification.
+  ///
+  /// Les icônes pointent vers res/drawable/ (vecteur), pas res/mipmap/ :
+  /// mipmap est censé servir aux icônes de lanceur, et certaines
+  /// surcouches Android (EMUI en particulier) appliquent leurs propres
+  /// règles de mise à l'échelle aux ressources qu'elles y trouvent, ce qui
+  /// donnait une icône de taille incohérente selon le téléphone. Un
+  /// VectorDrawable sous drawable/ n'a pas ce problème : rendu identique
+  /// partout, quelle que soit la densité d'écran ou la surcouche.
   static final _likeControl = MediaControl.custom(
-    androidIcon: 'mipmap/ic_favorite_border',
+    androidIcon: 'drawable/ic_favorite_border',
     label: 'Aimer',
     name: 'toggleLike',
   );
   static final _likedControl = MediaControl.custom(
-    androidIcon: 'mipmap/ic_favorite',
+    androidIcon: 'drawable/ic_favorite',
     label: 'Retirer des favoris',
     name: 'toggleLike',
   );
   static const _closeControl = MediaControl(
-    androidIcon: 'mipmap/ic_close',
+    androidIcon: 'drawable/ic_close',
     label: 'Fermer',
     action: MediaAction.stop,
   );
@@ -75,10 +81,11 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       MediaControl.skipToPrevious,
       if (isPlaying) MediaControl.pause else MediaControl.play,
       MediaControl.skipToNext,
+      // Aimer suit les boutons de lecture, fermer reste la toute
+      // dernière icône de la rangée - la plus à droite que l'app puisse
+      // contrôler (Android n'expose aucune API pour la coller au bord
+      // physique de la notification au-delà de ça).
       isLiked ? _likedControl : _likeControl,
-      // Far right, as requested: was a plain "Stop" icon before, now a
-      // dedicated close (X) icon/label. Same underlying stop action, so
-      // behavior (closes the notification and playback) is unchanged.
       _closeControl,
     ];
   }
@@ -155,7 +162,8 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           MediaAction.seekBackward,
         },
         // Previous / play-pause / next stay in the compact (collapsed)
-        // notification view; like and close only show in the expanded one.
+        // notification view; "aimer" et "fermer" n'apparaissent que dans
+        // la vue étendue.
         androidCompactActionIndices: const [0, 1, 2],
         processingState: processingState,
         playing: isPlaying,
