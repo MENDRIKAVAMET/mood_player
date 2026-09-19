@@ -367,7 +367,7 @@ class LyricsService {
       final map = _asMap(response.data);
       final result = _parseResponseMap(map);
       if (!result.hasAny) return null;
-      return _persistFetched(result, map: map, trackKey: trackKey, filePath: filePath);
+      return await _persistFetched(result, map: map, trackKey: trackKey, filePath: filePath);
     } on DioException catch (e) {
       // 404 just means "no exact match" - fall through to search instead
       // of treating it as a hard failure.
@@ -401,7 +401,7 @@ class LyricsService {
     final map = _asMap(withSynced);
     final result = _parseResponseMap(map);
     if (!result.hasAny) return null;
-    return _persistFetched(result, map: map, trackKey: trackKey, filePath: filePath);
+    return await _persistFetched(result, map: map, trackKey: trackKey, filePath: filePath);
   }
 
   /// Écrit le résultat trouvé en ligne dans un vrai fichier `.lrc`, pour
