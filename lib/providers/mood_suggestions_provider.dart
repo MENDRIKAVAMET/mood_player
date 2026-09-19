@@ -41,21 +41,18 @@ String titleForPeriod(DayPeriod period) {
   }
 }
 
-/// Émet une valeur toutes les 15 minutes, juste pour forcer un
-/// réexamen périodique de l'heure - [dayPeriodProvider] ne notifie ses
-/// dépendants que lorsque la période elle-même change réellement (Riverpod
-/// ne republie pas une valeur d'enum identique), donc ce tic ne provoque
-/// pas un réordonnancement des suggestions toutes les 15 minutes, juste
-/// une vérification.
-final _clockTickProvider = StreamProvider<void>((ref) async* {
-  yield null;
-  await for (final _ in Stream<void>.periodic(const Duration(minutes: 15))) {
-    yield null;
-  }
-});
-
+/// Se recalcule toutes les 15 minutes via [Timer.periodic], annulé
+/// explicitement par [Ref.onDispose] - contrairement à un
+/// `Stream.periodic` dont l'annulation dépend du moment où la
+/// souscription sous-jacente est fermée, `ref.invalidateSelf()`
+/// garantit qu'un nouveau timer est créé et l'ancien annulé de façon
+/// synchrone et déterministe à chaque recalcul, y compris quand le
+/// provider est détruit (tests, changement d'écran).
 final dayPeriodProvider = Provider<DayPeriod>((ref) {
-  ref.watch(_clockTickProvider);
+  final timer = Timer.periodic(const Duration(minutes: 15), (_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
   return _periodForHour(DateTime.now().hour);
 });
 
