@@ -12,6 +12,7 @@ import '../../widgets/classify_progress_banner.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
+import '../profile/profile_screen.dart';
 import '../search/search_screen.dart';
 
 /// Onglet « Bibliothèque » : uniquement la liste complète des morceaux.
@@ -226,6 +227,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       delay: const Duration(milliseconds: 100),
                     ),
               ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            ),
+            child: Container(
+              width: 44,
+              height: 44,
+              margin: const EdgeInsets.only(right: AppTheme.spacingS),
+              decoration: BoxDecoration(
+                gradient: AppTheme.cardGradient,
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                border: Border.all(color: AppTheme.border, width: 1),
+              ),
+              child: const Icon(
+                Icons.person_outline_rounded,
+                color: AppTheme.textPrimary,
+              ),
             ),
           ),
           GestureDetector(

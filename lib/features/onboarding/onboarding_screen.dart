@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/mood_splash.dart';
@@ -40,6 +41,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await ref.read(trackProvider.notifier).scanAndLoadTracks();
     if (!mounted) return;
 
+    // Demandée ici, explicitement, pendant que l'utilisateur vient déjà
+    // de dire "oui" à l'accès à sa musique - plutôt que silencieusement en
+    // arrière-plan à l'ouverture de l'onglet Bibliothèque juste après, où
+    // la boîte de dialogue système peut passer inaperçue (bibliothèque
+    // qui charge en même temps) et se faire refuser par réflexe.
+    try {
+      final status = await Permission.notification.status;
+      if (status.isDenied) {
+        await Permission.notification.request();
+      }
+    } catch (_) {
+      // Non critique : la lecture fonctionne quoi qu'il arrive, et
+      // library_screen retentera de toute façon à l'ouverture de l'app.
+    }
+    if (!mounted) return;
+
     final tracks = ref.read(trackProvider).tracks;
     final artists = tracks
         .map((t) => t.artist.trim())
@@ -61,9 +78,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
   }
 
-  Future<void> _finish([String? favoriteArtist]) async {
-    if (favoriteArtist != null && favoriteArtist.isNotEmpty) {
-      await ref.read(profileProvider.notifier).setFavoriteArtist(favoriteArtist);
+  Future<void> _finish([List<String>? favoriteArtists]) async {
+    if (favoriteArtists != null && favoriteArtists.isNotEmpty) {
+      await ref.read(profileProvider.notifier).setFavoriteArtists(favoriteArtists);
     }
     await ref.read(profileProvider.notifier).completeOnboarding();
     if (!mounted) return;
@@ -113,7 +130,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         return _ArtistStep(
           key: const ValueKey('artist'),
           artists: _artists,
-          onSelect: (artist) => _finish(artist),
+          onConfirm: (artists) => _finish(artists),
           onSkip: () => _finish(),
         );
     }
@@ -333,13 +350,13 @@ class _PermissionStep extends StatelessWidget {
 
 class _ArtistStep extends StatefulWidget {
   final List<String> artists;
-  final ValueChanged<String> onSelect;
+  final ValueChanged<List<String>> onConfirm;
   final VoidCallback onSkip;
 
   const _ArtistStep({
     super.key,
     required this.artists,
-    required this.onSelect,
+    required this.onConfirm,
     required this.onSkip,
   });
 
@@ -348,13 +365,29 @@ class _ArtistStep extends StatefulWidget {
 }
 
 class _ArtistStepState extends State<_ArtistStep> {
+  static const _maxSelection = 3;
+
   final _searchController = TextEditingController();
   String _query = '';
+  final Set<String> _selected = {};
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _toggle(String artist) {
+    setState(() {
+      if (_selected.contains(artist)) {
+        _selected.remove(artist);
+      } else if (_selected.length < _maxSelection) {
+        _selected.add(artist);
+      }
+      // Déjà à 3 et on tape un 4e : on ignore simplement le tap plutôt
+      // que de remplacer un choix existant sans le dire - plus simple à
+      // comprendre que "pourquoi mon premier choix a disparu ?".
+    });
   }
 
   @override
@@ -376,14 +409,14 @@ class _ArtistStepState extends State<_ArtistStep> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Un artiste que vous adorez ?',
+            'Des artistes que vous adorez ?',
             style: AppTheme.headlineMedium,
             textAlign: TextAlign.center,
           ).animate().fadeIn(duration: AppTheme.animSlow),
           const SizedBox(height: AppTheme.spacingS),
           Text(
-            'Choisissez-en un dans votre bibliothèque - ça nous aide à '
-            'mieux cerner vos ambiances.',
+            'Choisissez-en jusqu\'à 3 dans votre bibliothèque - ça nous '
+            'aide à vous proposer des suggestions dès le début.',
             style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
             textAlign: TextAlign.center,
           ).animate().fadeIn(
@@ -410,7 +443,12 @@ class _ArtistStepState extends State<_ArtistStep> {
                 duration: AppTheme.animSlow,
                 delay: const Duration(milliseconds: 180),
               ),
-          const SizedBox(height: AppTheme.spacingM),
+          const SizedBox(height: AppTheme.spacingXS),
+          Text(
+            '${_selected.length}/$_maxSelection sélectionné${_selected.length > 1 ? 's' : ''}',
+            style: AppTheme.labelSmall.copyWith(color: AppTheme.accentPrimary),
+          ),
+          const SizedBox(height: AppTheme.spacingS),
           Expanded(
             child: filtered.isEmpty
                 ? Center(
@@ -424,17 +462,39 @@ class _ArtistStepState extends State<_ArtistStep> {
                     separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final artist = filtered[index];
+                      final isSelected = _selected.contains(artist);
+                      final isDisabled =
+                          !isSelected && _selected.length >= _maxSelection;
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(artist, style: AppTheme.bodyLarge.copyWith(color: AppTheme.textPrimary)),
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppTheme.textTertiary,
+                        onTap: isDisabled ? null : () => _toggle(artist),
+                        title: Text(
+                          artist,
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: isDisabled
+                                ? AppTheme.textTertiary
+                                : AppTheme.textPrimary,
+                          ),
                         ),
-                        onTap: () => widget.onSelect(artist),
+                        trailing: Icon(
+                          isSelected
+                              ? Icons.check_circle_rounded
+                              : Icons.circle_outlined,
+                          color: isSelected
+                              ? AppTheme.accentPrimary
+                              : AppTheme.textTertiary,
+                        ),
                       );
                     },
                   ),
+          ),
+          const SizedBox(height: AppTheme.spacingM),
+          _PrimaryButton(
+            label: _selected.isEmpty
+                ? 'Continuer sans choisir'
+                : 'Continuer (${_selected.length})',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: () => widget.onConfirm(_selected.toList()),
           ),
           _SecondaryButton(label: 'Passer cette étape', onPressed: widget.onSkip),
         ],

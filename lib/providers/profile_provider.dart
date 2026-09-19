@@ -27,8 +27,8 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
     await _service.save(state);
   }
 
-  Future<void> setFavoriteArtist(String artist) async {
-    state = state.copyWith(favoriteArtist: artist);
+  Future<void> setFavoriteArtists(List<String> artists) async {
+    state = state.copyWith(favoriteArtists: artists);
     await _service.save(state);
   }
 

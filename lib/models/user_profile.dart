@@ -1,45 +1,52 @@
-/// Profil local de l'utilisateur : pour l'instant juste un nom et un
-/// artiste préféré (choisi dans sa propre bibliothèque au premier
-/// lancement), plus le drapeau qui dit si l'écran d'accueil "bienvenue"
-/// a déjà été passé.
+/// Profil local de l'utilisateur : un nom, jusqu'à 3 artistes préférés
+/// (choisis dans sa propre bibliothèque au premier lancement, servent de
+/// base aux suggestions tant qu'il n'y a pas d'historique d'écoute), plus
+/// le drapeau qui dit si l'écran d'accueil "bienvenue" a déjà été passé.
 class UserProfile {
   final String? name;
-  final String? favoriteArtist;
+  final List<String> favoriteArtists;
   final bool onboardingCompleted;
 
   const UserProfile({
     this.name,
-    this.favoriteArtist,
+    this.favoriteArtists = const [],
     this.onboardingCompleted = false,
   });
 
   const UserProfile.empty()
       : name = null,
-        favoriteArtist = null,
+        favoriteArtists = const [],
         onboardingCompleted = false;
 
   UserProfile copyWith({
     String? name,
-    String? favoriteArtist,
+    List<String>? favoriteArtists,
     bool? onboardingCompleted,
   }) {
     return UserProfile(
       name: name ?? this.name,
-      favoriteArtist: favoriteArtist ?? this.favoriteArtist,
+      favoriteArtists: favoriteArtists ?? this.favoriteArtists,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'name': name,
-        'favoriteArtist': favoriteArtist,
+        'favoriteArtists': favoriteArtists,
         'onboardingCompleted': onboardingCompleted,
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    // Compatibilité avec l'ancien format à un seul artiste
+    // ('favoriteArtist', singulier) déjà persisté sur certains appareils.
+    final legacySingle = json['favoriteArtist'] as String?;
+    final list = json['favoriteArtists'] as List<dynamic>?;
+
     return UserProfile(
       name: json['name'] as String?,
-      favoriteArtist: json['favoriteArtist'] as String?,
+      favoriteArtists: list != null
+          ? list.map((e) => e as String).toList()
+          : (legacySingle != null ? [legacySingle] : const []),
       onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
     );
   }
