@@ -53,25 +53,29 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   /// Boutons "aimer" et "fermer" de la notification.
   ///
-  /// Les icônes pointent vers res/drawable/ (vecteur), pas res/mipmap/ :
-  /// mipmap est censé servir aux icônes de lanceur, et certaines
-  /// surcouches Android (EMUI en particulier) appliquent leurs propres
-  /// règles de mise à l'échelle aux ressources qu'elles y trouvent, ce qui
-  /// donnait une icône de taille incohérente selon le téléphone. Un
-  /// VectorDrawable sous drawable/ n'a pas ce problème : rendu identique
-  /// partout, quelle que soit la densité d'écran ou la surcouche.
+  /// IMPORTANT : ces icônes de boutons d'action doivent rester sous
+  /// res/mipmap/ (PNG raster), PAS res/drawable/ (VectorDrawable).
+  /// `Icon.createWithResource` rejette certains VectorDrawable au runtime
+  /// sur pas mal de combinaisons Android/constructeur avec
+  /// "Invalid notification (no valid small icon)" - c'est exactement pour
+  /// ça que ic_notification (l'icône principale) est déjà en PNG raster.
+  /// Un passage antérieur de ces 3 icônes de drawable/ vers mipmap/ avait
+  /// réglé ce problème ; les repasser en drawable/ (même avec de bonnes
+  /// intentions sur le rendu par constructeur) le réintroduit. Si un
+  /// rendu spécifique à une surcouche pose un jour problème, la solution
+  /// est un PNG mieux dimensionné, pas un retour au vecteur.
   static final _likeControl = MediaControl.custom(
-    androidIcon: 'drawable/ic_favorite_border',
+    androidIcon: 'mipmap/ic_favorite_border',
     label: 'Aimer',
     name: 'toggleLike',
   );
   static final _likedControl = MediaControl.custom(
-    androidIcon: 'drawable/ic_favorite',
+    androidIcon: 'mipmap/ic_favorite',
     label: 'Retirer des favoris',
     name: 'toggleLike',
   );
   static const _closeControl = MediaControl(
-    androidIcon: 'drawable/ic_close',
+    androidIcon: 'mipmap/ic_close',
     label: 'Fermer',
     action: MediaAction.stop,
   );
