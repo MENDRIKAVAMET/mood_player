@@ -8,6 +8,7 @@ import '../services/storage_service.dart';
 import '../services/groq_service.dart';
 import '../services/library_scan_service.dart';
 import '../services/artwork_service.dart';
+import '../services/track_file_service.dart';
 
 // Service providers
 final storageServiceProvider = Provider<StorageService>((ref) {
@@ -245,6 +246,10 @@ class TrackNotifier extends StateNotifier<TrackState> {
         return;
       }
 
+      // Titres/artistes modifiés par l'utilisateur : le scan ne doit pas
+      // les remplacer par ceux (anciens) des tags du fichier.
+      final nameOverrides = await TrackNameOverrides.load();
+
       final existingTracks = await _storageService.getAllTracks();
       final byFilePath = <String, Track>{
         for (final t in existingTracks)
@@ -274,11 +279,14 @@ class TrackNotifier extends StateNotifier<TrackState> {
         if (existing != null) {
           // Update metadata/duration for an already-known track, keep its
           // mood classification and creation date intact.
+          final custom = nameOverrides[filePath];
           existing
-            ..title = song.title.isNotEmpty ? song.title : existing.title
-            ..artist = (song.artist != null && song.artist!.isNotEmpty)
-                ? song.artist!
-                : existing.artist
+            ..title = custom?['title'] ??
+                (song.title.isNotEmpty ? song.title : existing.title)
+            ..artist = custom?['artist'] ??
+                ((song.artist != null && song.artist!.isNotEmpty)
+                    ? song.artist!
+                    : existing.artist)
             ..album = song.album ?? existing.album
             ..duration = song.duration ?? existing.duration
             ..uri = song.uri ?? existing.uri
@@ -300,11 +308,14 @@ class TrackNotifier extends StateNotifier<TrackState> {
               ? DateTime.fromMillisecondsSinceEpoch(deviceDateAdded * 1000)
               : now;
 
+          final custom = nameOverrides[filePath];
           final track = Track()
-            ..title = song.title.isNotEmpty ? song.title : 'Titre inconnu'
-            ..artist = (song.artist != null && song.artist!.isNotEmpty)
-                ? song.artist!
-                : 'Artiste inconnu'
+            ..title = custom?['title'] ??
+                (song.title.isNotEmpty ? song.title : 'Titre inconnu')
+            ..artist = custom?['artist'] ??
+                ((song.artist != null && song.artist!.isNotEmpty)
+                    ? song.artist!
+                    : 'Artiste inconnu')
             ..album = song.album
             ..filePath = filePath
             ..uri = song.uri
@@ -389,6 +400,48 @@ class TrackNotifier extends StateNotifier<TrackState> {
     } catch (e) {
       track.isLiked = !newValue;
       state = state.copyWith(error: 'Erreur lors de la mise à jour du favori: $e');
+    }
+  }
+
+  final TrackFileService _fileService = TrackFileService();
+
+  /// Renomme le morceau ET son fichier sur l'appareil. Renvoie null en
+  /// cas de succès, sinon un message d'erreur affichable (le fichier n'a
+  /// alors pas été modifié).
+  Future<String?> renameTrack(
+    Track track, {
+    required String artist,
+    required String title,
+  }) async {
+    final oldPath = track.filePath;
+    try {
+      final newPath =
+          await _fileService.renameAudio(track, artist: artist, title: title);
+
+      // Même objet modifié sur place, comme toggleLike : le lecteur et
+      // les listes qui le tiennent déjà voient le nouveau nom.
+      track
+        ..title = title
+        ..artist = artist
+        ..filePath = newPath
+        ..updatedAt = DateTime.now();
+      await _storageService.saveTrack(track);
+      await TrackNameOverrides.set(
+        oldPath: oldPath,
+        newPath: newPath,
+        title: title,
+        artist: artist,
+      );
+
+      state = state.copyWith(tracks: [
+        for (final t in state.tracks) if (t.id == track.id) track else t,
+      ]);
+      _applyFilters();
+      return null;
+    } on TrackRenameException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Erreur lors du renommage : $e';
     }
   }
 

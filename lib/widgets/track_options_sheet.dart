@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/track.dart';
 import '../models/playlist.dart';
+import '../features/track/rename_track_screen.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 
@@ -76,6 +77,19 @@ class _TrackOptionsSheet extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _AddToPlaylistSheet(track: track),
+    );
+  }
+
+  void _rename(BuildContext context) {
+    // Le navigateur est récupéré avant de fermer la feuille : son
+    // contexte n'est plus utilisable une fois la feuille dépilée.
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => RenameTrackScreen(track: track),
+      ),
     );
   }
 
@@ -197,6 +211,11 @@ class _TrackOptionsSheet extends ConsumerWidget {
               leading: const Icon(Icons.share_rounded),
               title: Text('Partager', style: AppTheme.bodyLarge),
               onTap: () => _share(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: Text('Modifier le nom', style: AppTheme.bodyLarge),
+              onTap: () => _rename(context),
             ),
             ListTile(
               leading: const Icon(Icons.info_outline_rounded),
