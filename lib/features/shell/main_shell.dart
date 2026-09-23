@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/listen_reminder_host.dart';
 import '../../widgets/mini_player.dart';
 import '../foryou/for_you_screen.dart';
 import '../library/library_screen.dart';
@@ -93,6 +94,9 @@ class _MainShellState extends ConsumerState<MainShell> {
       body: Stack(
         children: [
           IndexedStack(index: _index, children: _screens),
+
+          // Pop-up « tu écoutais ça à cette heure » (invisible sinon).
+          const ListenReminderHost(),
 
           // Mini-lecteur posé juste au-dessus de la barre d'onglets, quel
           // que soit l'onglet affiché.

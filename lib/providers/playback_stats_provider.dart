@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/track.dart';
 import '../services/storage_service.dart';
 import 'audio_provider.dart';
+import 'listen_history_provider.dart';
 import 'profile_provider.dart';
 import 'track_provider.dart';
 
@@ -96,6 +97,21 @@ class PlaybackStatsNotifier extends StateNotifier<Map<int, int>> {
   Future<void> _register(int trackId) async {
     final counts = await _storage.incrementPlayCount(trackId);
     if (mounted) state = counts;
+
+    // Rappel « même heure demain / la semaine prochaine » : seule la
+    // première écoute réelle de chaque ouverture de l'app est retenue
+    // (le filtre est dans ListenHistoryNotifier).
+    final track = _ref
+        .read(trackProvider)
+        .tracks
+        .where((t) => t.id == trackId)
+        .firstOrNull;
+    if (track != null) {
+      unawaited(_ref
+          .read(listenHistoryProvider.notifier)
+          .recordFirstListenOfSession(track)
+          .catchError((_) {}));
+    }
   }
 
   @override

@@ -20,6 +20,9 @@
          to start cleanly on newer targetSdk versions. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Rappels d'écoute programmés : reprogrammés après un redémarrage. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
     <!-- Lecture des fichiers .lrc rangés à côté de la musique.
 
          READ_MEDIA_AUDIO ne donne accès qu'aux fichiers que MediaStore
@@ -73,6 +76,21 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+
+        <!-- flutter_local_notifications : rappels d'écoute programmés -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name="com.ryanheise.audioservice.MediaButtonReceiver"

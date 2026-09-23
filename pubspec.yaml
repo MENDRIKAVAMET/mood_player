@@ -48,6 +48,10 @@ dependencies:
   dio: ^5.4.0
   share_plus: ^10.1.4
 
+  # Rappels d'écoute programmés (notifications locales)
+  flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.0
+
   # Audio playback
   just_audio: ^0.9.36
   audio_service: ^0.18.12
