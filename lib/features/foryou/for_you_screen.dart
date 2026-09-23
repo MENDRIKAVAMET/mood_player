@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/compact_track_card.dart';
 import '../../widgets/foryou_list_row.dart';
+import '../../widgets/period_mixes_section.dart';
 import '../search/search_screen.dart';
 
 /// Page « Pour vous » : ajouts récents, morceaux réellement les plus
@@ -24,7 +25,6 @@ class ForYouScreen extends ConsumerWidget {
     final mostPlayed = ref.watch(mostPlayedTracksProvider);
     final liked = ref.watch(likedTracksProvider);
     final suggested = ref.watch(suggestedTracksProvider);
-    final timeBasedSuggestions = ref.watch(timeBasedSuggestionsProvider);
     final dayPeriod = ref.watch(dayPeriodProvider);
     final playCounts = ref.watch(playbackStatsProvider);
     final isEmpty = ref.watch(trackProvider).tracks.isEmpty;
@@ -45,19 +45,11 @@ class ForYouScreen extends ConsumerWidget {
                   child: _buildEmptyState(),
                 )
               else ...[
-                // Les suggestions du moment passent en tout premier :
-                // elles changent avec l'heure de la journée (matin/midi/
-                // soir), donc c'est le contenu le plus "vivant" de la
-                // page - contrairement aux autres sections qui ne
-                // bougent qu'avec de nouvelles écoutes.
-                _carouselSection(
-                  context: context,
-                  title: titleForPeriod(dayPeriod),
-                  tracks: timeBasedSuggestions,
-                  emptyMessage:
-                      'Classe quelques morceaux par ambiance pour voir des '
-                      'suggestions apparaître ici selon le moment de la '
-                      'journée.',
+                // Les mixes du moment passent en tout premier : 5 cartes
+                // de 20 morceaux, uniquement pour le moment de la journée
+                // en cours (matin, midi ou soir).
+                SliverToBoxAdapter(
+                  child: PeriodMixesSection(period: dayPeriod),
                 ),
                 // Les suggestions passent en tête : c'est la seule section
                 // que l'utilisateur ne peut pas retrouver ailleurs dans

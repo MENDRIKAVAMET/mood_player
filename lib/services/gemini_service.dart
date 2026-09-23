@@ -91,8 +91,10 @@ Classe ce morceau dans l'une des catégories suivantes:
 - festif: musique de fête, joyeuse, parfaite pour les célébrations
 - romantique: musique d'amour, tendre, intime
 - concentration: musique instrumentale, calme, parfaite pour travailler
-- motivant: musique inspirante, qui donne envie d'avancer
+- motivant: musique inspirante, qui donne envie d'avancer (dépassement de soi, ambition) - JAMAIS pour la musique évangélique
 - triste: musique très triste, mélancolique profonde
+
+Règle spéciale - musique évangélique: un morceau évangélique / gospel / louange / adoration / chrétien (worship, chants d'église) ne doit JAMAIS être classé "motivant", même si les paroles parlent de foi, de force ou de victoire. Classe-le selon son ambiance sonore réelle: louange lente, adoration, prière -> chill (ou mélancolique si très émouvant); louange rythmée, célébration -> festif ou énergique.
 
 Réponds UNIQUEMENT avec un JSON valide au format suivant:
 {"mood": "catégorie", "confiance": 0.0-1.0}

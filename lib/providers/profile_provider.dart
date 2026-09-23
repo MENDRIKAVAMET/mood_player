@@ -32,6 +32,19 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
     await _service.save(state);
   }
 
+  /// Enregistre les ambiances d'un moment de la journée ([periodKey] =
+  /// `DayPeriod.name`). Passer `null` revient aux valeurs par défaut.
+  Future<void> setPeriodMoods(String periodKey, List<String>? moodNames) async {
+    final updated = Map<String, List<String>>.from(state.periodMoods);
+    if (moodNames == null) {
+      updated.remove(periodKey);
+    } else {
+      updated[periodKey] = moodNames;
+    }
+    state = state.copyWith(periodMoods: updated);
+    await _service.save(state);
+  }
+
   Future<void> completeOnboarding() async {
     state = state.copyWith(onboardingCompleted: true);
     await _service.save(state);

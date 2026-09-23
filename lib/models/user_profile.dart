@@ -7,26 +7,36 @@ class UserProfile {
   final List<String> favoriteArtists;
   final bool onboardingCompleted;
 
+  /// Ambiances choisies par l'utilisateur pour chaque moment de la journée
+  /// (clé = nom du moment : morning / midday / evening, valeur = noms de
+  /// [MoodType]). Une clé absente signifie « valeurs par défaut » - voir
+  /// `defaultMoodsForPeriod` dans mood_suggestions_provider.dart.
+  final Map<String, List<String>> periodMoods;
+
   const UserProfile({
     this.name,
     this.favoriteArtists = const [],
     this.onboardingCompleted = false,
+    this.periodMoods = const {},
   });
 
   const UserProfile.empty()
       : name = null,
         favoriteArtists = const [],
-        onboardingCompleted = false;
+        onboardingCompleted = false,
+        periodMoods = const {};
 
   UserProfile copyWith({
     String? name,
     List<String>? favoriteArtists,
     bool? onboardingCompleted,
+    Map<String, List<String>>? periodMoods,
   }) {
     return UserProfile(
       name: name ?? this.name,
       favoriteArtists: favoriteArtists ?? this.favoriteArtists,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      periodMoods: periodMoods ?? this.periodMoods,
     );
   }
 
@@ -34,6 +44,7 @@ class UserProfile {
         'name': name,
         'favoriteArtists': favoriteArtists,
         'onboardingCompleted': onboardingCompleted,
+        'periodMoods': periodMoods,
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -48,6 +59,11 @@ class UserProfile {
           ? list.map((e) => e as String).toList()
           : (legacySingle != null ? [legacySingle] : const []),
       onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
+      periodMoods: (json['periodMoods'] as Map<String, dynamic>? ?? const {})
+          .map((k, v) => MapEntry(
+                k,
+                (v as List<dynamic>).map((e) => e.toString()).toList(),
+              )),
     );
   }
 }

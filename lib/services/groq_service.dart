@@ -131,8 +131,18 @@ class GroqService {
     buffer.writeln('- festif: fête, joyeux, célébration');
     buffer.writeln('- romantique: amour, tendre, intime');
     buffer.writeln('- concentration: instrumental, calme, travail');
-    buffer.writeln('- motivant: inspirant, donne envie d\'avancer');
+    buffer.writeln('- motivant: inspirant, donne envie d\'avancer (dépassement de soi, ambition, énergie positive) - JAMAIS pour la musique évangélique');
     buffer.writeln('- triste: très triste, mélancolie profonde');
+    buffer.writeln();
+    buffer.writeln('Règle spéciale - musique évangélique:');
+    buffer.writeln(
+      'Les morceaux de musique évangélique / gospel / louange / adoration / '
+      'chrétienne (worship, chants d\'église, artistes gospel) ne doivent '
+      'JAMAIS être classés "motivant", même si les paroles parlent de foi, '
+      'de force ou de victoire. Classe-les selon leur ambiance sonore réelle: '
+      'louange lente, adoration, prière -> chill (ou mélancolique si très '
+      'émouvant); louange rythmée, célébration -> festif ou énergique.',
+    );
     buffer.writeln();
     buffer.writeln('Morceaux à classer:');
     for (var i = 0; i < chunk.length; i++) {
