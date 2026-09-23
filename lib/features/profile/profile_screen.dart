@@ -222,8 +222,8 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-/// Sélecteur d'artistes (jusqu'à 3), réutilisé pour modifier le choix fait
-/// à l'onboarding depuis l'écran de profil.
+/// Sélecteur d'artistes (aucune limite), réutilisé pour modifier le choix
+/// fait à l'onboarding depuis l'écran de profil.
 class _ArtistPickerSheet extends StatefulWidget {
   final List<String> allArtists;
   final List<String> initiallySelected;
@@ -238,7 +238,6 @@ class _ArtistPickerSheet extends StatefulWidget {
 }
 
 class _ArtistPickerSheetState extends State<_ArtistPickerSheet> {
-  static const _maxSelection = 3;
   late final Set<String> _selected = {...widget.initiallySelected};
   String _query = '';
 
@@ -246,7 +245,7 @@ class _ArtistPickerSheetState extends State<_ArtistPickerSheet> {
     setState(() {
       if (_selected.contains(artist)) {
         _selected.remove(artist);
-      } else if (_selected.length < _maxSelection) {
+      } else {
         _selected.add(artist);
       }
     });
@@ -282,7 +281,7 @@ class _ArtistPickerSheetState extends State<_ArtistPickerSheet> {
             Padding(
               padding: const EdgeInsets.all(AppTheme.spacingL),
               child: Text(
-                'Artistes préférés (${_selected.length}/$_maxSelection)',
+                'Artistes préférés (${_selected.length})',
                 style: AppTheme.titleMedium,
               ),
             ),
@@ -310,14 +309,11 @@ class _ArtistPickerSheetState extends State<_ArtistPickerSheet> {
                 itemBuilder: (context, index) {
                   final artist = filtered[index];
                   final isSelected = _selected.contains(artist);
-                  final isDisabled = !isSelected && _selected.length >= _maxSelection;
                   return ListTile(
-                    onTap: isDisabled ? null : () => _toggle(artist),
+                    onTap: () => _toggle(artist),
                     title: Text(
                       artist,
-                      style: AppTheme.bodyLarge.copyWith(
-                        color: isDisabled ? AppTheme.textTertiary : AppTheme.textPrimary,
-                      ),
+                      style: AppTheme.bodyLarge.copyWith(color: AppTheme.textPrimary),
                     ),
                     trailing: Icon(
                       isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,

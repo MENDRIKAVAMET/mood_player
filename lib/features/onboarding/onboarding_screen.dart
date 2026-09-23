@@ -365,8 +365,6 @@ class _ArtistStep extends StatefulWidget {
 }
 
 class _ArtistStepState extends State<_ArtistStep> {
-  static const _maxSelection = 3;
-
   final _searchController = TextEditingController();
   String _query = '';
   final Set<String> _selected = {};
@@ -381,12 +379,9 @@ class _ArtistStepState extends State<_ArtistStep> {
     setState(() {
       if (_selected.contains(artist)) {
         _selected.remove(artist);
-      } else if (_selected.length < _maxSelection) {
+      } else {
         _selected.add(artist);
       }
-      // Déjà à 3 et on tape un 4e : on ignore simplement le tap plutôt
-      // que de remplacer un choix existant sans le dire - plus simple à
-      // comprendre que "pourquoi mon premier choix a disparu ?".
     });
   }
 
@@ -415,8 +410,8 @@ class _ArtistStepState extends State<_ArtistStep> {
           ).animate().fadeIn(duration: AppTheme.animSlow),
           const SizedBox(height: AppTheme.spacingS),
           Text(
-            'Choisissez-en jusqu\'à 3 dans votre bibliothèque - ça nous '
-            'aide à vous proposer des suggestions dès le début.',
+            'Choisissez ceux que vous aimez dans votre bibliothèque - ça '
+            'nous aide à vous proposer des suggestions dès le début.',
             style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
             textAlign: TextAlign.center,
           ).animate().fadeIn(
@@ -445,7 +440,7 @@ class _ArtistStepState extends State<_ArtistStep> {
               ),
           const SizedBox(height: AppTheme.spacingXS),
           Text(
-            '${_selected.length}/$_maxSelection sélectionné${_selected.length > 1 ? 's' : ''}',
+            '${_selected.length} sélectionné${_selected.length > 1 ? 's' : ''}',
             style: AppTheme.labelSmall.copyWith(color: AppTheme.accentPrimary),
           ),
           const SizedBox(height: AppTheme.spacingS),
@@ -463,17 +458,13 @@ class _ArtistStepState extends State<_ArtistStep> {
                     itemBuilder: (context, index) {
                       final artist = filtered[index];
                       final isSelected = _selected.contains(artist);
-                      final isDisabled =
-                          !isSelected && _selected.length >= _maxSelection;
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        onTap: isDisabled ? null : () => _toggle(artist),
+                        onTap: () => _toggle(artist),
                         title: Text(
                           artist,
                           style: AppTheme.bodyLarge.copyWith(
-                            color: isDisabled
-                                ? AppTheme.textTertiary
-                                : AppTheme.textPrimary,
+                            color: AppTheme.textPrimary,
                           ),
                         ),
                         trailing: Icon(
