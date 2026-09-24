@@ -455,8 +455,13 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// Sends one Groq request classifying every track in [chunk] together,
   /// applies the results, and retries the whole chunk automatically if
   /// Groq responds with a rate limit (429).
-  Future<void> _classifyChunk(List<Track> chunk, {required int maxRateLimitRetries}) async {
+  Future<void> _classifyChunk(
+    List<Track> chunk, {
+    required int maxRateLimitRetries,
+    int maxNetworkRetries = 4,
+  }) async {
     var attempt = 0;
+    var networkAttempt = 0;
     while (true) {
       try {
         final results = await _groqService.classifyTracksBatch(chunk);
@@ -511,6 +516,33 @@ class TrackNotifier extends StateNotifier<TrackState> {
             error: state.error,
             classifyStatusMessage:
                 'Limite Groq atteinte, reprise dans ${remaining}s…',
+          );
+          await Future.delayed(const Duration(seconds: 1));
+          remaining--;
+        }
+        // loop back around and retry this same chunk
+      } on GroqNetworkException catch (e) {
+        networkAttempt++;
+        if (networkAttempt > maxNetworkRetries) {
+          state = state.copyWith(
+            error: 'Connexion à Groq impossible pour ce lot de '
+                '${chunk.length} morceaux après plusieurs tentatives : '
+                '${e.message}',
+            clearClassifyStatusMessage: true,
+          );
+          return;
+        }
+
+        // Exponential backoff (3s, 6s, 12s, 24s...) instead of hammering a
+        // connection that's currently down/blocked.
+        final waitSeconds = (3 * (1 << (networkAttempt - 1))).clamp(1, 30);
+        var remaining = waitSeconds;
+        while (remaining > 0) {
+          state = state.copyWith(
+            error: state.error,
+            classifyStatusMessage:
+                'Connexion à Groq impossible, nouvelle tentative dans ${remaining}s… '
+                '($networkAttempt/$maxNetworkRetries)',
           );
           await Future.delayed(const Duration(seconds: 1));
           remaining--;

@@ -21,13 +21,28 @@ class GroqService {
       : _apiKey = dotenv.isInitialized ? (dotenv.env['GROQ_API_KEY'] ?? '') : '' {
     _dio = Dio(BaseOptions(
       baseUrl: 'https://api.groq.com/openai/v1',
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      // Connecting to the host itself should always be quick; keep this
+      // short so a genuinely unreachable host fails fast.
+      connectTimeout: const Duration(seconds: 15),
+      // Generation time scales with how many tracks are in the batch
+      // (more classifications = more output tokens), and can be slower
+      // still on mobile data. A flat 30s was too tight for large batches
+      // on a slow connection - see _receiveTimeoutFor.
+      sendTimeout: const Duration(seconds: 20),
       headers: {
         'Authorization': 'Bearer $_apiKey',
         'Content-Type': 'application/json',
       },
     ));
+  }
+
+  /// Generous, batch-size-aware receive timeout. Base cost covers
+  /// connection/queueing overhead; the per-track cost gives slower
+  /// (mobile data) connections enough headroom to receive a full
+  /// max-size (50-track) batch instead of timing out mid-generation.
+  Duration _receiveTimeoutFor(int chunkLength) {
+    final seconds = 30 + (chunkLength * 2);
+    return Duration(seconds: seconds.clamp(30, 150));
   }
 
   /// Maximum tracks sent in a single classification request. Kept well
@@ -79,6 +94,7 @@ class GroqService {
           // Forces a valid JSON object back, no prose/markdown fences to strip.
           'response_format': {'type': 'json_object'},
         },
+        options: Options(receiveTimeout: _receiveTimeoutFor(chunk.length)),
       );
 
       final content = response.data['choices'][0]['message']['content'] as String;
@@ -93,6 +109,28 @@ class GroqService {
           'Limite de requêtes Groq atteinte: $serverMessage',
           retryAfter: _parseRetryAfter(e.response?.headers),
           originalError: e,
+        );
+      }
+
+      // No HTTP response at all (timeout, DNS failure, connection refused,
+      // or a network/firewall layer blocking api.groq.com before the
+      // request even reaches Groq - the classic case behind messages like
+      // "Access denied. Please check your network settings."). This is
+      // transient/environmental, not something the response parsing can
+      // fix, so it gets its own type the caller can retry.
+      final isConnectionIssue = e.response == null &&
+          (e.type == DioExceptionType.connectionError ||
+              e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.sendTimeout ||
+              e.type == DioExceptionType.receiveTimeout ||
+              e.type == DioExceptionType.unknown);
+
+      if (isConnectionIssue) {
+        throw GroqNetworkException(
+          'Impossible de joindre Groq (api.groq.com) : $serverMessage. '
+          'Vérifie ta connexion internet, ou qu\'aucun pare-feu / VPN / '
+          'DNS filtrant ne bloque ce domaine.',
+          e,
         );
       }
 
@@ -251,4 +289,14 @@ class GroqRateLimitException extends GroqServiceException {
     required this.retryAfter,
     dynamic originalError,
   }) : super(message, originalError);
+}
+
+/// Thrown when the request never reached Groq at all (no HTTP response):
+/// timeout, DNS failure, or a network/firewall/VPN layer blocking the
+/// domain. Distinct from [GroqServiceException] so callers can retry it
+/// automatically instead of giving up immediately, since it's usually a
+/// transient condition on the device's network rather than a real API error.
+class GroqNetworkException extends GroqServiceException {
+  const GroqNetworkException(String message, [dynamic originalError])
+      : super(message, originalError);
 }
