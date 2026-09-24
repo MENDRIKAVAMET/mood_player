@@ -38,6 +38,43 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// skipping to next/previous.
   late Track _displayTrack = widget.track;
 
+  /// Cumulative finger movement for the swipe-navigation gesture on the
+  /// main player area (reset on each new drag, read on release).
+  Offset _swipeDelta = Offset.zero;
+
+  /// Minimum distance (px) a drag needs to cover before it counts as a
+  /// deliberate swipe rather than an accidental brush of the screen.
+  static const double _swipeThreshold = 80.0;
+
+  void _handleSwipeEnd(DragEndDetails details) {
+    final dx = _swipeDelta.dx;
+    final dy = _swipeDelta.dy;
+
+    // Whichever axis moved further decides the gesture; the sign along
+    // that axis decides the direction.
+    if (dx.abs() >= dy.abs()) {
+      if (dx.abs() < _swipeThreshold) return;
+      if (dx < 0) {
+        // Swipe left -> lyrics
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => LyricsScreen(track: _displayTrack)),
+        );
+      } else {
+        // Swipe right -> back to the track list
+        Navigator.of(context).pop();
+      }
+    } else {
+      if (dy.abs() < _swipeThreshold) return;
+      if (dy < 0) {
+        // Swipe up -> next track
+        _skipToNext();
+      } else {
+        // Swipe down -> previous track
+        _skipToPrevious();
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -186,16 +223,36 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
               // Main player content
               Expanded(
+                // Le scroll interne était en concurrence avec le geste de
+                // swipe ci-dessous (tous deux réagissent au glissement
+                // vertical) : sans le désactiver, le swipe haut/bas ne se
+                // déclenchait pas de façon fiable. Le contenu tient
+                // normalement dans l'écran.
                 child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   child: Column(
                     children: [
                       const SizedBox(height: AppTheme.spacingL),
-                      // Cover art with glow
-                      _buildCoverArt(moodColors, dynamicGlow),
-                      const SizedBox(height: AppTheme.spacingXXL),
-                      // Track info
-                      _buildTrackInfo(moodColors),
+                      // Cover art + track info : seule cette zone capte le
+                      // swipe, pour ne pas entrer en conflit avec le drag
+                      // de la barre de progression (glisser dessus doit
+                      // continuer à avancer/reculer dans le morceau, pas
+                      // déclencher une navigation).
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanStart: (_) => _swipeDelta = Offset.zero,
+                        onPanUpdate: (details) => _swipeDelta += details.delta,
+                        onPanEnd: _handleSwipeEnd,
+                        child: Column(
+                          children: [
+                            // Cover art with glow
+                            _buildCoverArt(moodColors, dynamicGlow),
+                            const SizedBox(height: AppTheme.spacingXXL),
+                            // Track info
+                            _buildTrackInfo(moodColors),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: AppTheme.spacingXL),
                       // Progress bar
                       _buildProgressBar(moodColors, position, duration),
@@ -542,12 +599,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     required double size,
     required VoidCallback onTap,
   }) {
+    // Icône visuellement inchangée, mais zone tactile de 48x48 (taille
+    // recommandée) centrée dessus - pas besoin de viser pile les 32px de
+    // l'icône pour que le tap soit pris en compte.
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Icon(
-        icon,
-        size: size,
-        color: AppTheme.textSecondary,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: Icon(
+            icon,
+            size: size,
+            color: AppTheme.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -636,11 +703,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final color = _shuffleMode ? moodColors.primary : AppTheme.textSecondary;
     
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: _toggleShuffle,
-      child: Icon(
-        Icons.shuffle_rounded,
-        size: 24,
-        color: color,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: Icon(
+            Icons.shuffle_rounded,
+            size: 24,
+            color: color,
+          ),
+        ),
       ),
     );
   }
@@ -650,13 +724,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final color = isActive ? moodColors.primary : AppTheme.textSecondary;
     
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: _cycleRepeatMode,
-      child: Icon(
-        _repeatMode == PlayerRepeatMode.one
-            ? Icons.repeat_one_rounded
-            : Icons.repeat_rounded,
-        size: 24,
-        color: color,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: Icon(
+            _repeatMode == PlayerRepeatMode.one
+                ? Icons.repeat_one_rounded
+                : Icons.repeat_rounded,
+            size: 24,
+            color: color,
+          ),
+        ),
       ),
     );
   }
