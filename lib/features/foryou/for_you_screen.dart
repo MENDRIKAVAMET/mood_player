@@ -57,7 +57,9 @@ class ForYouScreen extends ConsumerWidget {
                 _carouselSection(
                   context: context,
                   title: 'Suggestions pour toi',
-                  tracks: suggested,
+                  // Alignée sur les mixes du moment juste au-dessus : 5
+                  // cartes, pas les 20 morceaux bruts du provider.
+                  tracks: suggested.take(5).toList(),
                   emptyMessage:
                       'Les suggestions arrivent dès que tu as écouté ou aimé '
                       'quelques morceaux.',

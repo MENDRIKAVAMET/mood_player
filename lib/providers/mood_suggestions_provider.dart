@@ -104,7 +104,7 @@ class SuggestionMix {
     final seen = <String>[];
     for (final t in tracks) {
       if (!seen.contains(t.artist)) seen.add(t.artist);
-      if (seen.length == 3) break;
+      if (seen.length == 4) break;
     }
     return seen.join(', ');
   }

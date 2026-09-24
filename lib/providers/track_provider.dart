@@ -385,6 +385,42 @@ class TrackNotifier extends StateNotifier<TrackState> {
     _applyFilters();
   }
 
+  /// Sets [track]'s mood and confidence manually (from the player screen's
+  /// mood-edit sheet), overriding whatever Groq classified it as. Marks it
+  /// as classified with today's date so it won't be picked up again by
+  /// [classifyAllUnclassified], and refreshes filtered lists so the track
+  /// immediately moves out of its old mood section and into the new one.
+  Future<void> setTrackMood(
+    Track track, {
+    required MoodType mood,
+    required double confidence,
+  }) async {
+    final previousMood = track.mood;
+    final previousConfidence = track.moodConfidence;
+
+    track
+      ..mood = mood
+      ..moodConfidence = confidence.clamp(0.0, 1.0)
+      ..lastClassified = DateTime.now()
+      ..updatedAt = DateTime.now();
+
+    try {
+      await _storageService.saveTrack(track);
+      final updatedTracks = [
+        for (final t in state.tracks) if (t.id == track.id) track else t,
+      ];
+      state = state.copyWith(tracks: updatedTracks, error: null);
+      _applyFilters();
+    } catch (e) {
+      track
+        ..mood = previousMood
+        ..moodConfidence = previousConfidence;
+      state = state.copyWith(
+        error: 'Erreur lors de la mise à jour de l\'ambiance: $e',
+      );
+    }
+  }
+
   /// Toggles the liked status of [track] and persists it, updating the
   /// in-memory state without a full library reload.
   Future<void> toggleLike(Track track) async {

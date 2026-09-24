@@ -10,6 +10,7 @@ import '../../theme/mood_colors.dart';
 import 'queue_screen.dart';
 import 'lyrics_screen.dart';
 import '../../widgets/track_options_sheet.dart';
+import '../../widgets/mood_edit_sheet.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final Track track;
@@ -138,10 +139,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Widget build(BuildContext context) {
     // Keep the displayed track in sync with whatever the audio handler is
     // really playing (changes on skip/next/previous), falling back to the
-    // initially-tapped track if we can't resolve a match yet.
+    // initially-tapped track if we can't resolve a match yet. Always watch
+    // trackProvider (not just inside the id-mismatch branch) so this screen
+    // also rebuilds when the *same* track's data changes in place - e.g.
+    // its mood/confidence being edited from the sheet below.
+    final knownTracks = ref.watch(trackProvider).tracks;
     final currentMediaItem = ref.watch(currentTrackProvider).valueOrNull;
     if (currentMediaItem != null && currentMediaItem.id != _displayTrack.id.toString()) {
-      final knownTracks = ref.watch(trackProvider).tracks;
       final matched = knownTracks.where((t) => t.id.toString() == currentMediaItem.id);
       if (matched.isNotEmpty) {
         _displayTrack = matched.first;
@@ -658,7 +662,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Widget _buildMoodInfoCard(MoodColors moodColors) {
-    return Container(
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppTheme.radiusL),
+      onTap: () => showMoodEditSheet(context, ref, _displayTrack),
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXXL),
       padding: const EdgeInsets.all(AppTheme.spacingL),
       decoration: BoxDecoration(
@@ -715,7 +722,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ],
             ),
           ),
+          Icon(
+            Icons.edit_rounded,
+            size: 18,
+            color: moodColors.primary.withValues(alpha: 0.6),
+          ),
         ],
+      ),
       ),
     ).animate().fadeIn(
           duration: AppTheme.animSlow,
