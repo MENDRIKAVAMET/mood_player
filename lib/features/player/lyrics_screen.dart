@@ -212,7 +212,19 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
             ),
         ],
       ),
-      body: lyricsAsync.when(
+      body: GestureDetector(
+        // Horizontal only (not a full Pan) so it never competes with the
+        // lyrics list's own vertical scroll - swiping up/down here keeps
+        // scrolling through the lyrics as normal.
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          if (velocity > 200) {
+            // Swipe right -> back to Now Playing
+            Navigator.of(context).pop();
+          }
+        },
+        child: lyricsAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
@@ -349,6 +361,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
                   ),
           );
         },
+      ),
       ),
     );
   }
