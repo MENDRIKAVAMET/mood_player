@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -46,6 +48,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// deliberate swipe rather than an accidental brush of the screen.
   static const double _swipeThreshold = 80.0;
 
+  /// Contrôle l'affichage des boutons/barre de progression par-dessus la
+  /// pochette plein écran : visible à l'ouverture, se cache tout seul
+  /// après [_hideDelay] d'inactivité, et un tap sur l'écran bascule l'état
+  /// (le retoucher relance le minuteur, le recacher l'annule).
+  bool _controlsVisible = true;
+  Timer? _hideTimer;
+  static const Duration _hideDelay = Duration(seconds: 3);
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(_hideDelay, () {
+      if (mounted) setState(() => _controlsVisible = false);
+    });
+  }
+
+  void _toggleControls() {
+    setState(() => _controlsVisible = !_controlsVisible);
+    if (_controlsVisible) {
+      _scheduleHide();
+    } else {
+      _hideTimer?.cancel();
+    }
+  }
+
   void _handleSwipeEnd(DragEndDetails details) {
     final dx = _swipeDelta.dx;
     final dy = _swipeDelta.dy;
@@ -79,6 +105,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void initState() {
     super.initState();
     _playTrack();
+    _scheduleHide();
     // Listen to repeat and shuffle mode changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final audioHandlerAsync = ref.read(audioHandlerProvider);
@@ -101,6 +128,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         });
       });
     });
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _playTrack() async {
@@ -193,307 +226,179 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final isPlaying = ref.watch(isPlayingProvider);
     final position = ref.watch(currentPositionProvider);
     final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
-    
-    // Extract dynamic colors from cover art if available
-    final coverColorsAsync = ref.watch(coverColorProvider(_displayTrack.coverUrl));
-    final paletteColors = coverColorsAsync.valueOrNull;
-    
-    // Use extracted colors if available, otherwise fall back to mood colors
-    final dynamicGradientStart = paletteColors?.darkVibrant ?? moodColors.gradientStart;
-    final dynamicGradientEnd = paletteColors?.darkMuted ?? moodColors.gradientEnd;
-    final dynamicGlow = paletteColors?.vibrant ?? moodColors.glow;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              dynamicGradientStart,
-              dynamicGradientEnd,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header with back button and menu
-              _buildHeader(moodColors),
-
-              // Main player content
-              Expanded(
-                // Le scroll interne était en concurrence avec le geste de
-                // swipe ci-dessous (tous deux réagissent au glissement
-                // vertical) : sans le désactiver, le swipe haut/bas ne se
-                // déclenchait pas de façon fiable. Le contenu tient
-                // normalement dans l'écran.
-                child: SingleChildScrollView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: AppTheme.spacingL),
-                      // Cover art + track info : seule cette zone capte le
-                      // swipe, pour ne pas entrer en conflit avec le drag
-                      // de la barre de progression (glisser dessus doit
-                      // continuer à avancer/reculer dans le morceau, pas
-                      // déclencher une navigation).
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onPanStart: (_) => _swipeDelta = Offset.zero,
-                        onPanUpdate: (details) => _swipeDelta += details.delta,
-                        onPanEnd: _handleSwipeEnd,
-                        child: Column(
-                          children: [
-                            // Cover art with glow
-                            _buildCoverArt(moodColors, dynamicGlow),
-                            const SizedBox(height: AppTheme.spacingXXL),
-                            // Track info
-                            _buildTrackInfo(moodColors),
-                          ],
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        // Occupe tout l'écran : un tap simple bascule l'affichage des
+        // boutons, un drag déclenche la navigation (next/prev/lyrics/back)
+        // exactement comme avant, mais maintenant sur la pochette plein
+        // écran plutôt que sur la seule zone de la pochette.
+        behavior: HitTestBehavior.opaque,
+        onTap: _toggleControls,
+        onPanStart: (_) => _swipeDelta = Offset.zero,
+        onPanUpdate: (details) => _swipeDelta += details.delta,
+        onPanEnd: _handleSwipeEnd,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Pochette plein écran, en fond.
+            TrackArtworkFill(track: _displayTrack, radius: 0),
+            // Voile sombre en haut et en bas pour que le titre et les
+            // boutons restent lisibles quelle que soit la pochette.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color.fromRGBO(0, 0, 0, 0.65),
+                    Color.fromRGBO(0, 0, 0, 0.05),
+                    Color.fromRGBO(0, 0, 0, 0.05),
+                    Color.fromRGBO(0, 0, 0, 0.8),
+                  ],
+                  stops: [0, 0.28, 0.5, 1],
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  // Titre + artiste : toujours visibles, comme sur la
+                  // référence. Seuls les boutons qui les entourent (retour,
+                  // options) apparaissent/disparaissent avec les contrôles.
+                  _buildTopBar(moodColors),
+                  const Spacer(),
+                  // Barre de progression + contrôles de lecture : se
+                  // cachent en glissant vers le bas et en s'effaçant après
+                  // 3s d'inactivité, ou dès qu'on retape sur l'écran.
+                  AnimatedSlide(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeInOut,
+                    offset: _controlsVisible ? Offset.zero : const Offset(0, 0.12),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 220),
+                      opacity: _controlsVisible ? 1 : 0,
+                      child: IgnorePointer(
+                        ignoring: !_controlsVisible,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: AppTheme.spacingL),
+                          child: Column(
+                            children: [
+                              _buildLikeButton(moodColors),
+                              const SizedBox(height: AppTheme.spacingL),
+                              _buildProgressBar(moodColors, position, duration),
+                              const SizedBox(height: AppTheme.spacingL),
+                              _buildControls(moodColors, isPlaying),
+                              const SizedBox(height: AppTheme.spacingXL),
+                              if (_displayTrack.isClassified)
+                                _buildMoodInfoCard(moodColors),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: AppTheme.spacingXL),
-                      // Progress bar
-                      _buildProgressBar(moodColors, position, duration),
-                      const SizedBox(height: AppTheme.spacingL),
-                      // Controls
-                      _buildControls(moodColors, isPlaying),
-                      const SizedBox(height: AppTheme.spacingXL),
-                      // Mood info card
-                      if (_displayTrack.isClassified)
-                        _buildMoodInfoCard(moodColors),
-                      const SizedBox(height: AppTheme.spacingXXXL),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(MoodColors moodColors) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacingL,
-        vertical: AppTheme.spacingM,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Back button
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 24,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-          // Playing from info
-          Column(
-            children: [
-              Text(
-                'En lecture',
-                style: AppTheme.labelSmall.copyWith(
-                  color: AppTheme.textTertiary,
-                ),
-              ),
-              Text(
-                _displayTrack.moodDisplayName,
-                style: AppTheme.labelMedium.copyWith(
-                  color: moodColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          // Actions: lyrics + more options
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => LyricsScreen(track: _displayTrack),
-                  ),
-                ),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  margin: const EdgeInsets.only(right: AppTheme.spacingS),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.lyrics_outlined,
-                    size: 20,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _showOptionsSheet(),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.more_vert_rounded,
-                    size: 20,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCoverArt(MoodColors moodColors, Color dynamicGlow) {
-    return Hero(
-      tag: 'album_art_${_displayTrack.id}',
-      child: Container(
-        width: 280,
-        height: 280,
-        margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXL),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-          boxShadow: [
-            // Halo coloré, teinté par la pochette elle-même.
-            BoxShadow(
-              color: dynamicGlow,
-              blurRadius: 60,
-              spreadRadius: -8,
-              offset: const Offset(0, 16),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 32,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: TrackArtwork(
-          track: _displayTrack,
-          size: 280,
-          radius: AppTheme.radiusXL,
-          placeholderFontSize: 80,
-        ),
-      ),
-    ).animate().scale(
-          duration: AppTheme.animVerySlow,
-          curve: Curves.easeOutBack,
-        );
-  }
-
-
-  Widget _buildTrackInfo(MoodColors moodColors) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXXL),
-      child: Column(
-        children: [
-          // Title
-          Text(
-            _displayTrack.title,
-            style: AppTheme.headlineLarge.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ).animate().fadeIn(
-                duration: AppTheme.animSlow,
-                delay: const Duration(milliseconds: 200),
-              ),
-          const SizedBox(height: AppTheme.spacingS),
-          // Artist
-          Text(
-            _displayTrack.artist,
-            style: AppTheme.titleMedium.copyWith(
-              color: AppTheme.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ).animate().fadeIn(
-                duration: AppTheme.animSlow,
-                delay: const Duration(milliseconds: 300),
-              ),
-          // Album
-          if (_displayTrack.album != null) ...[
-            const SizedBox(height: AppTheme.spacingXS),
-            Text(
-              _displayTrack.album!,
-              style: AppTheme.bodySmall,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-          const SizedBox(height: AppTheme.spacingL),
-          // Like button
-          GestureDetector(
-            onTap: () {
-              ref.read(trackProvider.notifier).toggleLike(_displayTrack);
-              setState(() {});
-            },
-            child: AnimatedContainer(
-              duration: AppTheme.animNormal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacingL,
-                vertical: AppTheme.spacingS,
-              ),
-              decoration: BoxDecoration(
-                color: _displayTrack.isLiked
-                    ? moodColors.primary.withValues(alpha: 0.2)
-                    : AppTheme.backgroundCardElevated,
-                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                border: Border.all(
-                  color: _displayTrack.isLiked
-                      ? moodColors.primary.withValues(alpha: 0.3)
-                      : AppTheme.border.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _displayTrack.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: _displayTrack.isLiked ? moodColors.primary : AppTheme.textSecondary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: AppTheme.spacingS),
-                  Text(
-                    _displayTrack.isLiked ? 'Aimé' : 'Aimer',
-                    style: AppTheme.labelMedium.copyWith(
-                      color: _displayTrack.isLiked ? moodColors.primary : AppTheme.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-          ).animate().fadeIn(
-                duration: AppTheme.animSlow,
-                delay: const Duration(milliseconds: 400),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Titre et artiste, toujours affichés. Le bouton retour à gauche et le
+  /// bouton options à droite s'effacent avec le reste des contrôles - le
+  /// texte central reste parfaitement en place puisque les deux côtés du
+  /// [Row] gardent la même largeur, visibles ou non.
+  Widget _buildTopBar(MoodColors moodColors) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacingS,
+        vertical: AppTheme.spacingM,
+      ),
+      child: Row(
+        children: [
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 220),
+            opacity: _controlsVisible ? 1 : 0,
+            child: IgnorePointer(
+              ignoring: !_controlsVisible,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 26,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
               ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  _displayTrack.title,
+                  style: AppTheme.titleLarge.copyWith(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _displayTrack.artist,
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 220),
+            opacity: _controlsVisible ? 1 : 0,
+            child: IgnorePointer(
+              ignoring: !_controlsVisible,
+              child: GestureDetector(
+                onTap: () => _showOptionsSheet(),
+                child: const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(
+                    Icons.more_vert_rounded,
+                    size: 22,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLikeButton(MoodColors moodColors) {
+    return GestureDetector(
+      onTap: () {
+        ref.read(trackProvider.notifier).toggleLike(_displayTrack);
+        setState(() {});
+      },
+      child: Icon(
+        _displayTrack.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        color: _displayTrack.isLiked ? moodColors.primary : AppTheme.textPrimary,
+        size: 26,
       ),
     );
   }

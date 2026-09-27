@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
+import '../../providers/mood_suggestions_provider.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/compact_track_card.dart';
 import '../../widgets/foryou_list_row.dart';
 import '../../widgets/period_mixes_section.dart';
+import '../../widgets/suggestion_mix_card.dart';
 import '../search/search_screen.dart';
+import 'suggestion_mix_screen.dart';
 
 /// Page « Pour vous » : ajouts récents, morceaux réellement les plus
 /// écoutés, favoris, et suggestions déduites des deux derniers.
@@ -24,7 +27,7 @@ class ForYouScreen extends ConsumerWidget {
     final recentlyAdded = ref.watch(recentlyAddedTracksProvider);
     final mostPlayed = ref.watch(mostPlayedTracksProvider);
     final liked = ref.watch(likedTracksProvider);
-    final suggested = ref.watch(suggestedTracksProvider);
+    final suggestedMixes = ref.watch(suggestedMixesProvider);
     final dayPeriod = ref.watch(dayPeriodProvider);
     final playCounts = ref.watch(playbackStatsProvider);
     final isEmpty = ref.watch(trackProvider).tracks.isEmpty;
@@ -51,19 +54,14 @@ class ForYouScreen extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: PeriodMixesSection(period: dayPeriod),
                 ),
-                // Les suggestions passent en tête : c'est la seule section
-                // que l'utilisateur ne peut pas retrouver ailleurs dans
-                // l'app, donc c'est elle qui justifie la page.
-                _carouselSection(
-                  context: context,
-                  title: 'Suggestions pour toi',
-                  // Alignée sur les mixes du moment juste au-dessus : 5
-                  // cartes, pas les 20 morceaux bruts du provider.
-                  tracks: suggested.take(5).toList(),
-                  emptyMessage:
-                      'Les suggestions arrivent dès que tu as écouté ou aimé '
-                      'quelques morceaux.',
-                ),
+                // Les suggestions passent juste après : c'est la seule
+                // section que l'utilisateur ne peut pas retrouver ailleurs
+                // dans l'app, donc c'est elle qui justifie la page. Même
+                // gabarit que les mixes du moment juste au-dessus : 5 mixes
+                // de 20 morceaux, tirés des artistes préférés, des morceaux
+                // écoutés et des morceaux aimés plutôt que de l'heure qu'il
+                // est.
+                _suggestionMixesSection(context, suggestedMixes),
                 _carouselSection(
                   context: context,
                   title: 'Ajoutés récemment',
@@ -205,6 +203,73 @@ class ForYouScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// Section « Suggestions pour toi » : même gabarit que les mixes du
+  /// moment (carrousel horizontal de cartes de mix), mais basé sur les
+  /// artistes préférés et l'historique d'écoute plutôt que sur le moment
+  /// de la journée.
+  Widget _suggestionMixesSection(BuildContext context, List<TrackMix> mixes) {
+    if (mixes.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spacingL,
+                AppTheme.spacingXL,
+                AppTheme.spacingL,
+                AppTheme.spacingM,
+              ),
+              child: Text('Suggestions pour toi', style: AppTheme.headlineLarge),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+              child: Text(
+                'Les suggestions arrivent dès que tu as écouté ou aimé '
+                'quelques morceaux.',
+                style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.spacingL,
+              AppTheme.spacingXL,
+              AppTheme.spacingL,
+              AppTheme.spacingM,
+            ),
+            child: Text('Suggestions pour toi', style: AppTheme.headlineLarge),
+          ),
+          SizedBox(
+            height: 220,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+              itemCount: mixes.length,
+              itemBuilder: (context, i) => SuggestionMixCard(
+                mix: mixes[i],
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SuggestionMixScreen(mix: mixes[i]),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

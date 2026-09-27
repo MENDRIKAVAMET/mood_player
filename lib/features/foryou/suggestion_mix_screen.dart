@@ -8,7 +8,7 @@ import '../../widgets/foryou_list_row.dart';
 /// Contenu d'un mix : ses 20 morceaux, avec lecture dans l'ordre ou en
 /// aléatoire.
 class SuggestionMixScreen extends StatelessWidget {
-  final SuggestionMix mix;
+  final TrackMix mix;
 
   const SuggestionMixScreen({super.key, required this.mix});
 
@@ -37,7 +37,7 @@ class SuggestionMixScreen extends StatelessWidget {
                     ),
                     Expanded(
                       child: Text(
-                        '${mix.title} · ${labelForPeriod(mix.period)}',
+                        '${mix.title} · ${mix.subtitle}',
                         style: AppTheme.headlineLarge,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

@@ -7,7 +7,7 @@ import 'track_artwork.dart';
 /// Carte d'un mix de suggestions dans le carrousel horizontal de « Pour
 /// vous » : collage 2x2 des pochettes, nom du mix, artistes présents.
 class SuggestionMixCard extends StatelessWidget {
-  final SuggestionMix mix;
+  final TrackMix mix;
   final VoidCallback onTap;
 
   const SuggestionMixCard({super.key, required this.mix, required this.onTap});

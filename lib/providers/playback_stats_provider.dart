@@ -7,7 +7,6 @@ import '../models/track.dart';
 import '../services/storage_service.dart';
 import 'audio_provider.dart';
 import 'listen_history_provider.dart';
-import 'profile_provider.dart';
 import 'track_provider.dart';
 
 /// Suit les écoutes *réelles* : un morceau ne compte que lorsqu'il a été
@@ -158,77 +157,7 @@ final likedTracksProvider = Provider<List<Track>>((ref) {
   return ref.watch(trackProvider).tracks.where((t) => t.isLiked).toList();
 });
 
-/// Suggestions « à réécouter » : construites à partir des ambiances et des
-/// artistes qui reviennent le plus dans ce que l'utilisateur écoute et
-/// aime vraiment, en excluant ce qui est déjà dans ces deux listes pour
-/// que la section propose bien autre chose plutôt que de recopier les
-/// précédentes.
-///
-/// Pour un nouveau profil sans historique d'écoute, les 3 artistes
-/// préférés choisis à l'onboarding servent de base : sans ça, cette
-/// section resterait vide jusqu'à ce que l'utilisateur ait déjà écouté ou
-/// aimé plusieurs morceaux, ce qui rend la question de l'onboarding
-/// inutile en pratique.
-final suggestedTracksProvider = Provider<List<Track>>((ref) {
-  final counts = ref.watch(playbackStatsProvider);
-  final allTracks = ref.watch(trackProvider).tracks;
-  if (allTracks.isEmpty) return const [];
-
-  final favoriteArtists = ref
-      .watch(profileProvider)
-      .favoriteArtists
-      .map((a) => a.toLowerCase())
-      .toSet();
-
-  final seeds = <Track>[
-    ...allTracks.where((t) => (counts[t.id] ?? 0) > 0),
-    ...allTracks.where((t) => t.isLiked),
-  ];
-
-  if (seeds.isEmpty) {
-    if (favoriteArtists.isEmpty) return const [];
-    // Cold start : rien écouté ni aimé pour le moment, mais des artistes
-    // préférés existent - ce sont eux qui remplissent les 20 morceaux
-    // proposés, plutôt qu'une section vide.
-    final fromFavorites = allTracks
-        .where((t) => favoriteArtists.contains(t.artist.toLowerCase()))
-        .toList();
-    return fromFavorites.take(20).toList();
-  }
-
-  final seedIds = seeds.map((t) => t.id).toSet();
-
-  // Poids par ambiance et par artiste, pondérés par le nombre d'écoutes
-  // réelles (un favori compte pour une écoute de base).
-  final moodScores = <MoodType, int>{};
-  final artistScores = <String, int>{};
-  for (final track in seeds) {
-    final weight = (counts[track.id] ?? 0) + (track.isLiked ? 1 : 0);
-    final mood = track.mood;
-    if (mood != null && mood != MoodType.unknown) {
-      moodScores[mood] = (moodScores[mood] ?? 0) + weight;
-    }
-    final artist = track.artist.toLowerCase();
-    artistScores[artist] = (artistScores[artist] ?? 0) + weight;
-  }
-  // Boost fixe pour les artistes choisis à l'onboarding, même s'ils n'ont
-  // encore généré aucune écoute/favori - le choix explicite de
-  // l'utilisateur doit peser, pas seulement son comportement passé.
-  for (final artist in favoriteArtists) {
-    artistScores[artist] = (artistScores[artist] ?? 0) + 3;
-  }
-
-  final candidates = allTracks.where((t) => !seedIds.contains(t.id)).toList();
-
-  int scoreOf(Track track) {
-    var score = 0;
-    final mood = track.mood;
-    if (mood != null) score += (moodScores[mood] ?? 0) * 2;
-    score += (artistScores[track.artist.toLowerCase()] ?? 0) * 3;
-    return score;
-  }
-
-  final scored = candidates.map((t) => (t, scoreOf(t))).where((e) => e.$2 > 0).toList();
-  scored.sort((a, b) => b.$2.compareTo(a.$2));
-  return scored.map((e) => e.$1).take(20).toList();
-});
+// Les suggestions « à réécouter » (artistes préférés + historique
+// d'écoute/favoris) vivent maintenant dans mood_suggestions_provider.dart,
+// sous forme de 5 mixes de 20 morceaux (suggestedMixesProvider) plutôt que
+// d'une liste plate de 20 morceaux — même gabarit que les mixes du moment.
