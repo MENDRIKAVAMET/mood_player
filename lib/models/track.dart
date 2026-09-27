@@ -84,6 +84,24 @@ class Track {
         return 'Motivant';
       case MoodType.sad:
         return 'Triste';
+      case MoodType.evangelical:
+        return 'Évangélique';
+      case MoodType.angry:
+        return 'Colère';
+      case MoodType.nostalgic:
+        return 'Nostalgique';
+      case MoodType.dark:
+        return 'Sombre';
+      case MoodType.sleep:
+        return 'Sommeil';
+      case MoodType.funny:
+        return 'Drôle';
+      case MoodType.roadtrip:
+        return 'Voyage';
+      case MoodType.spiritual:
+        return 'Spirituel';
+      case MoodType.classical:
+        return 'Classique';
       case MoodType.unknown:
         return 'Inconnu';
       case null:

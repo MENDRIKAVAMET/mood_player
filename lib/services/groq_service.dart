@@ -377,6 +377,5 @@ class GroqRateLimitException extends GroqServiceException {
 /// automatically instead of giving up immediately, since it's usually a
 /// transient condition on the device's network rather than a real API error.
 class GroqNetworkException extends GroqServiceException {
-  const GroqNetworkException(String message, [dynamic originalError])
-      : super(message, originalError);
+  const GroqNetworkException(super.message, [super.originalError]);
 }

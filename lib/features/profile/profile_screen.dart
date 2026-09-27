@@ -153,7 +153,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     Switch(
                       value: profile.smartQueueEnabled,
-                      activeColor: AppTheme.accentPrimary,
+                      activeThumbColor: AppTheme.accentPrimary,
                       onChanged: (value) => ref
                           .read(profileProvider.notifier)
                           .setSmartQueueEnabled(value),
