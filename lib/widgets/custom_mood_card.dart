@@ -23,9 +23,6 @@ class CustomMoodCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 160,
-        height: 180,
-        margin: const EdgeInsets.only(right: AppTheme.spacingM),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -125,8 +122,6 @@ class CreateMoodCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 120,
-        height: 180,
         decoration: BoxDecoration(
           color: AppTheme.backgroundCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusL),

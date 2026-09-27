@@ -306,6 +306,22 @@ class MoodDetailScreen extends ConsumerWidget {
         return 'Mélancolie et réflexion';
       case MoodType.evangelical:
         return 'Louange, adoration et musique chrétienne';
+      case MoodType.angry:
+        return 'Colère et défouloir';
+      case MoodType.nostalgic:
+        return 'Souvenirs et retour vers le passé';
+      case MoodType.dark:
+        return 'Ambiance sombre, intense et tendue';
+      case MoodType.sleep:
+        return 'Pour s\'endormir en douceur';
+      case MoodType.funny:
+        return 'Humour et second degré';
+      case MoodType.roadtrip:
+        return 'Voyage et évasion sur la route';
+      case MoodType.spiritual:
+        return 'Méditation et pleine conscience';
+      case MoodType.classical:
+        return 'Instrumental savant et contemplatif';
       case MoodType.unknown:
         return 'Découvrir cette ambiance';
     }

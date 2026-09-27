@@ -62,11 +62,9 @@ class MoodsScreen extends ConsumerWidget {
               ),
 
               _sectionHeader('Mes moods', customMoods.isEmpty ? null : customMoods.length),
-              SizedBox(
-                height: 180,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                child: _MoodGrid(
                   itemCount: customMoods.length + 1,
                   itemBuilder: (context, index) {
                     if (index == customMoods.length) {
@@ -99,11 +97,9 @@ class MoodsScreen extends ConsumerWidget {
                   ),
                 )
               else
-                SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                  child: _MoodGrid(
                     itemCount: moodsWithTracks.length,
                     itemBuilder: (context, index) {
                       final mood = moodsWithTracks[index];
@@ -179,6 +175,36 @@ class MoodsScreen extends ConsumerWidget {
         },
         transitionDuration: AppTheme.animPageTransition,
       ),
+    );
+  }
+}
+
+/// Grille responsive pour les cartes de mood : 2 colonnes sur un petit
+/// écran, jusqu'à 4 sur un écran large, plutôt qu'un carrousel horizontal
+/// - avec 17 ambiances possibles désormais (9 de base + 8 ajoutées), tout
+/// faire tenir dans une seule ligne défilante n'était plus praticable.
+class _MoodGrid extends StatelessWidget {
+  final int itemCount;
+  final Widget Function(BuildContext context, int index) itemBuilder;
+
+  const _MoodGrid({required this.itemCount, required this.itemBuilder});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: itemCount,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        // Chaque carte fait au plus 190px de large - ça donne 2 colonnes
+        // sur un téléphone étroit, 3-4 sur un téléphone large ou une
+        // tablette, calculé automatiquement selon l'espace disponible.
+        maxCrossAxisExtent: 190,
+        mainAxisSpacing: AppTheme.spacingM,
+        crossAxisSpacing: AppTheme.spacingM,
+        childAspectRatio: 0.82,
+      ),
+      itemBuilder: itemBuilder,
     );
   }
 }

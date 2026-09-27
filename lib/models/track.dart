@@ -106,6 +106,16 @@ enum MoodType {
   // précédentes, `moodIndex` est persisté tel quel en base (Isar) sur les
   // morceaux déjà classifiés.
   evangelical,
+  // Idem : ajoutés après coup, à la fin, pour ne pas décaler `moodIndex`
+  // sur les morceaux déjà classifiés.
+  angry,
+  nostalgic,
+  dark,
+  sleep,
+  funny,
+  roadtrip,
+  spiritual,
+  classical,
 }
 
 extension MoodTypeExtension on MoodType {
@@ -129,6 +139,22 @@ extension MoodTypeExtension on MoodType {
         return 'Triste';
       case MoodType.evangelical:
         return 'Évangélique';
+      case MoodType.angry:
+        return 'Colère';
+      case MoodType.nostalgic:
+        return 'Nostalgique';
+      case MoodType.dark:
+        return 'Sombre';
+      case MoodType.sleep:
+        return 'Sommeil';
+      case MoodType.funny:
+        return 'Drôle';
+      case MoodType.roadtrip:
+        return 'Voyage';
+      case MoodType.spiritual:
+        return 'Spirituel';
+      case MoodType.classical:
+        return 'Classique';
       case MoodType.unknown:
         return 'Inconnu';
     }
@@ -157,6 +183,22 @@ extension MoodTypeExtension on MoodType {
         return '😢';
       case MoodType.evangelical:
         return '🙏';
+      case MoodType.angry:
+        return '💢';
+      case MoodType.nostalgic:
+        return '📼';
+      case MoodType.dark:
+        return '🌑';
+      case MoodType.sleep:
+        return '💤';
+      case MoodType.funny:
+        return '😂';
+      case MoodType.roadtrip:
+        return '🚗';
+      case MoodType.spiritual:
+        return '🧘';
+      case MoodType.classical:
+        return '🎻';
       case MoodType.unknown:
         return '🎵';
     }
@@ -185,6 +227,22 @@ extension MoodTypeExtension on MoodType {
         return Icons.cloud_rounded;
       case MoodType.evangelical:
         return Icons.self_improvement_rounded;
+      case MoodType.angry:
+        return Icons.sports_mma_rounded;
+      case MoodType.nostalgic:
+        return Icons.history_rounded;
+      case MoodType.dark:
+        return Icons.dark_mode_rounded;
+      case MoodType.sleep:
+        return Icons.bedtime_rounded;
+      case MoodType.funny:
+        return Icons.theater_comedy_rounded;
+      case MoodType.roadtrip:
+        return Icons.directions_car_filled_rounded;
+      case MoodType.spiritual:
+        return Icons.spa_rounded;
+      case MoodType.classical:
+        return Icons.piano_rounded;
       case MoodType.unknown:
         return Icons.music_note_rounded;
     }
@@ -219,6 +277,33 @@ extension MoodTypeExtension on MoodType {
       case 'evangelical':
       case 'gospel':
         return MoodType.evangelical;
+      case 'colère':
+      case 'colere':
+      case 'angry':
+        return MoodType.angry;
+      case 'nostalgique':
+      case 'nostalgic':
+        return MoodType.nostalgic;
+      case 'sombre':
+      case 'dark':
+        return MoodType.dark;
+      case 'sommeil':
+      case 'sleep':
+        return MoodType.sleep;
+      case 'drôle':
+      case 'drole':
+      case 'funny':
+        return MoodType.funny;
+      case 'voyage':
+      case 'roadtrip':
+      case 'road trip':
+        return MoodType.roadtrip;
+      case 'spirituel':
+      case 'spiritual':
+        return MoodType.spiritual;
+      case 'classique':
+      case 'classical':
+        return MoodType.classical;
       default:
         return MoodType.unknown;
     }

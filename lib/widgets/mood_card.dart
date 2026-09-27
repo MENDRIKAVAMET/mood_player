@@ -24,9 +24,6 @@ class MoodCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 160,
-        height: 180,
-        margin: const EdgeInsets.only(right: AppTheme.spacingM),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,

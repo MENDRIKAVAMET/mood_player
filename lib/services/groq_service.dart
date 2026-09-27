@@ -214,6 +214,47 @@ class GroqService {
       'gospel/louange, thématique religieuse explicite (Dieu, Jésus, '
       'l\'Éternel, adoration, prière), ou album/titre en ce sens.',
     );
+    buffer.writeln(
+      '- colère: rage, défouloir, musique agressive et brute (rap hardcore, '
+      'drill, metal, punk) - à ne pas confondre avec "énergique", qui reste '
+      'entraînant et positif alors que "colère" est tendu et frustré',
+    );
+    buffer.writeln(
+      '- nostalgique: évoque le souvenir d\'une époque révolue (enfance, '
+      'décennie passée, "tube" ancien) - distinct de "mélancolique" qui '
+      'décrit une émotion douce-amère plutôt qu\'un souvenir précis',
+    );
+    buffer.writeln(
+      '- sombre: intense, tendu, pesant ou mystérieux, ambiance cinématique '
+      'ou inquiétante - sans être triste ("triste"/"mélancolique") ni '
+      'énergique',
+    );
+    buffer.writeln(
+      '- sommeil: très lent, minimal, quasi sans rythme, pensé pour '
+      's\'endormir (ambient, berceuse, drone) - plus profond et plus calme '
+      'que "chill"',
+    );
+    buffer.writeln(
+      '- drôle: humoristique, parodique, second degré, pensé pour faire '
+      'rire',
+    );
+    buffer.writeln(
+      '- voyage: pensé pour la route, un trajet, un dépaysement (road trip, '
+      'évasion) - distinct de "énergique" et de "chill"',
+    );
+    buffer.writeln(
+      '- spirituel: méditation, pleine conscience, spiritualité en dehors '
+      'du cadre chrétien (chant om, musique tibétaine, yoga, bols '
+      'chantants) - si le morceau est chrétien/gospel, utilise plutôt '
+      '"évangélique"',
+    );
+    buffer.writeln(
+      '- classique: instrumental savant (piano, orchestre, musique '
+      'classique ou néoclassique), sans chant, pensé pour l\'écoute '
+      'contemplative ou l\'étude approfondie - à préférer à '
+      '"concentration" quand le morceau est explicitement classique/'
+      'orchestral plutôt que lo-fi ou électronique',
+    );
     buffer.writeln();
     buffer.writeln(
       'En cas d\'hésitation entre deux catégories, préfère celle qui décrit '
