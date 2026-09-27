@@ -6,11 +6,11 @@ import '../../providers/mood_suggestions_provider.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
-import '../../widgets/compact_track_card.dart';
 import '../../widgets/foryou_list_row.dart';
 import '../../widgets/period_mixes_section.dart';
 import '../../widgets/suggestion_mix_card.dart';
 import '../search/search_screen.dart';
+import 'see_all_tracks_screen.dart';
 import 'suggestion_mix_screen.dart';
 
 /// Page « Pour vous » : ajouts récents, morceaux réellement les plus
@@ -62,7 +62,7 @@ class ForYouScreen extends ConsumerWidget {
                 // écoutés et des morceaux aimés plutôt que de l'heure qu'il
                 // est.
                 _suggestionMixesSection(context, suggestedMixes),
-                _carouselSection(
+                _listSection(
                   context: context,
                   title: 'Ajoutés récemment',
                   tracks: recentlyAdded,
@@ -137,7 +137,12 @@ class ForYouScreen extends ConsumerWidget {
   /// « Jouer » pleine et bouton shuffle à droite — repris directement du
   /// placement des en-têtes « Recommandé » / « Récemment Écouté » des
   /// captures de référence, plutôt que les icônes nues utilisées avant.
-  Widget _sectionHeader(BuildContext context, String title, List<Track> tracks) {
+  Widget _sectionHeader(
+    BuildContext context,
+    String title,
+    List<Track> tracks, {
+    VoidCallback? onSeeAll,
+  }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppTheme.spacingL,
@@ -199,6 +204,30 @@ class ForYouScreen extends ConsumerWidget {
                   Icons.shuffle_rounded,
                   color: AppTheme.textSecondary,
                   size: 16,
+                ),
+              ),
+            ),
+          ],
+          // Bouton "voir tout" - icône seule, sans libellé, affiché
+          // uniquement quand l'aperçu (9 morceaux max) ne montre pas
+          // déjà la liste complète.
+          if (onSeeAll != null) ...[
+            const SizedBox(width: AppTheme.spacingS),
+            GestureDetector(
+              onTap: onSeeAll,
+              child: Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.border, width: 1),
+                ),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.textSecondary,
+                  size: 18,
                 ),
               ),
             ),
@@ -275,55 +304,17 @@ class ForYouScreen extends ConsumerWidget {
     );
   }
 
-  /// Gabarit carrousel (« Recommandé » / « Dernier Ajout ») : cartes
-  /// carrées avec médaillon lecture, titre et artiste en dessous.
-  Widget _carouselSection({
-    required BuildContext context,
-    required String title,
-    required List<Track> tracks,
-    String? emptyMessage,
-  }) {
-    if (tracks.isEmpty && emptyMessage == null) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
+  /// Gabarit grille (« Ajoutés récemment » / « Les Plus Joués » /
+  /// « Tes morceaux aimés ») : des colonnes de 3 lignes empilées, dont on
+  /// ne garde que les 3 premières - donc 9 morceaux au maximum - avec un
+  /// défilement horizontal entre elles. La largeur d'une colonne ne
+  /// change pas : elle reprend celle, pleine largeur, des lignes
+  /// d'origine. Le reste de la liste (si elle est plus longue) est
+  /// accessible via le bouton « voir tout » de l'en-tête.
+  static const int _rowsPerColumn = 3;
+  static const int _maxColumns = 3;
+  static const double _rowHeight = 68;
 
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(context, title, tracks),
-          if (tracks.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-              child: Text(
-                emptyMessage!,
-                style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
-              ),
-            )
-          else
-            SizedBox(
-              height: 196,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-                itemCount: tracks.length,
-                itemBuilder: (context, index) {
-                  final track = tracks[index];
-                  return CompactTrackCard(
-                    track: track,
-                    onTap: () => openPlayer(context, track: track, tracks: tracks),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Gabarit liste (« Récemment Écouté » / « Les Plus Joués ») : lignes
-  /// empilées verticalement, jusqu'à 6 pour ne pas transformer la page en
-  /// simple doublon de la bibliothèque.
   Widget _listSection({
     required BuildContext context,
     required String title,
@@ -335,14 +326,35 @@ class ForYouScreen extends ConsumerWidget {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
-    final shown = tracks.take(6).toList();
+    const maxShown = _rowsPerColumn * _maxColumns;
+    final shown = tracks.take(maxShown).toList();
+    final columns = <List<Track>>[
+      for (var i = 0; i < shown.length; i += _rowsPerColumn)
+        shown.sublist(i, (i + _rowsPerColumn).clamp(0, shown.length)),
+    ];
+    final columnWidth = MediaQuery.sizeOf(context).width - AppTheme.spacingL * 2;
 
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader(context, title, tracks),
-          if (shown.isEmpty)
+          _sectionHeader(
+            context,
+            title,
+            tracks,
+            onSeeAll: tracks.length > maxShown
+                ? () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SeeAllTracksScreen(
+                          title: title,
+                          tracks: tracks,
+                        ),
+                      ),
+                    )
+                : null,
+          ),
+          if (columns.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
               child: Text(
@@ -351,15 +363,30 @@ class ForYouScreen extends ConsumerWidget {
               ),
             )
           else
-            Column(
-              children: [
-                for (final track in shown)
-                  ForYouListRow(
-                    track: track,
-                    badge: badgeBuilder?.call(track),
-                    onTap: () => openPlayer(context, track: track, tracks: tracks),
-                  ),
-              ],
+            SizedBox(
+              height: _rowHeight * _rowsPerColumn,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                itemCount: columns.length,
+                itemBuilder: (context, colIndex) {
+                  final column = columns[colIndex];
+                  return SizedBox(
+                    width: columnWidth,
+                    child: Column(
+                      children: [
+                        for (final track in column)
+                          ForYouListRow(
+                            track: track,
+                            badge: badgeBuilder?.call(track),
+                            onTap: () =>
+                                openPlayer(context, track: track, tracks: tracks),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
         ],
       ),
