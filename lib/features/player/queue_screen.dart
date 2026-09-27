@@ -5,6 +5,7 @@ import '../../models/playlist.dart';
 import '../../providers/providers.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
+import 'add_to_queue_screen.dart';
 
 /// Queue screen showing all tracks in the current playback queue
 class QueueScreen extends ConsumerStatefulWidget {
@@ -52,6 +53,12 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
     setState(() {
       _isReordering = !_isReordering;
     });
+  }
+
+  void _openAddToQueue() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddToQueueScreen()),
+    );
   }
 
   @override
@@ -121,6 +128,24 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           // Action buttons
           Row(
             children: [
+              // Add tracks to the queue
+              GestureDetector(
+                onTap: _openAddToQueue,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentPrimary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    size: 22,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacingS),
               // Save as playlist button
               if (_localQueue.isNotEmpty)
                 GestureDetector(

@@ -607,32 +607,40 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   Widget _buildControls(MoodColors moodColors, bool isPlaying) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXXXL),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXL),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Shuffle
-          _buildShuffleButton(moodColors),
-          // Previous track
-          _buildControlButton(
-            icon: Icons.skip_previous_rounded,
-            size: 32,
-            onTap: () {
-              _slideToTrack(goingNext: false, size: MediaQuery.of(context).size);
-            },
+          // Shuffle + répétition : un seul bouton qui fait défiler les
+          // états (désactivé -> aléatoire -> répéter tout -> répéter un ->
+          // désactivé) plutôt que deux boutons séparés.
+          _buildShuffleRepeatButton(moodColors),
+          Row(
+            children: [
+              // Previous track
+              _buildControlButton(
+                icon: Icons.skip_previous_rounded,
+                size: 32,
+                onTap: () {
+                  _slideToTrack(goingNext: false, size: MediaQuery.of(context).size);
+                },
+              ),
+              const SizedBox(width: AppTheme.spacingM),
+              // Play/Pause (main button)
+              _buildPlayButton(moodColors, isPlaying),
+              const SizedBox(width: AppTheme.spacingM),
+              // Next track
+              _buildControlButton(
+                icon: Icons.skip_next_rounded,
+                size: 32,
+                onTap: () {
+                  _slideToTrack(goingNext: true, size: MediaQuery.of(context).size);
+                },
+              ),
+            ],
           ),
-          // Play/Pause (main button)
-          _buildPlayButton(moodColors, isPlaying),
-          // Next track
-          _buildControlButton(
-            icon: Icons.skip_next_rounded,
-            size: 32,
-            onTap: () {
-              _slideToTrack(goingNext: true, size: MediaQuery.of(context).size);
-            },
-          ),
-          // Repeat
-          _buildRepeatButton(moodColors),
+          // File d'attente : tout à droite du groupe next/pause/prev.
+          _buildQueueButton(moodColors),
         ],
       ),
     );
@@ -729,57 +737,72 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     });
   }
 
-  void _cycleRepeatMode() {
+  /// Fait avancer le bouton fusionné shuffle/répétition d'un cran :
+  /// désactivé -> aléatoire -> répéter tout -> répéter un -> désactivé.
+  /// Un seul de ces trois états peut être actif à la fois, puisqu'ils
+  /// partagent maintenant un seul bouton.
+  void _cycleShuffleRepeat() {
     final audioHandlerAsync = ref.read(audioHandlerProvider);
     audioHandlerAsync.whenData((handler) {
-      handler.cycleRepeatMode();
+      if (_shuffleMode) {
+        handler.toggleShuffle();
+        handler.setPlayerRepeatMode(PlayerRepeatMode.all);
+      } else if (_repeatMode == PlayerRepeatMode.all) {
+        handler.setPlayerRepeatMode(PlayerRepeatMode.one);
+      } else if (_repeatMode == PlayerRepeatMode.one) {
+        handler.setPlayerRepeatMode(PlayerRepeatMode.off);
+      } else {
+        handler.toggleShuffle();
+      }
     });
   }
 
-  void _toggleShuffle() {
-    final audioHandlerAsync = ref.read(audioHandlerProvider);
-    audioHandlerAsync.whenData((handler) {
-      handler.toggleShuffle();
-    });
-  }
+  Widget _buildShuffleRepeatButton(MoodColors moodColors) {
+    final IconData icon;
+    final bool active;
+    if (_shuffleMode) {
+      icon = Icons.shuffle_rounded;
+      active = true;
+    } else if (_repeatMode == PlayerRepeatMode.all) {
+      icon = Icons.repeat_rounded;
+      active = true;
+    } else if (_repeatMode == PlayerRepeatMode.one) {
+      icon = Icons.repeat_one_rounded;
+      active = true;
+    } else {
+      icon = Icons.shuffle_rounded;
+      active = false;
+    }
 
-  Widget _buildShuffleButton(MoodColors moodColors) {
-    final color = _shuffleMode ? moodColors.primary : AppTheme.textSecondary;
-    
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: _toggleShuffle,
+      onTap: _cycleShuffleRepeat,
       child: SizedBox(
         width: 48,
         height: 48,
         child: Center(
           child: Icon(
-            Icons.shuffle_rounded,
+            icon,
             size: 24,
-            color: color,
+            color: active ? moodColors.primary : AppTheme.textSecondary,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildRepeatButton(MoodColors moodColors) {
-    final isActive = _repeatMode != PlayerRepeatMode.off;
-    final color = isActive ? moodColors.primary : AppTheme.textSecondary;
-    
+  Widget _buildQueueButton(MoodColors moodColors) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: _cycleRepeatMode,
-      child: SizedBox(
+      onTap: _showQueueScreen,
+      child: const SizedBox(
         width: 48,
         height: 48,
         child: Center(
           child: Icon(
-            _repeatMode == PlayerRepeatMode.one
-                ? Icons.repeat_one_rounded
-                : Icons.repeat_rounded,
+            Icons.queue_music_rounded,
             size: 24,
-            color: color,
+            color: AppTheme.textSecondary,
           ),
         ),
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/track.dart';
 import '../../providers/providers.dart';
+import '../../services/import_service.dart';
 import '../../theme/app_theme.dart';
 
 /// Écran de profil : nom, artistes préférés (modifiables), quelques
@@ -15,6 +17,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final ImportService _importService = ImportService();
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
@@ -40,6 +44,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
               const SizedBox(height: AppTheme.spacingXL),
+
+              // Importer : uniquement affiché tant que la bibliothèque est
+              // vide - une fois des morceaux présents, cette entrée
+              // disparaît (elle vivait avant dans l'onglet Bibliothèque).
+              if (trackState.tracks.isEmpty) ...[
+                _buildImportBanner(),
+                const SizedBox(height: AppTheme.spacingXL),
+              ],
 
               // Avatar + nom
               Center(
@@ -191,6 +203,210 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (result != null && mounted) {
       await ref.read(profileProvider.notifier).setFavoriteArtists(result);
     }
+  }
+
+  Widget _buildImportBanner() {
+    return GestureDetector(
+      onTap: () => _showImportOptions(context),
+      child: Container(
+        padding: const EdgeInsets.all(AppTheme.spacingL),
+        decoration: BoxDecoration(
+          gradient: AppTheme.cardGradient,
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
+              ),
+              child: const Icon(
+                Icons.file_upload_rounded,
+                color: AppTheme.accentPrimary,
+              ),
+            ),
+            const SizedBox(width: AppTheme.spacingM),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Importer de la musique', style: AppTheme.titleMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Aucun morceau trouvé - ajoutez vos fichiers audio',
+                    style: AppTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppTheme.textTertiary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showImportOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.backgroundSecondary,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXL)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: AppTheme.spacingM),
+                decoration: BoxDecoration(
+                  color: AppTheme.textTertiary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: AppTheme.spacingL),
+              Text('Importer de la musique', style: AppTheme.headlineMedium),
+              const SizedBox(height: AppTheme.spacingL),
+              _buildImportOption(
+                icon: Icons.audio_file_rounded,
+                title: 'Fichier audio',
+                subtitle: 'Sélectionner un fichier',
+                onTap: () async {
+                  Navigator.pop(context);
+                  _handleImportResult(await _importService.pickAudioFile());
+                },
+              ),
+              _buildImportOption(
+                icon: Icons.queue_music_rounded,
+                title: 'Plusieurs fichiers',
+                subtitle: 'Sélectionner plusieurs fichiers',
+                onTap: () async {
+                  Navigator.pop(context);
+                  _handleImportResult(await _importService.pickMultipleAudioFiles());
+                },
+              ),
+              _buildImportOption(
+                icon: Icons.folder_rounded,
+                title: 'Dossier complet',
+                subtitle: 'Importer tous les fichiers audio',
+                onTap: () async {
+                  Navigator.pop(context);
+                  _handleImportResult(await _importService.pickFolderAndImport());
+                },
+              ),
+              const SizedBox(height: AppTheme.spacingL),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImportOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        ),
+        child: Icon(icon, color: AppTheme.accentPrimary),
+      ),
+      title: Text(title, style: AppTheme.titleMedium),
+      subtitle: Text(subtitle, style: AppTheme.bodySmall),
+      onTap: onTap,
+    );
+  }
+
+  void _handleImportResult(ImportResult result) {
+    if (!mounted || result.isCancelled) return;
+
+    if (result.isSuccess && result.tracks != null) {
+      for (final Track track in result.tracks!) {
+        ref.read(trackProvider.notifier).addTrack(track);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${result.trackCount} morceau(x) importé(s)',
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textPrimary),
+          ),
+          backgroundColor: AppTheme.backgroundCardElevated,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          ),
+          action: result.errorCount > 0
+              ? SnackBarAction(
+                  label: 'Voir erreurs',
+                  textColor: AppTheme.accentPrimary,
+                  onPressed: () => _showImportErrors(result.errors),
+                )
+              : null,
+        ),
+      );
+    } else if (result.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.errorMessage!,
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textPrimary),
+          ),
+          backgroundColor: AppTheme.accentError,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showImportErrors(List<String>? errors) {
+    if (errors == null || errors.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.backgroundSecondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        ),
+        title: Text("Erreurs d'import", style: AppTheme.headlineMedium),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: errors
+                .map((error) => Padding(
+                      padding: const EdgeInsets.only(bottom: AppTheme.spacingS),
+                      child: Text('• $error', style: AppTheme.bodyMedium),
+                    ))
+                .toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Fermer', style: TextStyle(color: AppTheme.accentPrimary)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
