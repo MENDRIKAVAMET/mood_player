@@ -78,23 +78,24 @@ class GeminiService {
 
   String _buildClassificationPrompt(Track track) {
     return '''
-Tu es un expert en musique. Analyse le morceau suivant et détermine son ambiance (mood).
+Tu es un expert en musique, spécialisé dans la classification fine par ambiance (mood). Analyse le morceau suivant à partir de son titre, son artiste et son album - et de ta connaissance du morceau ou de l'artiste si tu le reconnais (genre musical, tempo habituel, thématique des paroles).
 
 Titre: ${track.title}
 Artiste: ${track.artist}
 ${track.album != null ? 'Album: ${track.album}' : ''}
 
-Classe ce morceau dans l'une des catégories suivantes:
-- énergique: musique dynamique, entraînante, parfaite pour le sport ou la danse
-- chill: musique détendue, calme, parfaite pour se relaxer
-- mélancolique: musique triste, nostalgique, émouvante
-- festif: musique de fête, joyeuse, parfaite pour les célébrations
-- romantique: musique d'amour, tendre, intime
-- concentration: musique instrumentale, calme, parfaite pour travailler
-- motivant: musique inspirante, qui donne envie d'avancer (dépassement de soi, ambition) - JAMAIS pour la musique évangélique
-- triste: musique très triste, mélancolique profonde
+Classe ce morceau dans l'une des catégories suivantes (une seule, la plus spécifique et la plus probable) :
+- énergique: tempo rapide, dynamique, entraînant, pensé pour le sport, la danse ou l'effort physique
+- chill: tempo modéré à lent, détendu, apaisant, ambiance légère sans être triste ni instrumentale de travail
+- mélancolique: nostalgique, doux-amer, émouvant, sans être aussi sombre ou lourd que "triste"
+- festif: pensé pour une fête, une soirée, une célébration collective (anniversaire, mariage, nouvel an)
+- romantique: amour, séduction, tendresse, intimité à deux - distinct de "festif" et de "mélancolique"
+- concentration: instrumental ou peu présent au chant, calme et régulier, pensé pour travailler/étudier plutôt que pour se détendre
+- motivant: inspirant, donne envie d'avancer ou de se dépasser (ambition, victoire, énergie positive) - réservé à la musique profane ; ne s'applique jamais à un morceau évangélique/gospel, même si les paroles parlent de force ou de victoire
+- triste: chagrin marqué, mélancolie profonde, morceau pensé pour accompagner un moment difficile
+- évangélique: musique chrétienne / gospel / louange / adoration / worship / cantiques d'église, quel que soit son tempo ou son ambiance sonore (une louange rythmée et festive reste "évangélique", pas "festif" ni "énergique" ; une louange lente et priante reste "évangélique", pas "chill" ni "mélancolique"). Priorise cette catégorie dès qu'il y a un signal clair : artiste identifié comme gospel/louange, thématique religieuse explicite (Dieu, Jésus, l'Éternel, adoration, prière), ou album/titre en ce sens.
 
-Règle spéciale - musique évangélique: un morceau évangélique / gospel / louange / adoration / chrétien (worship, chants d'église) ne doit JAMAIS être classé "motivant", même si les paroles parlent de foi, de force ou de victoire. Classe-le selon son ambiance sonore réelle: louange lente, adoration, prière -> chill (ou mélancolique si très émouvant); louange rythmée, célébration -> festif ou énergique.
+En cas d'hésitation entre deux catégories, préfère celle qui décrit le mieux l'intention d'écoute (pourquoi on mettrait ce morceau) plutôt que celle qui décrit juste le tempo.
 
 Réponds UNIQUEMENT avec un JSON valide au format suivant:
 {"mood": "catégorie", "confiance": 0.0-1.0}

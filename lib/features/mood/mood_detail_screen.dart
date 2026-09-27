@@ -304,6 +304,8 @@ class MoodDetailScreen extends ConsumerWidget {
         return 'Inspiration et motivation';
       case MoodType.sad:
         return 'Mélancolie et réflexion';
+      case MoodType.evangelical:
+        return 'Louange, adoration et musique chrétienne';
       case MoodType.unknown:
         return 'Découvrir cette ambiance';
     }

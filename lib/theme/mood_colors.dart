@@ -94,6 +94,15 @@ class MoodColors {
           glow: Color(0x66457B9D),
           cardBg: Color(0xFF0A1420),
         );
+      case MoodType.evangelical:
+        return const MoodColors(
+          primary: Color(0xFFF4C95D),
+          secondary: Color(0xFFFFFFFF),
+          gradientStart: Color(0xFF1A1608),
+          gradientEnd: Color(0xFF0A0A0A),
+          glow: Color(0x66F4C95D),
+          cardBg: Color(0xFF1A1608),
+        );
       case MoodType.unknown:
       default:
         return const MoodColors(

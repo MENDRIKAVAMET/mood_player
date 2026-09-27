@@ -157,29 +157,68 @@ class GroqService {
   String _buildBatchPrompt(List<Track> chunk) {
     final buffer = StringBuffer();
     buffer.writeln(
-      'Tu es un expert en musique. Voici une liste de ${chunk.length} morceaux, '
-      'chacun avec un identifiant numérique. Détermine l\'ambiance (mood) de '
-      'CHAQUE morceau.',
+      'Tu es un expert en musique, spécialisé dans la classification fine '
+      'par ambiance (mood). Voici une liste de ${chunk.length} morceaux, '
+      'chacun avec un identifiant numérique. Détermine l\'ambiance de CHAQUE '
+      'morceau à partir de son titre, son artiste et son album - et de ta '
+      'connaissance du morceau ou de l\'artiste si tu le reconnais (genre '
+      'musical, tempo habituel, thématique des paroles).',
     );
     buffer.writeln();
-    buffer.writeln('Catégories possibles (utilise exactement ces mots):');
-    buffer.writeln('- énergique: dynamique, entraînant, sport/danse');
-    buffer.writeln('- chill: détendu, calme, relaxant');
-    buffer.writeln('- mélancolique: triste, nostalgique, émouvant');
-    buffer.writeln('- festif: fête, joyeux, célébration');
-    buffer.writeln('- romantique: amour, tendre, intime');
-    buffer.writeln('- concentration: instrumental, calme, travail');
-    buffer.writeln('- motivant: inspirant, donne envie d\'avancer (dépassement de soi, ambition, énergie positive) - JAMAIS pour la musique évangélique');
-    buffer.writeln('- triste: très triste, mélancolie profonde');
-    buffer.writeln();
-    buffer.writeln('Règle spéciale - musique évangélique:');
     buffer.writeln(
-      'Les morceaux de musique évangélique / gospel / louange / adoration / '
-      'chrétienne (worship, chants d\'église, artistes gospel) ne doivent '
-      'JAMAIS être classés "motivant", même si les paroles parlent de foi, '
-      'de force ou de victoire. Classe-les selon leur ambiance sonore réelle: '
-      'louange lente, adoration, prière -> chill (ou mélancolique si très '
-      'émouvant); louange rythmée, célébration -> festif ou énergique.',
+      'Catégories possibles (utilise exactement ces mots, une seule par '
+      'morceau - choisis la plus spécifique et la plus probable, pas la '
+      'plus générique) :',
+    );
+    buffer.writeln(
+      '- énergique: tempo rapide, dynamique, entraînant, pensé pour le '
+      'sport, la danse ou l\'effort physique',
+    );
+    buffer.writeln(
+      '- chill: tempo modéré à lent, détendu, apaisant, ambiance légère '
+      'sans être triste ni instrumentale de travail',
+    );
+    buffer.writeln(
+      '- mélancolique: nostalgique, doux-amer, émouvant, sans être aussi '
+      'sombre ou lourd que "triste"',
+    );
+    buffer.writeln(
+      '- festif: pensé pour une fête, une soirée, une célébration collective '
+      '(anniversaire, mariage, nouvel an)',
+    );
+    buffer.writeln(
+      '- romantique: amour, séduction, tendresse, intimité à deux - '
+      'distinct de "festif" et de "mélancolique"',
+    );
+    buffer.writeln(
+      '- concentration: instrumental ou peu présent au chant, calme et '
+      'régulier, pensé pour travailler/étudier plutôt que pour se détendre',
+    );
+    buffer.writeln(
+      '- motivant: inspirant, donne envie d\'avancer ou de se dépasser '
+      '(ambition, victoire, énergie positive) - réservé à la musique '
+      'profane ; ne s\'applique jamais à un morceau évangélique/gospel, '
+      'même si les paroles parlent de force ou de victoire',
+    );
+    buffer.writeln(
+      '- triste: chagrin marqué, mélancolie profonde, morceau pensé pour '
+      'accompagner un moment difficile',
+    );
+    buffer.writeln(
+      '- évangélique: musique chrétienne / gospel / louange / adoration / '
+      'worship / cantiques d\'église, quel que soit son tempo ou son '
+      'ambiance sonore (une louange rythmée et festive reste "évangélique", '
+      'pas "festif" ni "énergique" ; une louange lente et priante reste '
+      '"évangélique", pas "chill" ni "mélancolique"). Priorise cette '
+      'catégorie dès qu\'il y a un signal clair : artiste identifié comme '
+      'gospel/louange, thématique religieuse explicite (Dieu, Jésus, '
+      'l\'Éternel, adoration, prière), ou album/titre en ce sens.',
+    );
+    buffer.writeln();
+    buffer.writeln(
+      'En cas d\'hésitation entre deux catégories, préfère celle qui décrit '
+      'le mieux l\'intention d\'écoute (pourquoi on mettrait ce morceau) '
+      'plutôt que celle qui décrit juste le tempo.',
     );
     buffer.writeln();
     buffer.writeln('Morceaux à classer:');

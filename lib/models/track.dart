@@ -102,6 +102,10 @@ enum MoodType {
   concentration,
   motivating,
   sad,
+  // Ajouté après coup, à la fin : ne pas réordonner les valeurs
+  // précédentes, `moodIndex` est persisté tel quel en base (Isar) sur les
+  // morceaux déjà classifiés.
+  evangelical,
 }
 
 extension MoodTypeExtension on MoodType {
@@ -123,6 +127,8 @@ extension MoodTypeExtension on MoodType {
         return 'Motivant';
       case MoodType.sad:
         return 'Triste';
+      case MoodType.evangelical:
+        return 'Évangélique';
       case MoodType.unknown:
         return 'Inconnu';
     }
@@ -149,6 +155,8 @@ extension MoodTypeExtension on MoodType {
         return '🔥';
       case MoodType.sad:
         return '😢';
+      case MoodType.evangelical:
+        return '🙏';
       case MoodType.unknown:
         return '🎵';
     }
@@ -175,6 +183,8 @@ extension MoodTypeExtension on MoodType {
         return Icons.local_fire_department_rounded;
       case MoodType.sad:
         return Icons.cloud_rounded;
+      case MoodType.evangelical:
+        return Icons.self_improvement_rounded;
       case MoodType.unknown:
         return Icons.music_note_rounded;
     }
@@ -204,6 +214,11 @@ extension MoodTypeExtension on MoodType {
       case 'triste':
       case 'sad':
         return MoodType.sad;
+      case 'évangélique':
+      case 'evangelique':
+      case 'evangelical':
+      case 'gospel':
+        return MoodType.evangelical;
       default:
         return MoodType.unknown;
     }
