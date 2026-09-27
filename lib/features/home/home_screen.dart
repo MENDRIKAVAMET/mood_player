@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,9 +32,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final ImportService _importService = ImportService();
   final ScrollController _scrollController = ScrollController();
 
+  // --- Top bar show/hide on scroll direction ---
+  bool _topBarVisible = true;
+  double _lastScrollOffset = 0;
+
+  // --- "Locate current track" button ---
+  Timer? _locateFadeTimer;
+  bool _locateButtonDimmed = false;
+  final Map<String, GlobalKey> _tileKeys = {};
+  final GlobalKey _customMoodsKey = GlobalKey();
+  final GlobalKey _moodSectionsKey = GlobalKey();
+  final GlobalKey _allTracksHeaderKey = GlobalKey();
+  final GlobalKey _classifyBannerKey = GlobalKey();
+  double? _measuredItemExtent;
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Scan the device's full audio library on every app open: picks up
       // new files automatically and refreshes metadata/duration for tracks
@@ -89,8 +105,83 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _locateFadeTimer?.cancel();
     super.dispose();
+  }
+
+  /// Hides the top bar (greeting + search + action buttons) as soon as the
+  /// user scrolls down a little, and brings it back at the slightest
+  /// upward scroll - no need to scroll all the way back to the top.
+  void _onScroll() {
+    final offset = _scrollController.offset;
+    final delta = offset - _lastScrollOffset;
+    _lastScrollOffset = offset;
+
+    if (offset <= 0) {
+      if (!_topBarVisible) setState(() => _topBarVisible = true);
+      return;
+    }
+    if (delta > 4 && _topBarVisible) {
+      setState(() => _topBarVisible = false);
+    } else if (delta < -2 && !_topBarVisible) {
+      setState(() => _topBarVisible = true);
+    }
+  }
+
+  double _measuredHeightOf(GlobalKey key) {
+    final box = key.currentContext?.findRenderObject() as RenderBox?;
+    return (box != null && box.hasSize) ? box.size.height : 0;
+  }
+
+  /// Scrolls the track list so the currently playing track lands near the
+  /// top, then dims the locate button for a moment as visual confirmation.
+  void _locateCurrentTrack() {
+    final trackState = ref.read(trackProvider);
+    final currentTrack = ref.read(currentTrackProvider).valueOrNull;
+    if (currentTrack == null) return;
+
+    final tracks = trackState.filteredTracks;
+    final index = tracks.indexWhere((t) => t.id.toString() == currentTrack.id);
+    if (index == -1) return;
+
+    final aboveList = _measuredHeightOf(_customMoodsKey) +
+        _measuredHeightOf(_moodSectionsKey) +
+        _measuredHeightOf(_classifyBannerKey) +
+        _measuredHeightOf(_allTracksHeaderKey);
+    final itemExtent = _measuredItemExtent ?? 76.0;
+
+    final target = (aboveList + index * itemExtent - AppTheme.spacingS)
+        .clamp(0.0, _scrollController.position.maxScrollExtent);
+
+    _scrollController
+        .animateTo(
+      target,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    )
+        .then((_) {
+      // Fine-tune once the tile is actually laid out, then confirm/fade.
+      final key = _tileKeys[currentTrack.id];
+      final tileContext = key?.currentContext;
+      if (tileContext != null) {
+        Scrollable.ensureVisible(
+          tileContext,
+          duration: const Duration(milliseconds: 200),
+          alignment: 0.1,
+        );
+      }
+      _flashLocateButton();
+    });
+  }
+
+  void _flashLocateButton() {
+    _locateFadeTimer?.cancel();
+    setState(() => _locateButtonDimmed = true);
+    _locateFadeTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _locateButtonDimmed = false);
+    });
   }
 
   String get _greeting {
@@ -147,49 +238,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // Main content
               Column(
                 children: [
+                  // Top bar: hides when scrolling down, snaps back the
+                  // instant the user scrolls up even a little.
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        opacity: _topBarVisible ? 1 : 0,
+                        child: _topBarVisible
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildHeader(),
+                                  _buildSearchBar(),
+                                  _buildActionButtons(),
+                                ],
+                              )
+                            : const SizedBox(width: double.infinity),
+                      ),
+                    ),
+                  ),
                   Expanded(
                     child: CustomScrollView(
                       controller: _scrollController,
                       physics: const BouncingScrollPhysics(),
                       slivers: [
-                        // Header
-                        SliverToBoxAdapter(
-                          child: _buildHeader(),
-                        ),
-
-                        // Search bar
-                        SliverToBoxAdapter(
-                          child: _buildSearchBar(),
-                        ),
-
-                        // Action buttons
-                        SliverToBoxAdapter(
-                          child: _buildActionButtons(),
-                        ),
-
                         // Custom user-created moods
                         SliverToBoxAdapter(
-                          child: _buildCustomMoodsSection(),
+                          child: KeyedSubtree(
+                            key: _customMoodsKey,
+                            child: _buildCustomMoodsSection(),
+                          ),
                         ),
 
                         // Mood sections
                         if (trackCountByMood.values.any((count) => count > 0))
                           SliverToBoxAdapter(
-                            child: _buildMoodSections(trackCountByMood),
+                            child: KeyedSubtree(
+                              key: _moodSectionsKey,
+                              child: _buildMoodSections(trackCountByMood),
+                            ),
                           ),
 
                         // All tracks section
                         SliverToBoxAdapter(
-                          child: _buildAllTracksHeader(trackState),
+                          child: KeyedSubtree(
+                            key: _allTracksHeaderKey,
+                            child: _buildAllTracksHeader(trackState),
+                          ),
                         ),
 
                         // Classification progress (elegant, non-spinner)
                         if (trackState.isClassifying)
                           SliverToBoxAdapter(
-                            child: ClassifyProgressBanner(
-                              progress: trackState.classifyProgress!,
-                              total: trackState.classifyTotal!,
-                              statusMessage: trackState.classifyStatusMessage,
+                            child: KeyedSubtree(
+                              key: _classifyBannerKey,
+                              child: ClassifyProgressBanner(
+                                progress: trackState.classifyProgress!,
+                                total: trackState.classifyTotal!,
+                                statusMessage: trackState.classifyStatusMessage,
+                              ),
                             ),
                           ),
 
@@ -213,14 +324,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               (context, index) {
                                 final track = trackState.filteredTracks[index];
                                 final isPlaying = currentTrack.valueOrNull?.id == track.id.toString();
-                                return TrackTile(
-                                  track: track,
-                                  index: index,
-                                  isPlaying: isPlaying,
-                                  onTap: () => _playTrack(track),
-                                  onPlay: () => _playTrack(track),
-                                  onMore: () => showTrackOptionsSheet(context, ref, track),
+                                final tileKey = _tileKeys.putIfAbsent(
+                                  track.id.toString(),
+                                  () => GlobalKey(),
                                 );
+                                final tile = KeyedSubtree(
+                                  key: tileKey,
+                                  child: TrackTile(
+                                    track: track,
+                                    index: index,
+                                    isPlaying: isPlaying,
+                                    onTap: () => _playTrack(track),
+                                    onPlay: () => _playTrack(track),
+                                    onMore: () => showTrackOptionsSheet(context, ref, track),
+                                  ),
+                                );
+                                if (index == 0) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    final box = tileKey.currentContext
+                                        ?.findRenderObject() as RenderBox?;
+                                    if (box != null && box.hasSize) {
+                                      _measuredItemExtent = box.size.height;
+                                    }
+                                  });
+                                }
+                                return tile;
                               },
                               childCount: trackState.filteredTracks.length,
                             ),
@@ -243,6 +371,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   left: 0,
                   right: 0,
                   child: MiniPlayer(currentTrack: _mediaItemToTrack(currentTrack.valueOrNull!)),
+                ),
+
+              // "Locate current track" anchor button
+              if (currentTrack.valueOrNull != null)
+                Positioned(
+                  right: AppTheme.spacingL,
+                  bottom: 92,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 260),
+                    opacity: _locateButtonDimmed ? 0.0 : 1.0,
+                    child: IgnorePointer(
+                      ignoring: _locateButtonDimmed,
+                      child: GestureDetector(
+                        onTap: _locateCurrentTrack,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppTheme.backgroundCard,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppTheme.accentPrimary.withValues(alpha: 0.4),
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.anchor_rounded,
+                            color: AppTheme.accentPrimary,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -438,30 +607,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader('Mes moods', customMoods.isEmpty ? null : customMoods.length),
-        SizedBox(
+        _buildCarousel(
           height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-            itemCount: customMoods.length + 1,
-            itemBuilder: (context, index) {
-              if (index == customMoods.length) {
-                return CreateMoodCard(onTap: _createCustomMood);
-              }
-              final mood = customMoods[index];
-              return CustomMoodCard(
-                mood: mood,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CustomMoodDetailScreen(mood: mood),
-                  ),
+          itemCount: customMoods.length + 1,
+          itemBuilder: (context, index) {
+            if (index == customMoods.length) {
+              return CreateMoodCard(onTap: _createCustomMood);
+            }
+            final mood = customMoods[index];
+            return CustomMoodCard(
+              mood: mood,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CustomMoodDetailScreen(mood: mood),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ],
+    );
+  }
+
+  /// Horizontal carousel with a soft fade on the right edge, hinting that
+  /// there's more content to scroll to.
+  Widget _buildCarousel({
+    required double height,
+    required int itemCount,
+    required Widget Function(BuildContext, int) itemBuilder,
+  }) {
+    return SizedBox(
+      height: height,
+      child: ShaderMask(
+        shaderCallback: (bounds) => const LinearGradient(
+          begin: Alignment.centerRight,
+          end: Alignment(0.82, 0),
+          colors: [Colors.transparent, Colors.black],
+        ).createShader(bounds),
+        blendMode: BlendMode.dstIn,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(
+            left: AppTheme.spacingL,
+            right: AppTheme.spacingXL,
+          ),
+          itemCount: itemCount,
+          itemBuilder: itemBuilder,
+        ),
+      ),
     );
   }
 
@@ -487,24 +682,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader('Par ambiance', null),
-        SizedBox(
+        _buildCarousel(
           height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spacingL,
-            ),
-            itemCount: moodsWithTracks.length,
-            itemBuilder: (context, index) {
-              final mood = moodsWithTracks[index];
-              final count = trackCountByMood[mood] ?? 0;
-              return MoodCard(
-                mood: mood,
-                trackCount: count,
-                onTap: () => _openMoodDetail(mood),
-              );
-            },
-          ),
+          itemCount: moodsWithTracks.length,
+          itemBuilder: (context, index) {
+            final mood = moodsWithTracks[index];
+            final count = trackCountByMood[mood] ?? 0;
+            return MoodCard(
+              mood: mood,
+              trackCount: count,
+              onTap: () => _openMoodDetail(mood),
+            );
+          },
         ),
       ],
     ).animate().fadeIn(
