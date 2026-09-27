@@ -261,6 +261,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
         vertical: AppTheme.spacingS,
       ),
       itemCount: _localQueue.length,
+      // Le drag ne démarre plus que depuis la poignée (voir leading dans
+      // _buildQueueItem), jamais sur un long-press n'importe où sur la
+      // tuile - sinon ce geste entre en conflit avec le Dismissible
+      // (glisser pour supprimer) posé sur le même widget, ce qui casse le
+      // rendu (écran blanc) dès qu'on maintient l'appui hors du mode
+      // réorganisation.
+      buildDefaultDragHandles: false,
       // ignore: deprecated_member_use
       onReorder: _isReordering ? _onReorder : (oldIndex, newIndex) {},
       proxyDecorator: (child, index, animation) {
@@ -343,10 +350,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
             vertical: AppTheme.spacingXS,
           ),
           leading: _isReordering
-              ? Icon(
-                  Icons.drag_handle_rounded,
-                  color: AppTheme.textTertiary,
-                  size: 24,
+              ? ReorderableDragStartListener(
+                  index: index,
+                  child: Icon(
+                    Icons.drag_handle_rounded,
+                    color: AppTheme.textTertiary,
+                    size: 24,
+                  ),
                 )
               : isCurrentTrack
               ? Icon(

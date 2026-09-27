@@ -30,7 +30,8 @@ class PlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+class _PlayerScreenState extends ConsumerState<PlayerScreen>
+    with SingleTickerProviderStateMixin {
   PlayerRepeatMode _repeatMode = PlayerRepeatMode.off;
   bool _shuffleMode = false;
 
@@ -47,6 +48,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// Minimum distance (px) a drag needs to cover before it counts as a
   /// deliberate swipe rather than an accidental brush of the screen.
   static const double _swipeThreshold = 80.0;
+
+  /// Live translation applied to the whole player content: follows the
+  /// finger while dragging, then gets animated the rest of the way (either
+  /// back to zero, or fully off-screen before completing the underlying
+  /// navigation/skip) so next/prev/back/lyrics all feel like a real,
+  /// physically-dragged page transition instead of an instant cut.
+  Offset _contentOffset = Offset.zero;
+  late final AnimationController _transitionController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 320),
+  );
+  Animation<Offset>? _offsetAnimation;
+  bool _isAnimatingTransition = false;
 
   /// Contrôle l'affichage des boutons/barre de progression par-dessus la
   /// pochette plein écran : visible à l'ouverture, se cache tout seul
@@ -72,33 +86,152 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
+  void _onPanStart(DragStartDetails _) {
+    if (_isAnimatingTransition) return;
+    _swipeDelta = Offset.zero;
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    if (_isAnimatingTransition) return;
+    setState(() {
+      _swipeDelta += details.delta;
+      _contentOffset += details.delta;
+    });
+  }
+
   void _handleSwipeEnd(DragEndDetails details) {
+    if (_isAnimatingTransition) return;
     final dx = _swipeDelta.dx;
     final dy = _swipeDelta.dy;
+    final size = MediaQuery.of(context).size;
 
     // Whichever axis moved further decides the gesture; the sign along
     // that axis decides the direction.
     if (dx.abs() >= dy.abs()) {
-      if (dx.abs() < _swipeThreshold) return;
+      if (dx.abs() < _swipeThreshold) {
+        _snapContentBack();
+        return;
+      }
       if (dx < 0) {
-        // Swipe left -> lyrics
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => LyricsScreen(track: _displayTrack)),
+        // Swipe left -> lyrics: finish sliding fully off-screen, then push
+        // the lyrics page sliding in from the right to continue the motion.
+        _runOffsetAnimation(
+          target: Offset(-size.width, 0),
+          curve: Curves.easeInCubic,
+          onComplete: () {
+            Navigator.of(context)
+                .push(_buildSlideRoute(LyricsScreen(track: _displayTrack)))
+                .then((_) => _resetContentOffset());
+          },
         );
       } else {
-        // Swipe right -> back to the track list
-        Navigator.of(context).pop();
+        // Swipe right -> back to the track list, dragged the rest of the
+        // way off-screen before actually popping.
+        _animatedPop(direction: Offset(size.width, _contentOffset.dy));
       }
     } else {
-      if (dy.abs() < _swipeThreshold) return;
-      if (dy < 0) {
-        // Swipe up -> next track
-        _skipToNext();
-      } else {
-        // Swipe down -> previous track
-        _skipToPrevious();
+      if (dy.abs() < _swipeThreshold) {
+        _snapContentBack();
+        return;
       }
+      // Swipe up -> next track, swipe down -> previous track.
+      _slideToTrack(goingNext: dy < 0, size: size);
     }
+  }
+
+  /// Eases the dragged content back to its resting position - used when a
+  /// drag didn't cross the swipe threshold.
+  void _snapContentBack() {
+    _runOffsetAnimation(target: Offset.zero, curve: Curves.easeOutCubic);
+  }
+
+  void _resetContentOffset() {
+    if (mounted) setState(() => _contentOffset = Offset.zero);
+  }
+
+  /// Drives [_contentOffset] from its current value to [target] over the
+  /// transition controller, optionally running [onComplete] once it lands -
+  /// this is what makes both the cancelled (snap-back) and committed
+  /// (finish leaving the screen) cases feel like one continuous gesture.
+  Future<void> _runOffsetAnimation({
+    required Offset target,
+    required Curve curve,
+    VoidCallback? onComplete,
+  }) async {
+    setState(() => _isAnimatingTransition = true);
+    _offsetAnimation = Tween<Offset>(begin: _contentOffset, end: target).animate(
+      CurvedAnimation(parent: _transitionController, curve: curve),
+    );
+    void listener() {
+      setState(() => _contentOffset = _offsetAnimation!.value);
+    }
+
+    _offsetAnimation!.addListener(listener);
+    await _transitionController.forward(from: 0);
+    _offsetAnimation!.removeListener(listener);
+    if (mounted) setState(() => _isAnimatingTransition = false);
+    onComplete?.call();
+  }
+
+  /// Slides the whole player content off-screen (in [direction]) before
+  /// popping, so the back gesture and the top-bar back button both get the
+  /// same dragged-away transition instead of an instant pop.
+  Future<void> _animatedPop({Offset? direction}) async {
+    if (_isAnimatingTransition) return;
+    final size = MediaQuery.of(context).size;
+    // Default: slide down, matching the down-chevron back button. A swipe
+    // to the right passes its own horizontal target instead.
+    final target = direction ?? Offset(0, size.height);
+    await _runOffsetAnimation(target: target, curve: Curves.easeInCubic);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Slides the current track's artwork/title out toward [goingNext]'s edge
+  /// of the screen, performs the actual skip once it's off, then slides the
+  /// (by then updated) content back in from the opposite edge - a manual
+  /// version of the classic "next page" scroll transition, since next/prev
+  /// stay on this same route rather than pushing a new one.
+  Future<void> _slideToTrack({required bool goingNext, required Size size}) async {
+    if (_isAnimatingTransition) return;
+    final exitOffset = Offset(0, goingNext ? -size.height : size.height);
+    await _runOffsetAnimation(target: exitOffset, curve: Curves.easeInCubic);
+
+    if (goingNext) {
+      _skipToNext();
+    } else {
+      _skipToPrevious();
+    }
+
+    // Position the (about to appear) next track just off the opposite edge,
+    // then ease it in to zero - continuing the same motion the finger/tap
+    // started rather than popping straight to the final frame.
+    setState(() => _contentOffset = Offset(0, goingNext ? size.height : -size.height));
+    await _runOffsetAnimation(target: Offset.zero, curve: Curves.easeOutCubic);
+  }
+
+  /// A push/pop transition where the new page slides in from the right and
+  /// the current one slides out underneath it, matching the direction of
+  /// the left-swipe that opens it.
+  Route<T> _buildSlideRoute<T>(Widget page) {
+    return PageRouteBuilder<T>(
+      transitionDuration: const Duration(milliseconds: 320),
+      reverseTransitionDuration: const Duration(milliseconds: 280),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final incoming = Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+        final outgoing = Tween<Offset>(
+          begin: Offset.zero,
+          end: const Offset(-0.25, 0),
+        ).animate(CurvedAnimation(parent: secondaryAnimation, curve: Curves.easeInCubic));
+        return SlideTransition(
+          position: outgoing,
+          child: SlideTransition(position: incoming, child: child),
+        );
+      },
+    );
   }
 
   @override
@@ -133,6 +266,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _transitionController.dispose();
     super.dispose();
   }
 
@@ -236,73 +370,78 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         // écran plutôt que sur la seule zone de la pochette.
         behavior: HitTestBehavior.opaque,
         onTap: _toggleControls,
-        onPanStart: (_) => _swipeDelta = Offset.zero,
-        onPanUpdate: (details) => _swipeDelta += details.delta,
+        onPanStart: _onPanStart,
+        onPanUpdate: _onPanUpdate,
         onPanEnd: _handleSwipeEnd,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Pochette plein écran, en fond.
-            TrackArtworkFill(track: _displayTrack, radius: 0),
-            // Voile sombre en haut et en bas pour que le titre et les
-            // boutons restent lisibles quelle que soit la pochette.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color.fromRGBO(0, 0, 0, 0.65),
-                    Color.fromRGBO(0, 0, 0, 0.05),
-                    Color.fromRGBO(0, 0, 0, 0.05),
-                    Color.fromRGBO(0, 0, 0, 0.8),
-                  ],
-                  stops: [0, 0.28, 0.5, 1],
+        child: ClipRect(
+          child: Transform.translate(
+            offset: _contentOffset,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Pochette plein écran, en fond.
+                TrackArtworkFill(track: _displayTrack, radius: 0),
+                // Voile sombre en haut et en bas pour que le titre et les
+                // boutons restent lisibles quelle que soit la pochette.
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color.fromRGBO(0, 0, 0, 0.65),
+                        Color.fromRGBO(0, 0, 0, 0.05),
+                        Color.fromRGBO(0, 0, 0, 0.05),
+                        Color.fromRGBO(0, 0, 0, 0.8),
+                      ],
+                      stops: [0, 0.28, 0.5, 1],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            SafeArea(
-              child: Column(
-                children: [
-                  // Titre + artiste : toujours visibles, comme sur la
-                  // référence. Seuls les boutons qui les entourent (retour,
-                  // options) apparaissent/disparaissent avec les contrôles.
-                  _buildTopBar(moodColors),
-                  const Spacer(),
-                  // Barre de progression + contrôles de lecture : se
-                  // cachent en glissant vers le bas et en s'effaçant après
-                  // 3s d'inactivité, ou dès qu'on retape sur l'écran.
-                  AnimatedSlide(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeInOut,
-                    offset: _controlsVisible ? Offset.zero : const Offset(0, 0.12),
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 220),
-                      opacity: _controlsVisible ? 1 : 0,
-                      child: IgnorePointer(
-                        ignoring: !_controlsVisible,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: AppTheme.spacingL),
-                          child: Column(
-                            children: [
-                              _buildLikeButton(moodColors),
-                              const SizedBox(height: AppTheme.spacingL),
-                              _buildProgressBar(moodColors, position, duration),
-                              const SizedBox(height: AppTheme.spacingL),
-                              _buildControls(moodColors, isPlaying),
-                              const SizedBox(height: AppTheme.spacingXL),
-                              if (_displayTrack.isClassified)
-                                _buildMoodInfoCard(moodColors),
-                            ],
+                SafeArea(
+                  child: Column(
+                    children: [
+                      // Titre + artiste : toujours visibles, comme sur la
+                      // référence. Seuls les boutons qui les entourent (retour,
+                      // options) apparaissent/disparaissent avec les contrôles.
+                      _buildTopBar(moodColors),
+                      const Spacer(),
+                      // Barre de progression + contrôles de lecture : se
+                      // cachent en glissant vers le bas et en s'effaçant après
+                      // 3s d'inactivité, ou dès qu'on retape sur l'écran.
+                      AnimatedSlide(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeInOut,
+                        offset: _controlsVisible ? Offset.zero : const Offset(0, 0.12),
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 220),
+                          opacity: _controlsVisible ? 1 : 0,
+                          child: IgnorePointer(
+                            ignoring: !_controlsVisible,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: AppTheme.spacingL),
+                              child: Column(
+                                children: [
+                                  _buildLikeButton(moodColors),
+                                  const SizedBox(height: AppTheme.spacingL),
+                                  _buildProgressBar(moodColors, position, duration),
+                                  const SizedBox(height: AppTheme.spacingL),
+                                  _buildControls(moodColors, isPlaying),
+                                  const SizedBox(height: AppTheme.spacingXL),
+                                  if (_displayTrack.isClassified)
+                                    _buildMoodInfoCard(moodColors),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -326,7 +465,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             child: IgnorePointer(
               ignoring: !_controlsVisible,
               child: GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () => _animatedPop(),
                 child: const SizedBox(
                   width: 48,
                   height: 48,
@@ -479,7 +618,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             icon: Icons.skip_previous_rounded,
             size: 32,
             onTap: () {
-              _skipToPrevious();
+              _slideToTrack(goingNext: false, size: MediaQuery.of(context).size);
             },
           ),
           // Play/Pause (main button)
@@ -489,7 +628,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             icon: Icons.skip_next_rounded,
             size: 32,
             onTap: () {
-              _skipToNext();
+              _slideToTrack(goingNext: true, size: MediaQuery.of(context).size);
             },
           ),
           // Repeat
