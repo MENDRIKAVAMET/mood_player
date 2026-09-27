@@ -162,6 +162,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       curve: Curves.easeOutCubic,
     )
         .then((_) {
+      if (!mounted) return;
       // Fine-tune once the tile is actually laid out, then confirm/fade.
       final key = _tileKeys[currentTrack.id];
       final tileContext = key?.currentContext;

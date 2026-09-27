@@ -85,7 +85,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _step = _Step.smartQueue);
   }
 
-  Future<void> _finish(bool smartQueueEnabled) async {
+  Future<void> _finish([bool smartQueueEnabled = false]) async {
     final favoriteArtists = _pendingFavoriteArtists;
     if (favoriteArtists != null && favoriteArtists.isNotEmpty) {
       await ref.read(profileProvider.notifier).setFavoriteArtists(favoriteArtists);
