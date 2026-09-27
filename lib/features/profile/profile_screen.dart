@@ -113,6 +113,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: AppTheme.spacingXL),
 
+              // Lecture intelligente
+              Container(
+                padding: const EdgeInsets.all(AppTheme.spacingL),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundCard,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: AppTheme.accentPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.spacingM),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Lecture intelligente', style: AppTheme.titleMedium),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Suggère la suite par ambiance à mi-morceau, au '
+                            'lieu de suivre la file d\'attente.',
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: profile.smartQueueEnabled,
+                      activeColor: AppTheme.accentPrimary,
+                      onChanged: (value) => ref
+                          .read(profileProvider.notifier)
+                          .setSmartQueueEnabled(value),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppTheme.spacingXL),
+
               // Artistes préférés
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

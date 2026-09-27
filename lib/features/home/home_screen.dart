@@ -262,7 +262,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   Expanded(
-                    child: CustomScrollView(
+                    child: RawScrollbar(
+                      controller: _scrollController,
+                      // Grabbable, always-visible thumb: press and drag it
+                      // up/down to fast-scroll the whole list instead of
+                      // flicking repeatedly.
+                      thumbVisibility: true,
+                      interactive: true,
+                      thickness: 7,
+                      minThumbLength: 56,
+                      radius: const Radius.circular(AppTheme.radiusFull),
+                      thumbColor: AppTheme.accentPrimary.withValues(alpha: 0.65),
+                      trackColor: AppTheme.backgroundCard.withValues(alpha: 0.4),
+                      trackBorderColor: Colors.transparent,
+                      trackVisibility: true,
+                      child: CustomScrollView(
                       controller: _scrollController,
                       physics: const BouncingScrollPhysics(),
                       slivers: [
@@ -359,6 +373,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           child: SizedBox(height: 100),
                         ),
                       ],
+                      ),
                     ),
                   ),
                 ],
@@ -1085,16 +1100,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _classifyAllTracks();
                 },
               ),
-              const Divider(color: AppTheme.divider),
-              _buildMenuOption(
-                icon: Icons.delete_sweep_rounded,
-                title: 'Supprimer tout',
-                color: AppTheme.accentError,
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmClearAllTracks(context);
-                },
-              ),
               const SizedBox(height: AppTheme.spacingM),
             ],
           ),
@@ -1327,37 +1332,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ref.read(trackProvider.notifier).classifyAllUnclassified();
             },
             child: Text('Classifier', style: TextStyle(color: AppTheme.accentPrimary)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmClearAllTracks(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.backgroundSecondary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        ),
-        title: Text('Supprimer tous les morceaux', style: AppTheme.headlineMedium),
-        content: Text(
-          'Êtes-vous sûr de vouloir supprimer tous les morceaux ? '
-          'Cette action est irréversible.',
-          style: AppTheme.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Annuler', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(trackProvider.notifier).clearAllTracks();
-            },
-            child: Text('Supprimer', style: TextStyle(color: AppTheme.accentError)),
           ),
         ],
       ),

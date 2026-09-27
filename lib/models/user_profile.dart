@@ -13,30 +13,42 @@ class UserProfile {
   /// `defaultMoodsForPeriod` dans mood_suggestions_provider.dart.
   final Map<String, List<String>> periodMoods;
 
+  /// "Lecture intelligente" : au lieu de suivre strictement la file
+  /// d'attente, une fois la piste en cours écoutée à 50%, la suivante est
+  /// choisie par ambiance (et si possible même artiste) plutôt que par la
+  /// file prévue à l'origine. Proposé une seule fois, à la première
+  /// ouverture de l'app (voir onboarding) ; ensuite modifiable uniquement
+  /// depuis le profil.
+  final bool smartQueueEnabled;
+
   const UserProfile({
     this.name,
     this.favoriteArtists = const [],
     this.onboardingCompleted = false,
     this.periodMoods = const {},
+    this.smartQueueEnabled = false,
   });
 
   const UserProfile.empty()
       : name = null,
         favoriteArtists = const [],
         onboardingCompleted = false,
-        periodMoods = const {};
+        periodMoods = const {},
+        smartQueueEnabled = false;
 
   UserProfile copyWith({
     String? name,
     List<String>? favoriteArtists,
     bool? onboardingCompleted,
     Map<String, List<String>>? periodMoods,
+    bool? smartQueueEnabled,
   }) {
     return UserProfile(
       name: name ?? this.name,
       favoriteArtists: favoriteArtists ?? this.favoriteArtists,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       periodMoods: periodMoods ?? this.periodMoods,
+      smartQueueEnabled: smartQueueEnabled ?? this.smartQueueEnabled,
     );
   }
 
@@ -45,6 +57,7 @@ class UserProfile {
         'favoriteArtists': favoriteArtists,
         'onboardingCompleted': onboardingCompleted,
         'periodMoods': periodMoods,
+        'smartQueueEnabled': smartQueueEnabled,
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -64,6 +77,10 @@ class UserProfile {
                 k,
                 (v as List<dynamic>).map((e) => e.toString()).toList(),
               )),
+      // Absent sur les profils déjà persistés avant l'ajout de la
+      // fonctionnalité : reste désactivée par défaut plutôt que d'imposer
+      // un choix jamais fait par l'utilisateur.
+      smartQueueEnabled: json['smartQueueEnabled'] as bool? ?? false,
     );
   }
 }

@@ -54,6 +54,11 @@ class _MainShellState extends ConsumerState<MainShell> {
         });
       });
     });
+
+    // Instancie le contrôleur de lecture intelligente pour toute la durée
+    // de vie de l'app - MainShell est le seul widget garanti de rester
+    // monté en permanence (voir commentaire au-dessus).
+    ref.read(smartQueueControllerProvider);
   }
 
   @override

@@ -61,4 +61,13 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
     state = state.copyWith(onboardingCompleted: true);
     await _service.save(state);
   }
+
+  /// Active/désactive la lecture intelligente. Utilisé à la fois par
+  /// l'étape d'onboarding (premier choix) et par l'écran de profil
+  /// (modification ultérieure).
+  Future<void> setSmartQueueEnabled(bool enabled) async {
+    await _ready;
+    state = state.copyWith(smartQueueEnabled: enabled);
+    await _service.save(state);
+  }
 }

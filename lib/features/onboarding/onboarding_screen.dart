@@ -7,7 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/mood_splash.dart';
 import '../shell/main_shell.dart';
 
-enum _Step { name, permission, loading, artist }
+enum _Step { name, permission, loading, artist, smartQueue }
 
 /// Parcours de bienvenue, affiché une seule fois (tant que
 /// `profile.onboardingCompleted` est faux) : prénom -> autorisation
@@ -25,6 +25,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   _Step _step = _Step.name;
   List<String> _artists = const [];
+  List<String>? _pendingFavoriteArtists;
 
   Future<void> _submitName(String name) async {
     await ref.read(profileProvider.notifier).setName(name);
@@ -66,9 +67,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     if (artists.isEmpty) {
-      // Accès refusé, ou aucune musique trouvée : rien à proposer, on ne
-      // pose pas la question pour rien.
-      await _finish();
+      // Accès refusé, ou aucune musique trouvée : rien à proposer, mais
+      // la question de la lecture intelligente reste posée quoi qu'il
+      // arrive - elle ne dépend pas d'avoir des artistes à choisir.
+      setState(() => _step = _Step.smartQueue);
       return;
     }
 
@@ -78,10 +80,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     });
   }
 
-  Future<void> _finish([List<String>? favoriteArtists]) async {
+  void _goToSmartQueueStep([List<String>? favoriteArtists]) {
+    _pendingFavoriteArtists = favoriteArtists;
+    setState(() => _step = _Step.smartQueue);
+  }
+
+  Future<void> _finish(bool smartQueueEnabled) async {
+    final favoriteArtists = _pendingFavoriteArtists;
     if (favoriteArtists != null && favoriteArtists.isNotEmpty) {
       await ref.read(profileProvider.notifier).setFavoriteArtists(favoriteArtists);
     }
+    await ref.read(profileProvider.notifier).setSmartQueueEnabled(smartQueueEnabled);
     await ref.read(profileProvider.notifier).completeOnboarding();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
@@ -130,8 +139,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         return _ArtistStep(
           key: const ValueKey('artist'),
           artists: _artists,
-          onConfirm: (artists) => _finish(artists),
-          onSkip: () => _finish(),
+          onConfirm: (artists) => _goToSmartQueueStep(artists),
+          onSkip: () => _goToSmartQueueStep(),
+        );
+      case _Step.smartQueue:
+        return _SmartQueueStep(
+          key: const ValueKey('smartQueue'),
+          onChoice: (enabled) => _finish(enabled),
         );
     }
   }
@@ -488,6 +502,74 @@ class _ArtistStepState extends State<_ArtistStep> {
             onPressed: () => widget.onConfirm(_selected.toList()),
           ),
           _SecondaryButton(label: 'Passer cette étape', onPressed: widget.onSkip),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dernière étape : propose la lecture intelligente (une seule fois, à la
+/// première ouverture). Le choix reste modifiable plus tard depuis le
+/// profil, mais cette question-ci ne revient jamais.
+class _SmartQueueStep extends StatelessWidget {
+  final ValueChanged<bool> onChoice;
+
+  const _SmartQueueStep({super.key, required this.onChoice});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AppTheme.spacingXL),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(
+            Icons.auto_awesome_rounded,
+            size: 56,
+            color: AppTheme.accentPrimary,
+          ).animate().fadeIn(duration: AppTheme.animSlow).scale(
+                begin: const Offset(0.85, 0.85),
+                end: const Offset(1, 1),
+                duration: AppTheme.animSlow,
+              ),
+          const SizedBox(height: AppTheme.spacingXL),
+          Text(
+            'Lecture intelligente',
+            style: AppTheme.headlineMedium,
+            textAlign: TextAlign.center,
+          ).animate().fadeIn(
+                duration: AppTheme.animSlow,
+                delay: const Duration(milliseconds: 120),
+              ),
+          const SizedBox(height: AppTheme.spacingS),
+          Text(
+            'Une fois un morceau écouté à moitié, on peut vous suggérer la '
+            'suite selon son ambiance (et si possible le même artiste), '
+            'plutôt que de suivre strictement la file d\'attente. '
+            'Modifiable à tout moment depuis votre profil.',
+            style: AppTheme.bodyLarge,
+            textAlign: TextAlign.center,
+          ).animate().fadeIn(
+                duration: AppTheme.animSlow,
+                delay: const Duration(milliseconds: 220),
+              ),
+          const SizedBox(height: AppTheme.spacingXXL),
+          _PrimaryButton(
+            label: 'Activer',
+            icon: Icons.check_rounded,
+            onPressed: () => onChoice(true),
+          ).animate().fadeIn(
+                duration: AppTheme.animSlow,
+                delay: const Duration(milliseconds: 300),
+              ),
+          _SecondaryButton(
+            label: 'Non merci, je préfère la file classique',
+            onPressed: () => onChoice(false),
+          ).animate().fadeIn(
+                duration: AppTheme.animSlow,
+                delay: const Duration(milliseconds: 360),
+              ),
         ],
       ),
     );
