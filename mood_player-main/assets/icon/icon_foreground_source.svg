@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bars" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#7C6CFF"/>
+    </linearGradient>
+  </defs>
+  <!-- Sized/positioned to sit inside Android's adaptive-icon safe zone -->
+  <g transform="translate(512,512)">
+    <rect x="-170" y="-65" width="80" height="220" rx="40" fill="url(#bars)"/>
+    <rect x="-40" y="-170" width="80" height="320" rx="40" fill="#FFFFFF"/>
+    <rect x="90" y="-30" width="80" height="180" rx="40" fill="url(#bars)"/>
+  </g>
+</svg>
