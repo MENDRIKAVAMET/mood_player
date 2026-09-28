@@ -149,7 +149,7 @@ class _AddTracksSheetState extends ConsumerState<_AddTracksSheet> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentPrimary,
+                      backgroundColor: AppTheme.backgroundCardElevated,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingM),
                       shape: RoundedRectangleBorder(

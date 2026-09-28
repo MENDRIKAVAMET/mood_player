@@ -7,7 +7,6 @@ import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/app_icon_button.dart';
 import '../../widgets/foryou_list_row.dart';
-import '../../widgets/header_actions.dart';
 import '../../widgets/period_mixes_section.dart';
 import '../../widgets/suggestion_mix_card.dart';
 import 'see_all_tracks_screen.dart';
@@ -41,7 +40,6 @@ class ForYouScreen extends ConsumerWidget {
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(child: _buildHeader(context)),
               if (isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
@@ -89,39 +87,6 @@ class ForYouScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingXL,
-        AppTheme.spacingL,
-        AppTheme.spacingXL,
-        0,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pour vous',
-                  style: AppTheme.displayLarge,
-                ),
-                const SizedBox(height: AppTheme.spacingXS),
-                Text(
-                  'Ta musique, remise dans ton ordre à toi',
-                  style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          const HeaderActions(),
-        ],
       ),
     );
   }

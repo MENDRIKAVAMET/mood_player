@@ -7,46 +7,39 @@ class AppTheme {
   // COLORS
   // ═══════════════════════════════════════════════════════════════
 
-  // Palette dérivée directement de l'icône de l'app : un dégradé
-  // magenta-violet (#BF00FE) vers indigo (#5D00FF). Tout part de ces deux
-  // teintes plutôt que d'un violet générique, pour que l'app et son icône
-  // se ressemblent vraiment.
-  static const Color brandTop = Color(0xFFBF00FE);
-  static const Color brandBottom = Color(0xFF5D00FF);
-  static const Color brandMid = Color(0xFF8A00FF);
+  // Palette sobre : gris graphite neutres, UN seul accent chaud (corail)
+  // appliqué à plat - jamais en dégradé ni en halo - et des ambiances
+  // (moods) moyennement saturées.
+  static const Color brandTop = Color(0xFFFF6B57);
+  static const Color brandBottom = Color(0xFFFF6B57);
+  static const Color brandMid = Color(0xFFFF6B57);
 
-  // Fonds : quasi-noirs très légèrement teintés de violet plutôt que du
-  // gris neutre, pour que le dégradé de marque ne flotte pas au-dessus
-  // d'un fond qui n'a rien à voir.
-  static const Color backgroundPrimary = Color(0xFF07040D);
-  static const Color backgroundSecondary = Color(0xFF0D0716);
-  static const Color backgroundTertiary = Color(0xFF130B20);
-  static const Color backgroundCard = Color(0xFF16102A);
-  static const Color backgroundCardElevated = Color(0xFF1F1738);
+  static const Color backgroundPrimary = Color(0xFF0B0B0C);
+  static const Color backgroundSecondary = Color(0xFF111113);
+  static const Color backgroundTertiary = Color(0xFF161618);
+  static const Color backgroundCard = Color(0xFF161618);
+  static const Color backgroundCardElevated = Color(0xFF1E1E21);
 
-  // Surfaces translucides : à poser sur un fond dégradé, elles laissent la
-  // couleur transparaître au lieu de l'aplatir. C'est ce qui donne de la
-  // profondeur sans multiplier les aplats.
-  static const Color surfaceGlass = Color(0x14FFFFFF);
-  static const Color surfaceGlassStrong = Color(0x1FFFFFFF);
-  static const Color surfaceTint = Color(0x1A8A00FF);
+  static const Color surfaceGlass = Color(0x0FFFFFFF);
+  static const Color surfaceGlassStrong = Color(0x1AFFFFFF);
+  static const Color surfaceTint = Color(0x0FFFFFFF);
 
-  static const Color accentPrimary = Color(0xFFA855F7);
-  static const Color accentSecondary = Color(0xFFC94DFF);
-  static const Color accentWarm = Color(0xFFFF5FA2);
-  static const Color accentSuccess = Color(0xFF10B981);
-  static const Color accentWarning = Color(0xFFFF6B35);
-  static const Color accentError = Color(0xFFE63946);
+  static const Color accentPrimary = Color(0xFFFF6B57);
+  static const Color accentSecondary = Color(0xFFE8B86D);
+  static const Color accentWarm = Color(0xFFE8B86D);
+  static const Color accentSuccess = Color(0xFF6FAE8B);
+  static const Color accentWarning = Color(0xFFC79A5B);
+  static const Color accentError = Color(0xFFD16666);
 
   // Text colors
   static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFBFB3D4);
+  static const Color textSecondary = Color(0xFFA8A8AD);
   // Texte tertiaire : éclairci de #76688F à #8B7EAB - le premier ne
   // passait pas le contraste minimum WCAG AA sur le fond quasi-noir de
   // l'app (~4.0:1, sous les 4.5:1 requis), alors que c'est justement la
   // couleur utilisée pour le texte le plus petit (badges, labels).
-  static const Color textTertiary = Color(0xFF8B7EAB);
-  static const Color textInverse = Color(0xFF07040D);
+  static const Color textTertiary = Color(0xFF808086);
+  static const Color textInverse = Color(0xFF0B0B0C);
 
   // Divider / Border — translucides, pour qu'ils se fondent sur n'importe
   // quel fond au lieu de tracer une ligne grise franche.
@@ -57,31 +50,20 @@ class AppTheme {
   // DÉGRADÉS
   // ═══════════════════════════════════════════════════════════════
 
-  /// Le dégradé de marque, tel quel (boutons pleins, éléments actifs).
+  // Les « dégradés » ci-dessous sont volontairement plats (deux fois la
+  // même couleur) : le type LinearGradient est conservé pour ne pas
+  // toucher tous les écrans, mais il n'y a plus aucun effet de dégradé.
+
   static const LinearGradient brandGradient = LinearGradient(
-    colors: [brandTop, brandBottom],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+    colors: [accentPrimary, accentPrimary],
   );
 
-  /// Fond d'écran : la marque en très faible opacité en haut, qui se fond
-  /// dans le noir. Remplace l'ancien bloc bleu-gris plaqué en haut.
   static const LinearGradient screenGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      Color(0x3DBF00FE),
-      Color(0x1A5D00FF),
-      backgroundPrimary,
-    ],
-    stops: [0.0, 0.22, 0.55],
+    colors: [backgroundPrimary, backgroundPrimary],
   );
 
-  /// Surface de carte : un voile clair très léger, en diagonale.
   static const LinearGradient cardGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0x1FFFFFFF), Color(0x0AFFFFFF)],
+    colors: [Color(0x0FFFFFFF), Color(0x0FFFFFFF)],
   );
 
   // ═══════════════════════════════════════════════════════════════
@@ -102,9 +84,9 @@ class AppTheme {
   // ═══════════════════════════════════════════════════════════════
 
   static const double radiusS = 6.0;
-  static const double radiusM = 10.0;
-  static const double radiusL = 16.0;
-  static const double radiusXL = 24.0;
+  static const double radiusM = 8.0;
+  static const double radiusL = 12.0;
+  static const double radiusXL = 20.0;
   static const double radiusFull = 999.0;
 
   // ═══════════════════════════════════════════════════════════════
@@ -113,7 +95,7 @@ class AppTheme {
 
   static List<BoxShadow> get shadowSmall => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.2),
+      color: Colors.black.withValues(alpha: 0.12),
       blurRadius: 8,
       offset: const Offset(0, 2),
     ),
@@ -121,7 +103,7 @@ class AppTheme {
 
   static List<BoxShadow> get shadowMedium => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.3),
+      color: Colors.black.withValues(alpha: 0.18),
       blurRadius: 16,
       offset: const Offset(0, 4),
     ),
@@ -129,20 +111,14 @@ class AppTheme {
 
   static List<BoxShadow> get shadowLarge => [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.4),
+      color: Colors.black.withValues(alpha: 0.25),
       blurRadius: 32,
       offset: const Offset(0, 8),
     ),
   ];
 
-  static List<BoxShadow> coloredShadow(Color color) => [
-    BoxShadow(
-      color: color.withValues(alpha: 0.3),
-      blurRadius: 40,
-      spreadRadius: -4,
-      offset: const Offset(0, 8),
-    ),
-  ];
+  /// Plus d'ombre colorée : conservée pour compatibilité, mais sans effet.
+  static List<BoxShadow> coloredShadow(Color color) => const [];
 
   // ═══════════════════════════════════════════════════════════════
   // ANIMATION DURATIONS
@@ -160,23 +136,23 @@ class AppTheme {
   // body/labels (stays neutral and legible at small sizes/high density).
   // ═══════════════════════════════════════════════════════════════
 
-  static TextStyle get displayLarge => GoogleFonts.spaceGrotesk(
+  static TextStyle get displayLarge => GoogleFonts.inter(
     fontSize: 34,
     fontWeight: FontWeight.w700,
     color: textPrimary,
-    letterSpacing: -0.8,
+    letterSpacing: -0.9,
     height: 1.15,
   );
 
-  static TextStyle get displayMedium => GoogleFonts.spaceGrotesk(
+  static TextStyle get displayMedium => GoogleFonts.inter(
     fontSize: 28,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: textPrimary,
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
     height: 1.2,
   );
 
-  static TextStyle get headlineLarge => GoogleFonts.spaceGrotesk(
+  static TextStyle get headlineLarge => GoogleFonts.inter(
     fontSize: 24,
     fontWeight: FontWeight.w700,
     color: textPrimary,
@@ -184,7 +160,7 @@ class AppTheme {
     height: 1.25,
   );
 
-  static TextStyle get headlineMedium => GoogleFonts.spaceGrotesk(
+  static TextStyle get headlineMedium => GoogleFonts.inter(
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: textPrimary,
@@ -254,65 +230,41 @@ class AppTheme {
   // DECORATIONS
   // ═══════════════════════════════════════════════════════════════
 
-  /// Carte translucide : un voile clair en dégradé posé sur le fond, au
-  /// lieu d'un aplat gris. Le fond de l'écran transparaît, ce qui évite
-  /// l'effet « rectangles gris empilés ».
+  /// Carte : aplat neutre, fine bordure.
   static BoxDecoration get cardDecoration => BoxDecoration(
-    gradient: cardGradient,
+    color: backgroundCard,
     borderRadius: BorderRadius.circular(radiusL),
-    border: Border.all(color: border, width: 1),
+    border: Border.all(color: divider, width: 1),
   );
 
-  /// Variante teintée par une couleur d'ambiance (mood, pochette…).
+  /// Variante « teintée » : la teinte n'est plus qu'un très léger voile.
   static BoxDecoration tintedCardDecoration(Color tint) => BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        tint.withValues(alpha: 0.20),
-        tint.withValues(alpha: 0.04),
-      ],
-    ),
+    color: Color.alphaBlend(tint.withValues(alpha: 0.06), backgroundCard),
     borderRadius: BorderRadius.circular(radiusL),
-    border: Border.all(color: tint.withValues(alpha: 0.28), width: 1),
+    border: Border.all(color: divider, width: 1),
   );
 
   static BoxDecoration get cardElevatedDecoration => BoxDecoration(
-    gradient: const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0x2EFFFFFF), Color(0x14FFFFFF)],
-    ),
+    color: backgroundCardElevated,
     borderRadius: BorderRadius.circular(radiusL),
-    border: Border.all(color: border, width: 1),
-    boxShadow: shadowSmall,
+    border: Border.all(color: divider, width: 1),
   );
 
   static BoxDecoration get glassDecoration => BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        Colors.white.withValues(alpha: 0.14),
-        Colors.white.withValues(alpha: 0.04),
-      ],
-    ),
+    color: const Color(0x14FFFFFF),
     borderRadius: BorderRadius.circular(radiusL),
-    border: Border.all(color: Colors.white.withValues(alpha: 0.16), width: 1),
+    border: Border.all(color: divider, width: 1),
   );
 
-  /// The app's signature ambient treatment: a soft indigo-violet glow
-  /// that fades to warm coral, used behind the mini player and other
-  /// "always-on" surfaces so the app's mood-shifting identity is felt
-  /// even when nothing is playing yet. Pass a mood's own color to tint
-  /// it toward whatever's currently playing instead.
+  /// Fond des surfaces « toujours visibles » (mini lecteur…) : quasi
+  /// uni, avec à peine une trace de la couleur du morceau.
   static LinearGradient auroraGradient({Color? tint}) => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
         colors: [
-          (tint ?? accentPrimary).withValues(alpha: 0.22),
-          accentSecondary.withValues(alpha: 0.10),
-          backgroundCard,
+          Color.alphaBlend(
+            (tint ?? accentSecondary).withValues(alpha: 0.07),
+            backgroundCardElevated,
+          ),
+          backgroundCardElevated,
         ],
       );
 
@@ -353,9 +305,9 @@ class AppTheme {
         activeTrackColor: accentPrimary,
         inactiveTrackColor: textTertiary.withValues(alpha: 0.3),
         thumbColor: accentPrimary,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-        trackHeight: 4,
+        trackHeight: 3,
         overlayColor: accentPrimary.withValues(alpha: 0.2),
       ),
       iconTheme: const IconThemeData(color: textPrimary, size: 24),

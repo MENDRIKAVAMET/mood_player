@@ -126,7 +126,7 @@ class _RenameTrackScreenState extends ConsumerState<RenameTrackScreen> {
                     FilledButton(
                       onPressed: _canSave ? _save : null,
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.accentPrimary),
+                          backgroundColor: AppTheme.backgroundCardElevated),
                       child: _saving
                           ? const SizedBox(
                               width: 18,

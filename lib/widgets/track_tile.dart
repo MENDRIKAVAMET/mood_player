@@ -65,7 +65,7 @@ class _TrackTileState extends State<TrackTile> {
             gradient: isPlaying
                 ? LinearGradient(
                     colors: [
-                      moodColors.primary.withValues(alpha: 0.18),
+                      moodColors.primary.withValues(alpha: 0.14),
                       moodColors.primary.withValues(alpha: 0.04),
                     ],
                     begin: Alignment.centerLeft,
@@ -76,7 +76,7 @@ class _TrackTileState extends State<TrackTile> {
             borderRadius: BorderRadius.circular(AppTheme.radiusL),
             border: Border.all(
               color: isPlaying
-                  ? moodColors.primary.withValues(alpha: 0.35)
+                  ? moodColors.primary.withValues(alpha: 0.30)
                   : Colors.transparent,
               width: 1,
             ),

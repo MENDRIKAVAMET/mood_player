@@ -301,7 +301,7 @@ class _AddToQueueScreenState extends ConsumerState<AddToQueueScreen> {
                 child: ElevatedButton(
                   onPressed: () => _confirmSelection(allTracks),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentPrimary,
+                    backgroundColor: AppTheme.backgroundCardElevated,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppTheme.radiusL),

@@ -65,7 +65,7 @@ class SuggestionMixScreen extends StatelessWidget {
                       icon: const Icon(Icons.play_arrow_rounded),
                       label: const Text('Jouer'),
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.accentPrimary),
+                          backgroundColor: AppTheme.backgroundCardElevated),
                     ),
                     const SizedBox(width: AppTheme.spacingS),
                     OutlinedButton.icon(

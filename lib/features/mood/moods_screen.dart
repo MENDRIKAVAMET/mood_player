@@ -5,7 +5,6 @@ import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/custom_mood_card.dart';
-import '../../widgets/header_actions.dart';
 import '../../widgets/mood_card.dart';
 import '../../widgets/mood_editor_dialog.dart';
 import 'custom_mood_detail_screen.dart';
@@ -40,36 +39,6 @@ class MoodsScreen extends ConsumerWidget {
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.only(bottom: 120),
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppTheme.spacingXL,
-                  AppTheme.spacingL,
-                  AppTheme.spacingXL,
-                  0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Ambiances', style: AppTheme.displayLarge),
-                          const SizedBox(height: AppTheme.spacingXS),
-                          Text(
-                            'Tes moods et ceux détectés automatiquement',
-                            style: AppTheme.bodyMedium.copyWith(
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const HeaderActions(),
-                  ],
-                ),
-              ),
-
               _sectionHeader('Mes moods', customMoods.isEmpty ? null : customMoods.length),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),

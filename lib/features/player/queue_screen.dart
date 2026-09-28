@@ -533,7 +533,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           FilledButton(
             onPressed: () => _savePlaylist(nameController.text),
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.accentPrimary,
+              backgroundColor: AppTheme.backgroundCardElevated,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
               ),

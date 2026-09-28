@@ -850,7 +850,7 @@ class _EmptyState extends StatelessWidget {
                 onPressed: action!.onPressed,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.accentPrimary,
-                  foregroundColor: AppTheme.textPrimary,
+                  foregroundColor: AppTheme.textInverse,
                 ),
                 child: Text(action!.label),
               ),

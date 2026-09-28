@@ -193,14 +193,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return 'Bonsoir';
   }
 
-  String get _greetingEmoji {
-    final hour = DateTime.now().hour;
-    if (hour < 6) return '🌙';
-    if (hour < 12) return '☀️';
-    if (hour < 18) return '🌤️';
-    return '🌅';
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.listen(trackProvider, (previous, next) {
@@ -227,7 +219,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF1A1A2E),
+              AppTheme.backgroundPrimary,
               AppTheme.backgroundPrimary,
             ],
             stops: [0.0, 0.3],
@@ -450,25 +442,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '$_greeting $_greetingEmoji',
-                style: AppTheme.bodyLarge.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-              ).animate().fadeIn(duration: AppTheme.animSlow),
-              const SizedBox(height: AppTheme.spacingXS),
-              Text(
-                'Mood Player',
-                style: AppTheme.displayLarge,
-              ).animate().fadeIn(
-                    duration: AppTheme.animSlow,
-                    delay: const Duration(milliseconds: 100),
-                  ).slideX(
-                    begin: 0.05,
-                    end: 0,
-                    duration: AppTheme.animSlow,
-                    delay: const Duration(milliseconds: 100),
-                  ),
+              Text(_greeting, style: AppTheme.displayMedium)
+                  .animate()
+                  .fadeIn(duration: AppTheme.animSlow),
             ],
           ),
           // Menu button

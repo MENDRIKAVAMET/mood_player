@@ -7,7 +7,6 @@ import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/classify_progress_banner.dart';
-import '../../widgets/header_actions.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
@@ -25,10 +24,14 @@ class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
   @override
-  ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
+  ConsumerState<LibraryScreen> createState() => LibraryScreenState();
 }
 
-class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+class LibraryScreenState extends ConsumerState<LibraryScreen> {
+  /// Ouvre le menu d'options de la bibliothèque (bouton « … » de la barre
+  /// du haut, partagée entre les trois onglets).
+  void showMenu() => _showMenuSheet(context);
+
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -88,22 +91,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     super.dispose();
   }
 
-  String get _greeting {
-    final hour = DateTime.now().hour;
-    if (hour < 6) return 'Bonne nuit';
-    if (hour < 12) return 'Bonjour';
-    if (hour < 18) return 'Bon après-midi';
-    return 'Bonsoir';
-  }
-
-  String get _greetingEmoji {
-    final hour = DateTime.now().hour;
-    if (hour < 6) return '🌙';
-    if (hour < 12) return '☀️';
-    if (hour < 18) return '🌤️';
-    return '🌅';
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.listen(trackProvider, (previous, next) {
@@ -131,7 +118,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             controller: _scrollController,
             physics: const BouncingScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(child: _buildHeader()),
               SliverToBoxAdapter(child: _buildSearchBar()),
               SliverToBoxAdapter(child: _buildActionButtons()),
               SliverToBoxAdapter(child: _buildAllTracksHeader(trackState)),
@@ -187,53 +173,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingXL,
-        AppTheme.spacingL,
-        AppTheme.spacingL,
-        0,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$_greeting $_greetingEmoji',
-                  style: AppTheme.bodyLarge.copyWith(color: AppTheme.textSecondary),
-                ).animate().fadeIn(duration: AppTheme.animSlow),
-                const SizedBox(height: AppTheme.spacingXS),
-                Text('Mood Player', style: AppTheme.displayLarge)
-                    .animate()
-                    .fadeIn(
-                      duration: AppTheme.animSlow,
-                      delay: const Duration(milliseconds: 100),
-                    )
-                    .slideX(
-                      begin: 0.05,
-                      end: 0,
-                      duration: AppTheme.animSlow,
-                      delay: const Duration(milliseconds: 100),
-                    ),
-              ],
-            ),
-          ),
-          const HeaderActions(showSearch: false),
-          const SizedBox(width: AppTheme.spacingS),
-          AppHeaderButton(
-            icon: Icons.more_horiz_rounded,
-            tooltip: 'Plus d\'options',
-            onTap: () => _showMenuSheet(context),
-          ),
-        ],
       ),
     );
   }

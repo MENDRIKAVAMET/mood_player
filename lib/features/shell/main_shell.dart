@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_top_bar.dart';
 import '../../widgets/listen_reminder_host.dart';
 import '../../widgets/mini_player.dart';
 import '../foryou/for_you_screen.dart';
@@ -33,10 +34,16 @@ class _MainShellState extends ConsumerState<MainShell> {
   static const _navigationChannel =
       MethodChannel('com.example.mood_player/navigation');
 
-  static const List<Widget> _screens = [
-    LibraryScreen(),
-    ForYouScreen(),
-    MoodsScreen(),
+  static const List<String> _titles = ['Bibliothèque', 'Pour vous', 'Ambiances'];
+
+  /// Permet à la barre du haut d'ouvrir le menu de la bibliothèque.
+  final GlobalKey<LibraryScreenState> _libraryKey =
+      GlobalKey<LibraryScreenState>();
+
+  late final List<Widget> _screens = [
+    LibraryScreen(key: _libraryKey),
+    const ForYouScreen(),
+    const MoodsScreen(),
   ];
 
   @override
@@ -98,7 +105,26 @@ class _MainShellState extends ConsumerState<MainShell> {
       backgroundColor: AppTheme.backgroundPrimary,
       body: Stack(
         children: [
-          IndexedStack(index: _index, children: _screens),
+          // Barre du haut commune aux trois onglets, fixe. Les onglets
+          // n'ajoutent donc plus leur propre marge de barre d'état.
+          Column(
+            children: [
+              SafeArea(
+                bottom: false,
+                child: AppTopBar(
+                  title: _titles[_index],
+                  onMenuTap: () => _libraryKey.currentState?.showMenu(),
+                ),
+              ),
+              Expanded(
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: IndexedStack(index: _index, children: _screens),
+                ),
+              ),
+            ],
+          ),
 
           // Pop-up « tu écoutais ça à cette heure » (invisible sinon).
           const ListenReminderHost(),
@@ -121,7 +147,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0x005D00FF), Color(0x335D00FF)],
+            colors: [AppTheme.backgroundPrimary, AppTheme.backgroundPrimary],
           ),
           border: Border(top: BorderSide(color: AppTheme.divider)),
         ),
@@ -132,7 +158,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             setState(() => _index = i);
           },
           backgroundColor: Colors.transparent,
-          indicatorColor: AppTheme.accentPrimary.withValues(alpha: 0.22),
+          indicatorColor: AppTheme.accentPrimary.withValues(alpha: 0.18),
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           height: 64,

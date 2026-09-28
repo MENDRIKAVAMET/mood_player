@@ -56,13 +56,7 @@ class _MoodSplashState extends State<MoodSplash>
                 return Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.accentPrimary.withValues(alpha: glow),
-                        blurRadius: 64,
-                        spreadRadius: 8,
-                      ),
-                    ],
+                    boxShadow: const [],
                   ),
                   child: Transform.scale(scale: scale, child: child),
                 );
@@ -85,22 +79,6 @@ class _MoodSplashState extends State<MoodSplash>
                   curve: Curves.easeOutCubic,
                 ),
             const SizedBox(height: AppTheme.spacingXL),
-            Text(
-              'Mood Player',
-              style: AppTheme.headlineLarge,
-              textAlign: TextAlign.center,
-            ).animate().fadeIn(
-                  duration: AppTheme.animVerySlow,
-                  delay: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutCubic,
-                ).slideY(
-                  begin: 0.3,
-                  end: 0,
-                  duration: AppTheme.animVerySlow,
-                  delay: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutCubic,
-                ),
-            const SizedBox(height: AppTheme.spacingS),
             Text(
               'Elle sait ce que vous ressentez.',
               style: AppTheme.bodyLarge.copyWith(

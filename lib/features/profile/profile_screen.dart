@@ -70,7 +70,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ? profile.name![0].toUpperCase()
                             : '?',
                         style: AppTheme.displayLarge.copyWith(
-                          color: AppTheme.textPrimary,
+                          color: AppTheme.textInverse,
                         ),
                       ),
                     ),
