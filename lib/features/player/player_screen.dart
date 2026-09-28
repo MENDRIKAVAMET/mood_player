@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/track.dart';
@@ -579,15 +580,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Widget _buildLikeButton(MoodColors moodColors) {
+    // Icône inchangée (26px) mais zone tactile de 44x44 centrée dessus, et
+    // un petit retour haptique au like/unlike.
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
+        HapticFeedback.mediumImpact();
         ref.read(trackProvider.notifier).toggleLike(_displayTrack);
         setState(() {});
       },
-      child: Icon(
-        _displayTrack.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-        color: _displayTrack.isLiked ? moodColors.primary : AppTheme.textPrimary,
-        size: 26,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: Icon(
+            _displayTrack.isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            color: _displayTrack.isLiked ? moodColors.primary : AppTheme.textPrimary,
+            size: 26,
+          ),
+        ),
       ),
     );
   }
@@ -710,7 +721,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // l'icône pour que le tap soit pris en compte.
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
       child: SizedBox(
         width: 48,
         height: 48,
@@ -760,6 +774,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _togglePlayPause(bool isPlaying) {
+    HapticFeedback.lightImpact();
     final audioHandlerAsync = ref.read(audioHandlerProvider);
     audioHandlerAsync.whenData((handler) {
       if (isPlaying) {

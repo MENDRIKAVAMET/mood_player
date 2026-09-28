@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import 'track_artwork.dart';
@@ -120,7 +121,9 @@ class MiniPlayer extends ConsumerWidget {
 
                     // Play/Pause button
                     GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: () {
+                        HapticFeedback.lightImpact();
                         final audioHandler = ref.read(audioHandlerProvider);
                         audioHandler.whenData((handler) {
                           if (isPlaying) {
@@ -131,8 +134,8 @@ class MiniPlayer extends ConsumerWidget {
                         });
                       },
                       child: Container(
-                        width: 40,
-                        height: 40,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
                           color: moodColors.primary,
                           shape: BoxShape.circle,

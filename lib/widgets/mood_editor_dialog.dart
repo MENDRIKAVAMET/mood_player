@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/custom_mood.dart';
 import '../theme/app_theme.dart';
 import '../theme/mood_icons.dart';
@@ -71,31 +72,41 @@ Future<(String name, String icon, int colorValue)?> showMoodEditorDialog(
                   Text('Icône', style: AppTheme.labelSmall.copyWith(color: AppTheme.textSecondary)),
                   const SizedBox(height: AppTheme.spacingS),
                   Wrap(
-                    spacing: AppTheme.spacingS,
-                    runSpacing: AppTheme.spacingS,
+                    spacing: 4,
+                    runSpacing: 0,
                     children: [
                       for (final iconKey in kMoodIconChoices)
                         GestureDetector(
-                          onTap: () => setState(() => selectedIcon = iconKey),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: iconKey == selectedIcon
-                                  ? Color(selectedColor).withValues(alpha: 0.25)
-                                  : AppTheme.backgroundCard,
-                              borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                              border: iconKey == selectedIcon
-                                  ? Border.all(color: Color(selectedColor), width: 1.5)
-                                  : null,
-                            ),
-                            child: Icon(
-                              MoodIcons.iconDataForKey(iconKey),
-                              size: 20,
-                              color: iconKey == selectedIcon
-                                  ? Color(selectedColor)
-                                  : AppTheme.textSecondary,
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => selectedIcon = iconKey);
+                          },
+                          child: SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: iconKey == selectedIcon
+                                      ? Color(selectedColor).withValues(alpha: 0.25)
+                                      : AppTheme.backgroundCard,
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                                  border: iconKey == selectedIcon
+                                      ? Border.all(color: Color(selectedColor), width: 1.5)
+                                      : null,
+                                ),
+                                child: Icon(
+                                  MoodIcons.iconDataForKey(iconKey),
+                                  size: 20,
+                                  color: iconKey == selectedIcon
+                                      ? Color(selectedColor)
+                                      : AppTheme.textSecondary,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -105,21 +116,31 @@ Future<(String name, String icon, int colorValue)?> showMoodEditorDialog(
                   Text('Couleur', style: AppTheme.labelSmall.copyWith(color: AppTheme.textSecondary)),
                   const SizedBox(height: AppTheme.spacingS),
                   Wrap(
-                    spacing: AppTheme.spacingS,
-                    runSpacing: AppTheme.spacingS,
+                    spacing: 0,
+                    runSpacing: 0,
                     children: [
                       for (final color in kMoodColorChoices)
                         GestureDetector(
-                          onTap: () => setState(() => selectedColor = color),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: Color(color),
-                              shape: BoxShape.circle,
-                              border: color == selectedColor
-                                  ? Border.all(color: Colors.white, width: 2)
-                                  : null,
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => selectedColor = color);
+                          },
+                          child: SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Color(color),
+                                  shape: BoxShape.circle,
+                                  border: color == selectedColor
+                                      ? Border.all(color: Colors.white, width: 2)
+                                      : null,
+                                ),
+                              ),
                             ),
                           ),
                         ),

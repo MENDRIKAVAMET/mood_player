@@ -41,7 +41,11 @@ class AppTheme {
   // Text colors
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFFBFB3D4);
-  static const Color textTertiary = Color(0xFF76688F);
+  // Texte tertiaire : éclairci de #76688F à #8B7EAB - le premier ne
+  // passait pas le contraste minimum WCAG AA sur le fond quasi-noir de
+  // l'app (~4.0:1, sous les 4.5:1 requis), alors que c'est justement la
+  // couleur utilisée pour le texte le plus petit (badges, labels).
+  static const Color textTertiary = Color(0xFF8B7EAB);
   static const Color textInverse = Color(0xFF07040D);
 
   // Divider / Border — translucides, pour qu'ils se fondent sur n'importe

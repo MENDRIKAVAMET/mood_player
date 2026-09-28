@@ -127,7 +127,10 @@ class _MainShellState extends ConsumerState<MainShell> {
         ),
         child: NavigationBar(
           selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
+          onDestinationSelected: (i) {
+            if (i != _index) HapticFeedback.selectionClick();
+            setState(() => _index = i);
+          },
           backgroundColor: Colors.transparent,
           indicatorColor: AppTheme.accentPrimary.withValues(alpha: 0.22),
           surfaceTintColor: Colors.transparent,

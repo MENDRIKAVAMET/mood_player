@@ -5,10 +5,11 @@ import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
+import '../../widgets/app_icon_button.dart';
 import '../../widgets/foryou_list_row.dart';
+import '../../widgets/header_actions.dart';
 import '../../widgets/period_mixes_section.dart';
 import '../../widgets/suggestion_mix_card.dart';
-import '../search/search_screen.dart';
 import 'see_all_tracks_screen.dart';
 import 'suggestion_mix_screen.dart';
 
@@ -119,14 +120,7 @@ class ForYouScreen extends ConsumerWidget {
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Rechercher',
-            icon: const Icon(Icons.search_rounded, color: AppTheme.textPrimary),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SearchScreen()),
-            ),
-          ),
+          const HeaderActions(),
         ],
       ),
     );
@@ -188,23 +182,9 @@ class ForYouScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: AppTheme.spacingS),
-            GestureDetector(
+            AppIconButton(
+              icon: Icons.shuffle_rounded,
               onTap: () => playShuffled(context, tracks),
-              child: Container(
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.border, width: 1),
-                ),
-                child: const Icon(
-                  Icons.shuffle_rounded,
-                  color: AppTheme.textSecondary,
-                  size: 16,
-                ),
-              ),
             ),
           ],
           // Bouton "voir tout" - icône seule, sans libellé, affiché
@@ -212,23 +192,10 @@ class ForYouScreen extends ConsumerWidget {
           // déjà la liste complète.
           if (onSeeAll != null) ...[
             const SizedBox(width: AppTheme.spacingS),
-            GestureDetector(
+            AppIconButton(
+              icon: Icons.chevron_right_rounded,
+              iconSize: 18,
               onTap: onSeeAll,
-              child: Container(
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.border, width: 1),
-                ),
-                child: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppTheme.textSecondary,
-                  size: 18,
-                ),
-              ),
             ),
           ],
         ],

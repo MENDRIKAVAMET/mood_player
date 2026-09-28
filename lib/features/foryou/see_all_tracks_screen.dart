@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/track.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
+import '../../widgets/app_icon_button.dart';
 import '../../widgets/track_tile.dart';
 
 /// Liste complète pour une section de « Pour vous » (Récemment écouté,
@@ -51,21 +52,10 @@ class SeeAllTracksScreen extends StatelessWidget {
                       ),
                     ),
                     if (tracks.isNotEmpty)
-                      GestureDetector(
+                      AppIconButton(
+                        icon: Icons.play_arrow_rounded,
+                        iconSize: 18,
                         onTap: () => playAll(context, tracks),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.spacingM,
-                            vertical: AppTheme.spacingXS,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                            border: Border.all(color: AppTheme.border, width: 1),
-                          ),
-                          child: const Icon(Icons.play_arrow_rounded,
-                              color: AppTheme.textPrimary, size: 18),
-                        ),
                       ),
                   ],
                 ),
