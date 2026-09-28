@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#171225"/>
+      <stop offset="100%" stop-color="#0A0A0A"/>
+    </linearGradient>
+    <radialGradient id="glowViolet" cx="30%" cy="25%" r="65%">
+      <stop offset="0%" stop-color="#7C6CFF" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#7C6CFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCoral" cx="82%" cy="86%" r="55%">
+      <stop offset="0%" stop-color="#FF7A59" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#FF7A59" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bars" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#7C6CFF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glowViolet)"/>
+  <rect width="1024" height="1024" fill="url(#glowCoral)"/>
+
+  <!-- Signature equalizer glyph, echoing the notification icon -->
+  <g transform="translate(512,512)">
+    <rect x="-230" y="-90" width="110" height="300" rx="55" fill="url(#bars)"/>
+    <rect x="-55" y="-230" width="110" height="440" rx="55" fill="#FFFFFF"/>
+    <rect x="120" y="-40" width="110" height="250" rx="55" fill="url(#bars)"/>
+  </g>
+</svg>
