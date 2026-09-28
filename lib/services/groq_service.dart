@@ -257,6 +257,17 @@ class GroqService {
     );
     buffer.writeln();
     buffer.writeln(
+      'RÈGLE ABSOLUE : tu dois donner une catégorie pour CHAQUE morceau, '
+      'sans exception. Si tu ne connais pas le morceau ou l\'artiste, ne '
+      'dis JAMAIS que tu ne sais pas et n\'invente aucune catégorie hors '
+      'liste : devine la plus plausible à partir du titre, de la langue, '
+      'du nom de l\'artiste, de l\'album et du style probable. Une '
+      'réponse approximative vaut toujours mieux qu\'aucune réponse ; '
+      'mets simplement une confiance basse (0.1 à 0.3) dans ce cas. Si '
+      'vraiment aucun indice, réponds "chill".',
+    );
+    buffer.writeln();
+    buffer.writeln(
       'En cas d\'hésitation entre deux catégories, préfère celle qui décrit '
       'le mieux l\'intention d\'écoute (pourquoi on mettrait ce morceau) '
       'plutôt que celle qui décrit juste le tempo.',
@@ -312,24 +323,72 @@ class GroqService {
 
     return List.generate(chunk.length, (i) {
       final entry = byId[i];
-      if (entry == null) {
-        return MoodClassificationResult(
-          trackId: chunk[i].id,
-          mood: MoodType.unknown,
-          confidence: 0.0,
-          error: 'Aucune classification retournée par Groq pour ce morceau',
-        );
-      }
+      final rawMood = entry?['mood'];
+      var mood = rawMood is String
+          ? MoodTypeExtension.fromString(rawMood.trim())
+          : MoodType.unknown;
+      var confidence = (entry?['confiance'] as num?)?.toDouble() ?? 0.0;
 
-      final moodString = entry['mood'] as String? ?? 'unknown';
-      final confidence = (entry['confiance'] as num?)?.toDouble() ?? 0.0;
+      // Le modèle n'a rien renvoyé pour ce morceau, ou une catégorie hors
+      // liste ("inconnu", "je ne sais pas"...) : on ne laisse jamais un
+      // morceau sans mood, on devine avec une heuristique locale.
+      if (mood == MoodType.unknown) {
+        mood = _guessMood(chunk[i]);
+        confidence = 0.15;
+      }
 
       return MoodClassificationResult(
         trackId: chunk[i].id,
-        mood: MoodTypeExtension.fromString(moodString),
+        mood: mood,
         confidence: confidence.clamp(0.0, 1.0),
       );
     });
+  }
+
+  /// Devinette locale de dernier recours, à partir des mots du titre /
+  /// artiste / album. Approximative par nature : sert uniquement quand le
+  /// modèle n'a pas su répondre, pour qu'aucun morceau ne reste sans mood.
+  MoodType _guessMood(Track track) {
+    final text = '${track.title} ${track.artist} ${track.album ?? ''}'
+        .toLowerCase();
+
+    bool has(List<String> words) => words.any(text.contains);
+
+    if (has(['jesus', 'jésus', 'dieu', 'seigneur', 'louange', 'worship',
+        'gospel', 'hallelujah', 'alléluia', 'adoration', 'eternel',
+        'éternel', 'hosanna', 'amen'])) {
+      return MoodType.evangelical;
+    }
+    if (has(['lullaby', 'berceuse', 'sleep', 'dodo', 'sommeil'])) {
+      return MoodType.sleep;
+    }
+    if (has(['love', 'amour', 'heart', 'coeur', 'cœur', 'baby', 'kiss',
+        'valentine', 'je t\'aime'])) {
+      return MoodType.romantic;
+    }
+    if (has(['cry', 'tears', 'sad', 'pleure', 'larme', 'goodbye',
+        'lonely', 'alone', 'triste', 'miss you'])) {
+      return MoodType.sad;
+    }
+    if (has(['party', 'fête', 'fete', 'dance', 'danse', 'club', 'night',
+        'soirée', 'soiree', 'remix'])) {
+      return MoodType.festive;
+    }
+    if (has(['power', 'fire', 'run', 'fight', 'gym', 'workout', 'energy',
+        'energie', 'énergie', 'pump'])) {
+      return MoodType.energetic;
+    }
+    if (has(['piano', 'sonata', 'symphony', 'concerto', 'orchestra',
+        'classical'])) {
+      return MoodType.classical;
+    }
+    if (has(['instrumental', 'focus', 'study', 'lofi', 'lo-fi'])) {
+      return MoodType.concentration;
+    }
+    if (has(['road', 'highway', 'travel', 'voyage', 'trip'])) {
+      return MoodType.roadtrip;
+    }
+    return MoodType.chill;
   }
 }
 

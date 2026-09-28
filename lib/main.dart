@@ -130,9 +130,22 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
+      // Pas d'effet d'étirement/lueur au bout des listes (Android 12+).
+      scrollBehavior: const _NoOverscrollBehavior(),
       home: home,
     );
   }
+}
+
+/// Supprime l'indicateur d'overscroll (étirement flou sur Android 12+,
+/// lueur sur les versions antérieures) au bout de toutes les listes.
+class _NoOverscrollBehavior extends MaterialScrollBehavior {
+  const _NoOverscrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+          BuildContext context, Widget child, ScrollableDetails details) =>
+      child;
 }
 
 /// Shown instead of a blank screen when a startup step (typically local

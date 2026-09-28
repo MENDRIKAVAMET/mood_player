@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
@@ -168,23 +167,22 @@ class TrackArtworkFitBlur extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Fond : même image, en "cover", floutée. Décodée en petit (96px)
-        // car le flou rend le détail inutile et ça coûte bien moins cher.
-        // RepaintBoundary : le flou n'est pas recalculé pendant les
-        // animations de glissement.
+        // Fond : même image, en "cover", décodée en toute petite taille
+        // (48px) puis agrandie avec un filtrage bilinéaire de qualité :
+        // l'agrandissement donne lui-même le flou.
+        //
+        // Volontairement SANS ImageFilter.blur : un flou appliqué sur une
+        // couche qui glisse (swipe suivant/précédent/paroles) laissait
+        // des bandes floues verticales/horizontales au bord du contenu
+        // déplacé, à cause du rendu des bords du filtre. Sans filtre, plus
+        // d'artefact, et c'est aussi bien moins coûteux à animer.
         RepaintBoundary(
-          child: ImageFiltered(
-            imageFilter: ImageFilter.blur(
-              sigmaX: 24,
-              sigmaY: 24,
-              tileMode: TileMode.mirror,
-            ),
-            child: _coverImage(
-              cover,
-              fit: BoxFit.cover,
-              cacheWidth: 96,
-              fallback: placeholder,
-            ),
+          child: _coverImage(
+            cover,
+            fit: BoxFit.cover,
+            cacheWidth: 48,
+            fallback: placeholder,
+            filterQuality: FilterQuality.high,
           ),
         ),
         // Léger assombrissement du fond pour faire ressortir l'image nette.
@@ -206,6 +204,7 @@ class TrackArtworkFitBlur extends StatelessWidget {
     required BoxFit fit,
     required int cacheWidth,
     required Widget fallback,
+    FilterQuality filterQuality = FilterQuality.low,
   }) {
     if (cover.startsWith('http://') || cover.startsWith('https://')) {
       return Image.network(
@@ -214,6 +213,7 @@ class TrackArtworkFitBlur extends StatelessWidget {
         width: double.infinity,
         height: double.infinity,
         cacheWidth: cacheWidth,
+        filterQuality: filterQuality,
         gaplessPlayback: true,
         errorBuilder: (_, _, _) => fallback,
       );
@@ -224,6 +224,7 @@ class TrackArtworkFitBlur extends StatelessWidget {
       width: double.infinity,
       height: double.infinity,
       cacheWidth: cacheWidth,
+      filterQuality: filterQuality,
       gaplessPlayback: true,
       errorBuilder: (_, _, _) => fallback,
     );

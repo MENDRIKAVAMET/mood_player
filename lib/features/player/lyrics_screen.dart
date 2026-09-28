@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/track.dart';
@@ -5,6 +6,7 @@ import '../../models/lyric_line.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/lyrics_provider.dart';
 import '../../services/lyrics_service.dart';
+import '../../services/lyrics_text_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import 'lyrics_search_screen.dart';
@@ -14,9 +16,15 @@ import 'lyrics_search_screen.dart';
 /// did something.
 const _kOffsetStep = Duration(milliseconds: 300);
 
-/// Karaoke-style synced lyrics: fetches LRC lyrics for the given track
-/// (preferring a .lrc sitting next to the audio file) and auto-scrolls,
-/// filling the current line word-by-word as playback advances.
+/// Délai sans toucher l'écran avant que le défilement automatique reprenne
+/// après que l'utilisateur a fait défiler les paroles lui-même.
+const _kAutoScrollResumeDelay = Duration(seconds: 3);
+
+/// Paroles synchronisées, ligne par ligne : la ligne en cours est mise en
+/// valeur en entier (pas mot par mot, pour que le décalage éventuel avec
+/// le rythme réel ne se voie pas) et la liste défile automatiquement.
+/// Quand seules des paroles non synchronisées existent, le texte défile
+/// automatiquement en fonction de l'avancement du morceau.
 class LyricsScreen extends ConsumerStatefulWidget {
   final Track track;
 
@@ -30,6 +38,19 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   int _lastActiveIndex = -1;
+
+  /// Une clé par ligne synchronisée, pour pouvoir centrer la ligne active
+  /// même quand les lignes ont des hauteurs différentes (retours à la
+  /// ligne, taille de texte réglable).
+  final Map<int, GlobalKey> _lineKeys = {};
+
+  /// Réglages du bouton « T » (alignement + taille).
+  LyricsTextSettings _text = const LyricsTextSettings();
+
+  /// Vrai tant que l'utilisateur touche/fait défiler les paroles : le
+  /// défilement automatique se met alors en pause.
+  bool _userInteracting = false;
+  Timer? _resumeTimer;
 
   /// Offset the user has dialled in this session. Initialised from
   /// whatever was loaded with the lyrics, then edited by the +/- buttons.
@@ -56,6 +77,14 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkFileAccess();
+    LyricsTextSettings.load().then((value) {
+      if (mounted) {
+        setState(() {
+          _text = value;
+          _lastActiveIndex = -1;
+        });
+      }
+    });
   }
 
   @override
@@ -92,8 +121,28 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _resumeTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // --- Défilement automatique ------------------------------------------
+
+  void _onUserTouchStart() {
+    _resumeTimer?.cancel();
+    _userInteracting = true;
+  }
+
+  void _onUserTouchEnd() {
+    _resumeTimer?.cancel();
+    _resumeTimer = Timer(_kAutoScrollResumeDelay, () {
+      if (!mounted) return;
+      setState(() {
+        _userInteracting = false;
+        // Force le recentrage sur la ligne active au prochain build.
+        _lastActiveIndex = -1;
+      });
+    });
   }
 
   int _activeIndex(List<LyricLine> lines, Duration position) {
@@ -109,33 +158,46 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     return index;
   }
 
-  /// Fraction (0..1) of the way through the active line, used to sweep the
-  /// karaoke fill across the text.
-  double _lineProgress(List<LyricLine> lines, int index, Duration position) {
-    if (index < 0 || index >= lines.length) return 0;
-    final start = lines[index].timestamp;
-    final end = index + 1 < lines.length
-        ? lines[index + 1].timestamp
-        : start + const Duration(seconds: 4);
-    final total = (end - start).inMilliseconds;
-    if (total <= 0) return 1;
-    final elapsed = (position - start).inMilliseconds;
-    return (elapsed / total).clamp(0.0, 1.0);
-  }
-
+  /// Paroles synchronisées : centre la ligne active (à ~40 % de la hauteur)
+  /// à chaque changement de ligne.
   void _maybeAutoScroll(int activeIndex) {
-    if (activeIndex == _lastActiveIndex || activeIndex < 0) return;
+    if (activeIndex < 0 || _userInteracting) return;
+    if (activeIndex == _lastActiveIndex) return;
+    final ctx = _lineKeys[activeIndex]?.currentContext;
+    if (ctx == null || !_scrollController.hasClients) return;
     _lastActiveIndex = activeIndex;
-    if (!_scrollController.hasClients) return;
-
-    const itemExtent = 64.0;
-    final target = (activeIndex * itemExtent) - 160;
-    _scrollController.animateTo(
-      target.clamp(0, _scrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 400),
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.4,
+      duration: const Duration(milliseconds: 450),
       curve: Curves.easeOutCubic,
     );
   }
+
+  /// Paroles NON synchronisées : pas de timestamps, donc on fait défiler
+  /// le texte proportionnellement à l'avancement du morceau. Approximatif,
+  /// mais ça évite de devoir faire défiler à la main ; un léger décalage
+  /// au début/à la fin laisse la place à l'intro et à l'outro.
+  void _autoScrollPlain(Duration position, Duration total) {
+    if (_userInteracting || !_scrollController.hasClients) return;
+    if (total <= Duration.zero) return;
+    final max = _scrollController.position.maxScrollExtent;
+    if (max <= 0) return;
+
+    final t = position.inMilliseconds / total.inMilliseconds;
+    final progress = ((t - 0.06) / 0.86).clamp(0.0, 1.0);
+    final target = max * progress;
+    final gap = (target - _scrollController.offset).abs();
+    if (gap < 2) return;
+
+    _scrollController.animateTo(
+      target,
+      duration: Duration(milliseconds: gap > 300 ? 500 : 250),
+      curve: gap > 300 ? Curves.easeOutCubic : Curves.linear,
+    );
+  }
+
+  // --- Actions -----------------------------------------------------------
 
   Future<void> _adjustOffset(LyricsResult result, Duration delta) async {
     final next = (_offset ?? result.offset) + delta;
@@ -160,11 +222,59 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     if (mounted) ref.invalidate(lyricsProvider(lyricsKeyFor(widget.track)));
   }
 
+  Future<void> _openTextSettings(Color color) async {
+    final initial = _text;
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppTheme.backgroundCardElevated,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radiusXL),
+        ),
+      ),
+      builder: (_) => _LyricsTextSheet(
+        initial: _text,
+        color: color,
+        // Aperçu en direct derrière la feuille.
+        onChanged: (value) => setState(() {
+          _text = value;
+          _lastActiveIndex = -1;
+        }),
+      ),
+    );
+
+    if (saved == true) {
+      await _text.save();
+    } else if (mounted) {
+      // Fermée sans « Sauvegarder » : on revient aux réglages d'avant.
+      setState(() {
+        _text = initial;
+        _lastActiveIndex = -1;
+      });
+    }
+  }
+
+  TextAlign get _textAlign => _text.alignment == LyricsAlignment.start
+      ? TextAlign.start
+      : TextAlign.center;
+
+  TextStyle get _lyricStyle => AppTheme.bodyLarge.copyWith(
+        fontSize: _text.fontSize,
+        height: 1.4,
+        fontWeight: FontWeight.w600,
+      );
+
   @override
   Widget build(BuildContext context) {
     final moodColors = MoodColors.forMood(widget.track.mood);
     final position = ref.watch(currentPositionProvider);
+    final totalDuration = ref.watch(durationProvider).valueOrNull ??
+        Duration(milliseconds: widget.track.duration ?? 0);
     final lyricsAsync = ref.watch(lyricsProvider(lyricsKeyFor(widget.track)));
+    final hasText = lyricsAsync.valueOrNull != null &&
+        !lyricsAsync.valueOrNull!.instrumental &&
+        (lyricsAsync.valueOrNull!.hasSynced ||
+            (lyricsAsync.valueOrNull!.plain?.isNotEmpty ?? false));
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
@@ -187,6 +297,30 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
         ),
         centerTitle: true,
         actions: [
+          // Bouton « T » : alignement et taille du texte des paroles.
+          if (hasText)
+            IconButton(
+              tooltip: 'Style du texte',
+              onPressed: () => _openTextSettings(moodColors.primary),
+              icon: Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.textSecondary, width: 1.6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'T',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
           // Toujours disponible : les paroles trouvées automatiquement
           // peuvent être fausses (mauvaise version, mauvais artiste...),
           // l'utilisateur doit pouvoir corriger à la main à tout moment,
@@ -224,226 +358,339 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
             Navigator.of(context).pop();
           }
         },
-        child: lyricsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
+        // Le Listener voit les doigts sans les consommer : il sert
+        // uniquement à mettre le défilement automatique en pause.
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => _onUserTouchStart(),
+          onPointerUp: (_) => _onUserTouchEnd(),
+          onPointerCancel: (_) => _onUserTouchEnd(),
+          child: lyricsAsync.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            error: (_, _) => const _EmptyState(
+              icon: Icons.wifi_off_rounded,
+              message: "Impossible de récupérer les paroles pour l'instant.",
+            ),
+            data: (result) {
+              if (result.instrumental) {
+                return const _EmptyState(
+                  icon: Icons.piano_off_outlined,
+                  message: 'Ce morceau est instrumental.',
+                );
+              }
+
+              if (result.hasSynced) {
+                return _buildSynced(result, position, moodColors.primary);
+              }
+
+              if (result.plain != null && result.plain!.isNotEmpty) {
+                return _buildPlain(result.plain!, position, totalDuration);
+              }
+
+              return _EmptyState(
+                icon: Icons.lyrics_outlined,
+                message: _hasFileAccess == false
+                    ? "Aucune parole trouvée en ligne, et l'app n'a pas encore le "
+                        "droit de lire les fichiers .lrc de ton téléphone.\n\n"
+                        "Android ne considère pas un .lrc comme un fichier "
+                        "musical : la permission « musique » ne suffit pas, il "
+                        "faut l'accès à tous les fichiers."
+                    : "Paroles introuvables pour ce morceau.",
+                action: _hasFileAccess == false
+                    ? _EmptyStateAction(
+                        label: "Autoriser l'accès aux fichiers",
+                        onPressed: _requestFileAccess,
+                      )
+                    : _EmptyStateAction(
+                        label: 'Rechercher les paroles',
+                        onPressed: _openSearch,
+                      ),
+              );
+            },
+          ),
         ),
-        error: (_, _) => const _EmptyState(
-          icon: Icons.wifi_off_rounded,
-          message: "Impossible de récupérer les paroles pour l'instant.",
+      ),
+    );
+  }
+
+  /// Version karaoké : la ligne en cours est mise en valeur en entier.
+  Widget _buildSynced(LyricsResult result, Duration position, Color color) {
+    final lines = result.synced!;
+    final offset = _offset ?? result.offset;
+    final activeIndex = _activeIndex(lines, position - offset);
+
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _maybeAutoScroll(activeIndex));
+
+    return Column(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                controller: _scrollController,
+                // Marges haute/basse ~ une demi-hauteur d'écran pour que
+                // même la première et la dernière ligne puissent être
+                // amenées au point de focus.
+                padding: EdgeInsets.fromLTRB(
+                  AppTheme.spacingL,
+                  constraints.maxHeight * 0.4,
+                  AppTheme.spacingL,
+                  constraints.maxHeight * 0.5,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < lines.length; i++)
+                      _KaraokeLine(
+                        key: _lineKeys.putIfAbsent(i, () => GlobalKey()),
+                        text: lines[i].text,
+                        isActive: i == activeIndex,
+                        isPast: i < activeIndex,
+                        color: color,
+                        style: _lyricStyle,
+                        textAlign: _textAlign,
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
-        data: (result) {
-          if (result.instrumental) {
-            return const _EmptyState(
-              icon: Icons.piano_off_outlined,
-              message: 'Ce morceau est instrumental.',
-            );
-          }
+        if (_showSyncControls)
+          _SyncControls(
+            offset: offset,
+            color: color,
+            onEarlier: () => _adjustOffset(result, -_kOffsetStep),
+            onLater: () => _adjustOffset(result, _kOffsetStep),
+            onReset: () async {
+              setState(() => _offset = Duration.zero);
+              await ref.read(lyricsServiceProvider).saveOffset(
+                    trackKey: '${widget.track.artist} - ${widget.track.title}',
+                    offset: Duration.zero,
+                    localPath: result.localPath,
+                  );
+            },
+          ),
+      ],
+    );
+  }
 
-          if (result.hasSynced) {
-            final lines = result.synced!;
-            final offset = _offset ?? result.offset;
-            final adjusted = position - offset;
-            final activeIndex = _activeIndex(lines, adjusted);
-            final progress = _lineProgress(lines, activeIndex, adjusted);
+  /// Paroles sans timestamps : texte simple qui défile tout seul selon
+  /// l'avancement du morceau (mis en pause dès qu'on le touche).
+  Widget _buildPlain(String plain, Duration position, Duration total) {
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _autoScrollPlain(position, total));
 
-            WidgetsBinding.instance
-                .addPostFrameCallback((_) => _maybeAutoScroll(activeIndex));
-
-            return Column(
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Padding vertical fixe habituel (200) pour garder
-                      // l'effet "focus" pendant le défilement des longues
-                      // paroles - mais si le morceau est court et que tout
-                      // tient sur l'écran, ça laisse le texte collé en
-                      // haut au lieu d'être centré. On agrandit alors le
-                      // padding pour centrer réellement le contenu.
-                      const itemExtent = 64.0;
-                      final contentHeight = lines.length * itemExtent;
-                      final extraPadding =
-                          (constraints.maxHeight - contentHeight) / 2;
-                      final verticalPadding =
-                          extraPadding > 200 ? extraPadding : 200.0;
-
-                      return ListView.builder(
-                        controller: _scrollController,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: AppTheme.spacingL,
-                          vertical: verticalPadding,
-                        ),
-                        itemCount: lines.length,
-                        itemExtent: itemExtent,
-                        itemBuilder: (context, index) {
-                          return _KaraokeLine(
-                            text: lines[index].text,
-                            isActive: index == activeIndex,
-                            isPast: index < activeIndex,
-                            progress: index == activeIndex ? progress : 0,
-                            color: moodColors.primary,
-                          );
-                        },
-                      );
-                    },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(AppTheme.spacingL),
+          child: ConstrainedBox(
+            // Force le contenu à occuper au moins toute la hauteur
+            // visible : un texte court est alors vraiment centré
+            // verticalement ; un texte long défile normalement.
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight - (AppTheme.spacingL * 2),
+            ),
+            child: Align(
+              alignment: _text.alignment == LyricsAlignment.start
+                  ? Alignment.centerLeft
+                  : Alignment.center,
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  plain,
+                  textAlign: _textAlign,
+                  style: _lyricStyle.copyWith(
+                    color: AppTheme.textPrimary.withValues(alpha: 0.85),
+                    fontWeight: FontWeight.w500,
+                    height: 1.8,
                   ),
                 ),
-                if (_showSyncControls)
-                  _SyncControls(
-                    offset: offset,
-                    color: moodColors.primary,
-                    onEarlier: () => _adjustOffset(result, -_kOffsetStep),
-                    onLater: () => _adjustOffset(result, _kOffsetStep),
-                    onReset: () async {
-                      setState(() => _offset = Duration.zero);
-                      await ref.read(lyricsServiceProvider).saveOffset(
-                            trackKey:
-                                '${widget.track.artist} - ${widget.track.title}',
-                            offset: Duration.zero,
-                            localPath: result.localPath,
-                          );
-                    },
-                  ),
-              ],
-            );
-          }
-
-          if (result.plain != null && result.plain!.isNotEmpty) {
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppTheme.spacingL),
-                  child: ConstrainedBox(
-                    // Force le contenu à occuper au moins toute la
-                    // hauteur visible : quand le texte est plus court que
-                    // l'écran, le Center ci-dessous peut alors vraiment
-                    // centrer verticalement au lieu de rester collé en
-                    // haut. Quand le texte est plus long, ce minimum n'a
-                    // aucun effet et le défilement normal reprend.
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight -
-                          (AppTheme.spacingL * 2),
-                    ),
-                    child: Center(
-                      child: Text(
-                        result.plain!,
-                        textAlign: TextAlign.center,
-                        style: AppTheme.bodyLarge.copyWith(
-                          color: AppTheme.textPrimary.withValues(alpha: 0.85),
-                          height: 1.8,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            );
-          }
-
-          return _EmptyState(
-            icon: Icons.lyrics_outlined,
-            message: _hasFileAccess == false
-                ? "Aucune parole trouvée en ligne, et l'app n'a pas encore le "
-                    "droit de lire les fichiers .lrc de ton téléphone.\n\n"
-                    "Android ne considère pas un .lrc comme un fichier "
-                    "musical : la permission « musique » ne suffit pas, il "
-                    "faut l'accès à tous les fichiers."
-                : "Paroles introuvables pour ce morceau.",
-            action: _hasFileAccess == false
-                ? _EmptyStateAction(
-                    label: "Autoriser l'accès aux fichiers",
-                    onPressed: _requestFileAccess,
-                  )
-                : _EmptyStateAction(
-                    label: 'Rechercher les paroles',
-                    onPressed: _openSearch,
-                  ),
-          );
-        },
-      ),
-      ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-/// One lyric line. The active line is drawn twice: a dim base layer and a
-/// bright copy clipped to [progress], which produces the classic karaoke
-/// left-to-right fill as the line is sung.
+/// Une ligne de paroles. La ligne active est simplement colorée en entier
+/// (pas de remplissage mot par mot) : plus fiable quand les timestamps ne
+/// collent pas parfaitement au rythme.
 class _KaraokeLine extends StatelessWidget {
   final String text;
   final bool isActive;
   final bool isPast;
-  final double progress;
   final Color color;
+  final TextStyle style;
+  final TextAlign textAlign;
 
   const _KaraokeLine({
+    super.key,
     required this.text,
     required this.isActive,
     required this.isPast,
-    required this.progress,
     required this.color,
+    required this.style,
+    required this.textAlign,
   });
 
   @override
   Widget build(BuildContext context) {
-    final baseStyle = (isActive ? AppTheme.titleLarge : AppTheme.bodyLarge)
-        .copyWith(
-      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-    );
+    final lineColor = isActive
+        ? color
+        : AppTheme.textPrimary.withValues(alpha: isPast ? 0.35 : 0.6);
 
-    if (!isActive) {
-      return Container(
-        alignment: Alignment.center,
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 250),
-          style: baseStyle.copyWith(
-            color: AppTheme.textPrimary.withValues(alpha: isPast ? 0.35 : 0.6),
-          ),
-          child: Text(text, textAlign: TextAlign.center),
-        ),
-      );
-    }
-
-    return Container(
-      alignment: Alignment.center,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            text,
-            textAlign: TextAlign.center,
-            style: baseStyle.copyWith(
-              color: AppTheme.textPrimary.withValues(alpha: 0.35),
-            ),
-          ),
-          ClipRect(
-            clipper: _ProgressClipper(progress),
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              style: baseStyle.copyWith(color: color),
-            ),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: AnimatedDefaultTextStyle(
+        duration: const Duration(milliseconds: 250),
+        style: style.copyWith(color: lineColor),
+        textAlign: textAlign,
+        child: Text(text, textAlign: textAlign),
       ),
     );
   }
 }
 
-/// Clips its child to the left [progress] fraction of its width.
-class _ProgressClipper extends CustomClipper<Rect> {
-  final double progress;
+/// Feuille du bouton « T » : alignement du texte + taille du texte.
+class _LyricsTextSheet extends StatefulWidget {
+  final LyricsTextSettings initial;
+  final Color color;
+  final ValueChanged<LyricsTextSettings> onChanged;
 
-  const _ProgressClipper(this.progress);
+  const _LyricsTextSheet({
+    required this.initial,
+    required this.color,
+    required this.onChanged,
+  });
 
   @override
-  Rect getClip(Size size) =>
-      Rect.fromLTWH(0, 0, size.width * progress, size.height);
+  State<_LyricsTextSheet> createState() => _LyricsTextSheetState();
+}
+
+class _LyricsTextSheetState extends State<_LyricsTextSheet> {
+  late LyricsTextSettings _s = widget.initial;
+
+  void _update(LyricsTextSettings value) {
+    setState(() => _s = value);
+    widget.onChanged(value);
+  }
+
+  Widget _alignmentRow(String label, LyricsAlignment value) {
+    final selected = _s.alignment == value;
+    return InkWell(
+      onTap: () => _update(_s.copyWith(alignment: value)),
+      borderRadius: BorderRadius.circular(AppTheme.radiusM),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingS),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: selected ? widget.color : AppTheme.textSecondary,
+            ),
+            const SizedBox(width: AppTheme.spacingM),
+            Text(
+              label,
+              style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
-  bool shouldReclip(_ProgressClipper oldClipper) =>
-      oldClipper.progress != progress;
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.spacingL,
+          AppTheme.spacingM,
+          AppTheme.spacingL,
+          AppTheme.spacingL,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.textTertiary.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingL),
+            Text('Alignement du texte', style: AppTheme.titleMedium),
+            const SizedBox(height: AppTheme.spacingS),
+            _alignmentRow('Début de l\'alignement du texte', LyricsAlignment.start),
+            _alignmentRow('Centre de l\'alignement du texte', LyricsAlignment.center),
+            const SizedBox(height: AppTheme.spacingL),
+            Text('Taille du texte', style: AppTheme.titleMedium),
+            const SizedBox(height: AppTheme.spacingS),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: widget.color,
+                inactiveTrackColor: AppTheme.textTertiary.withValues(alpha: 0.4),
+                thumbColor: Colors.white,
+                activeTickMarkColor: Colors.transparent,
+                inactiveTickMarkColor: Colors.transparent,
+                overlayColor: widget.color.withValues(alpha: 0.15),
+              ),
+              child: Slider(
+                min: 0,
+                max: 3,
+                divisions: 3,
+                value: _s.sizeIndex.toDouble(),
+                onChanged: (v) => _update(_s.copyWith(sizeIndex: v.round())),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingS),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  for (final label in LyricsTextSettings.sizeLabels)
+                    Text(
+                      label,
+                      style: AppTheme.labelSmall
+                          .copyWith(color: AppTheme.textTertiary),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingXL),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: widget.color,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: const StadiumBorder(),
+                ),
+                child: const Text('Sauvegarder'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Bottom bar letting the user nudge the lyrics earlier or later when a
