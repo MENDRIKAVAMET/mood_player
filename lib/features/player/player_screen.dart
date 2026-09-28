@@ -41,9 +41,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// skipping to next/previous.
   late Track _displayTrack = widget.track;
 
-  /// Cumulative finger movement for the swipe-navigation gesture on the
-  /// main player area (reset on each new drag, read on release).
+  /// Suivi du swipe par événements bruts (Listener) plutôt que par le
+  /// système de gestes de Flutter : les boutons, le slider et la carte
+  /// d'ambiance ne peuvent ainsi plus "voler" le geste quand les contrôles
+  /// sont affichés. Seul le slider de progression est exclu (un drag dessus
+  /// doit faire avancer la musique, pas changer de morceau).
+  int? _swipePointer;
+  bool _swipeIgnored = false;
+  bool _pointerOnSlider = false;
+  Axis? _swipeAxis;
   Offset _swipeDelta = Offset.zero;
+  Offset _swipeBase = Offset.zero;
+
+  /// Distance avant de considérer un mouvement comme un swipe (même valeur
+  /// que le seuil de tap de Flutter, pour qu'un tap ne soit jamais pris pour
+  /// un swipe ni l'inverse).
+  static const double _swipeSlop = 18.0;
 
   /// Minimum distance (px) a drag needs to cover before it counts as a
   /// deliberate swipe rather than an accidental brush of the screen.
@@ -86,35 +99,69 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  void _onPanStart(DragStartDetails _) {
-    if (_isAnimatingTransition) return;
+  void _onPointerDown(PointerDownEvent e) {
+    final onSlider = _pointerOnSlider;
+    _pointerOnSlider = false;
+    if (_swipePointer != null) return; // un seul doigt suivi
+    _swipePointer = e.pointer;
+    _swipeIgnored = onSlider || _isAnimatingTransition;
+    _swipeAxis = null;
     _swipeDelta = Offset.zero;
+    _swipeBase = Offset.zero;
   }
 
-  void _onPanUpdate(DragUpdateDetails details) {
-    if (_isAnimatingTransition) return;
+  void _onPointerMove(PointerMoveEvent e) {
+    if (e.pointer != _swipePointer || _swipeIgnored) return;
+    _swipeDelta += e.delta;
+
+    // Verrouille l'axe dès que le doigt a assez bougé : le contenu ne suit
+    // plus que horizontalement OU verticalement (pas de diagonale bancale).
+    if (_swipeAxis == null) {
+      if (_swipeDelta.distance < _swipeSlop) return;
+      _swipeAxis = _swipeDelta.dx.abs() > _swipeDelta.dy.abs()
+          ? Axis.horizontal
+          : Axis.vertical;
+      _swipeBase = _swipeDelta; // évite un saut de 18px au démarrage
+    }
+
+    final moved = _swipeDelta - _swipeBase;
     setState(() {
-      _swipeDelta += details.delta;
-      _contentOffset += details.delta;
+      _contentOffset = _swipeAxis == Axis.horizontal
+          ? Offset(moved.dx, 0)
+          : Offset(0, moved.dy);
     });
   }
 
-  void _handleSwipeEnd(DragEndDetails details) {
+  void _onPointerUp(PointerUpEvent e) {
+    if (e.pointer != _swipePointer) return;
+    final axis = _swipeAxis;
+    final swiping = axis != null && !_swipeIgnored;
+    _swipePointer = null;
+    _swipeAxis = null;
+    if (swiping) _finishSwipe(axis);
+  }
+
+  void _onPointerCancel(PointerCancelEvent e) {
+    if (e.pointer != _swipePointer) return;
+    final swiping = _swipeAxis != null && !_swipeIgnored;
+    _swipePointer = null;
+    _swipeAxis = null;
+    if (swiping) _snapContentBack();
+  }
+
+  void _finishSwipe(Axis axis) {
     if (_isAnimatingTransition) return;
-    final dx = _swipeDelta.dx;
-    final dy = _swipeDelta.dy;
     final size = MediaQuery.of(context).size;
 
-    // Whichever axis moved further decides the gesture; the sign along
-    // that axis decides the direction.
-    if (dx.abs() >= dy.abs()) {
+    if (axis == Axis.horizontal) {
+      final dx = _contentOffset.dx;
       if (dx.abs() < _swipeThreshold) {
         _snapContentBack();
         return;
       }
       if (dx < 0) {
-        // Swipe left -> lyrics: finish sliding fully off-screen, then push
-        // the lyrics page sliding in from the right to continue the motion.
+        // Swipe gauche -> paroles : le contenu finit de sortir de l'écran,
+        // puis la page des paroles arrive depuis la droite.
         _runOffsetAnimation(
           target: Offset(-size.width, 0),
           curve: Curves.easeInCubic,
@@ -125,16 +172,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           },
         );
       } else {
-        // Swipe right -> back to the track list, dragged the rest of the
-        // way off-screen before actually popping.
-        _animatedPop(direction: Offset(size.width, _contentOffset.dy));
+        // Swipe droite -> retour à la liste.
+        _animatedPop(direction: Offset(size.width, 0));
       }
     } else {
+      final dy = _contentOffset.dy;
       if (dy.abs() < _swipeThreshold) {
         _snapContentBack();
         return;
       }
-      // Swipe up -> next track, swipe down -> previous track.
+      // Swipe haut -> morceau suivant, swipe bas -> précédent.
       _slideToTrack(goingNext: dy < 0, size: size);
     }
   }
@@ -363,24 +410,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        // Occupe tout l'écran : un tap simple bascule l'affichage des
-        // boutons, un drag déclenche la navigation (next/prev/lyrics/back)
-        // exactement comme avant, mais maintenant sur la pochette plein
-        // écran plutôt que sur la seule zone de la pochette.
+      body: Listener(
+        // Swipes (next/prev/lyrics/back) : événements bruts, valables que
+        // les boutons soient affichés ou non.
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _onPointerDown,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _onPointerUp,
+        onPointerCancel: _onPointerCancel,
+        child: GestureDetector(
+        // Un tap simple sur l'écran bascule l'affichage des boutons.
         behavior: HitTestBehavior.opaque,
         onTap: _toggleControls,
-        onPanStart: _onPanStart,
-        onPanUpdate: _onPanUpdate,
-        onPanEnd: _handleSwipeEnd,
         child: ClipRect(
           child: Transform.translate(
             offset: _contentOffset,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Pochette plein écran, en fond.
-                TrackArtworkFill(track: _displayTrack, radius: 0),
+                // Pochette centrée à la largeur de l'écran, fond flou autour.
+                TrackArtworkFitBlur(track: _displayTrack),
                 // Voile sombre en haut et en bas pour que le titre et les
                 // boutons restent lisibles quelle que soit la pochette.
                 const DecoratedBox(
@@ -443,6 +492,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -547,8 +597,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXXL),
       child: Column(
         children: [
-          // Slider
-          SliderTheme(
+          // Slider (exclu du swipe : un drag dessus = seek)
+          Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => _pointerOnSlider = true,
+            child: SliderTheme(
             data: SliderThemeData(
               activeTrackColor: moodColors.primary,
               inactiveTrackColor: moodColors.primary.withValues(alpha: 0.2),
@@ -576,6 +629,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 _seekTo(Duration(seconds: value.toInt()));
               },
             ),
+          ),
           ),
           // Time labels
           Padding(

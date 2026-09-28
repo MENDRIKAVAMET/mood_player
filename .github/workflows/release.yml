@@ -14,6 +14,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env
+        run: echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > .env
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
