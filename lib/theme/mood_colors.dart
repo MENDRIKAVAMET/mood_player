@@ -19,173 +19,74 @@ class MoodColors {
     required this.cardBg,
   });
 
+  /// Teinte / saturation / luminosité de la couleur principale de chaque
+  /// mood. Tout le reste de la palette (secondaire, fonds, halo) en est
+  /// dérivé par les mêmes règles, pour que les 17 ambiances aient la même
+  /// "vibrance" au lieu de 17 hex choisis à la main.
+  ///
+  /// Les teintes sont réparties autour du cercle chromatique pour éviter
+  /// les quasi-doublons d'avant (festif / drôle / évangélique étaient trois
+  /// jaunes voisins ; énergique / motivant / voyage / romantique / colère,
+  /// cinq rouge-orangés). Les moods "éteints" (sombre, nostalgique, triste,
+  /// sommeil) gardent volontairement une saturation basse.
+  static const Map<MoodType, (double, double, double)> _hsl = {
+    MoodType.angry: (0, 0.85, 0.54),
+    MoodType.energetic: (15, 0.95, 0.58),
+    MoodType.motivating: (32, 0.95, 0.52),
+    MoodType.evangelical: (40, 0.72, 0.64),
+    MoodType.funny: (52, 0.98, 0.55),
+    MoodType.nostalgic: (28, 0.34, 0.56),
+    MoodType.concentration: (150, 0.85, 0.42),
+    MoodType.spiritual: (176, 0.42, 0.62),
+    MoodType.chill: (192, 0.98, 0.42),
+    MoodType.sad: (208, 0.36, 0.50),
+    MoodType.sleep: (224, 0.45, 0.60),
+    MoodType.classical: (244, 0.58, 0.70),
+    MoodType.dark: (262, 0.12, 0.54),
+    MoodType.melancholic: (272, 0.62, 0.62),
+    MoodType.festive: (296, 0.75, 0.60),
+    MoodType.romantic: (342, 0.80, 0.58),
+    // "roadtrip" : coucher de soleil, entre l'orange et le rose.
+    MoodType.roadtrip: (6, 0.80, 0.60),
+  };
+
+  static final Map<MoodType?, MoodColors> _cache = {};
+
   /// Get colors for a specific mood
   static MoodColors forMood(MoodType? mood) {
-    switch (mood) {
-      case MoodType.energetic:
-        return const MoodColors(
-          primary: Color(0xFFFF6B35),
-          secondary: Color(0xFFFF9F1C),
-          gradientStart: Color(0xFF1A0F00),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66FF6B35),
-          cardBg: Color(0xFF1A1008),
-        );
-      case MoodType.chill:
-        return const MoodColors(
-          primary: Color(0xFF00B4D8),
-          secondary: Color(0xFF0077B6),
-          gradientStart: Color(0xFF001524),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x6600B4D8),
-          cardBg: Color(0xFF081A24),
-        );
-      case MoodType.melancholic:
-        return const MoodColors(
-          primary: Color(0xFF7B2CBF),
-          secondary: Color(0xFF9D4EDD),
-          gradientStart: Color(0xFF100820),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x667B2CBF),
-          cardBg: Color(0xFF120A20),
-        );
-      case MoodType.festive:
-        return const MoodColors(
-          primary: Color(0xFFFFD166),
-          secondary: Color(0xFFEF476F),
-          gradientStart: Color(0xFF1A1508),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66FFD166),
-          cardBg: Color(0xFF1A1208),
-        );
-      case MoodType.romantic:
-        return const MoodColors(
-          primary: Color(0xFFE63946),
-          secondary: Color(0xFFFF6B6B),
-          gradientStart: Color(0xFF1A0810),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66E63946),
-          cardBg: Color(0xFF1A0810),
-        );
-      case MoodType.concentration:
-        return const MoodColors(
-          primary: Color(0xFF06D6A0),
-          secondary: Color(0xFF118AB2),
-          gradientStart: Color(0xFF081A14),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x6606D6A0),
-          cardBg: Color(0xFF081A14),
-        );
-      case MoodType.motivating:
-        return const MoodColors(
-          primary: Color(0xFFFF6D00),
-          secondary: Color(0xFFFFAB00),
-          gradientStart: Color(0xFF1A1000),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66FF6D00),
-          cardBg: Color(0xFF1A1000),
-        );
-      case MoodType.sad:
-        return const MoodColors(
-          primary: Color(0xFF457B9D),
-          secondary: Color(0xFF1D3557),
-          gradientStart: Color(0xFF0A1020),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66457B9D),
-          cardBg: Color(0xFF0A1420),
-        );
-      case MoodType.evangelical:
-        return const MoodColors(
-          primary: Color(0xFFF4C95D),
-          secondary: Color(0xFFFFFFFF),
-          gradientStart: Color(0xFF1A1608),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66F4C95D),
-          cardBg: Color(0xFF1A1608),
-        );
-      case MoodType.angry:
-        return const MoodColors(
-          primary: Color(0xFFD00000),
-          secondary: Color(0xFF9D0208),
-          gradientStart: Color(0xFF200404),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66D00000),
-          cardBg: Color(0xFF1A0606),
-        );
-      case MoodType.nostalgic:
-        return const MoodColors(
-          primary: Color(0xFFB08968),
-          secondary: Color(0xFFDDB892),
-          gradientStart: Color(0xFF1C140C),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66B08968),
-          cardBg: Color(0xFF1C140C),
-        );
-      case MoodType.dark:
-        return const MoodColors(
-          primary: Color(0xFF6B6B7B),
-          secondary: Color(0xFF4A4E69),
-          gradientStart: Color(0xFF0E0E14),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x666B6B7B),
-          cardBg: Color(0xFF0E0E14),
-        );
-      case MoodType.sleep:
-        return const MoodColors(
-          primary: Color(0xFF3D5A80),
-          secondary: Color(0xFF98C1D9),
-          gradientStart: Color(0xFF0A121C),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x663D5A80),
-          cardBg: Color(0xFF0A121C),
-        );
-      case MoodType.funny:
-        return const MoodColors(
-          primary: Color(0xFFFFC300),
-          secondary: Color(0xFFFF6F91),
-          gradientStart: Color(0xFF1E1808),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66FFC300),
-          cardBg: Color(0xFF1E1808),
-        );
-      case MoodType.roadtrip:
-        return const MoodColors(
-          primary: Color(0xFFEE6C4D),
-          secondary: Color(0xFFF4A261),
-          gradientStart: Color(0xFF1C0F08),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66EE6C4D),
-          cardBg: Color(0xFF1C0F08),
-        );
-      case MoodType.spiritual:
-        return const MoodColors(
-          primary: Color(0xFF83C5BE),
-          secondary: Color(0xFF52796F),
-          gradientStart: Color(0xFF0A1614),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x6683C5BE),
-          cardBg: Color(0xFF0A1614),
-        );
-      case MoodType.classical:
-        return const MoodColors(
-          primary: Color(0xFFD4A373),
-          secondary: Color(0xFFE9C46A),
-          gradientStart: Color(0xFF1C1408),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x66D4A373),
-          cardBg: Color(0xFF1C1408),
-        );
-      case MoodType.unknown:
-      default:
-        return const MoodColors(
-          primary: Color(0xFF7C6CFF),
-          secondary: Color(0xFFA78BFA),
-          gradientStart: Color(0xFF120F24),
-          gradientEnd: Color(0xFF0A0A0A),
-          glow: Color(0x667C6CFF),
-          cardBg: Color(0xFF120F24),
-        );
+    return _cache.putIfAbsent(mood, () => _build(mood));
+  }
+
+  static MoodColors _build(MoodType? mood) {
+    final hsl = mood == null ? null : _hsl[mood];
+    if (hsl == null) {
+      // Inconnu : violet de la marque.
+      return const MoodColors(
+        primary: Color(0xFF7C6CFF),
+        secondary: Color(0xFFA78BFA),
+        gradientStart: Color(0xFF120F24),
+        gradientEnd: Color(0xFF0A0A0A),
+        glow: Color(0x667C6CFF),
+        cardBg: Color(0xFF120F24),
+      );
     }
+    final (h, s, l) = hsl;
+    Color at(double hue, double sat, double light) => HSLColor.fromAHSL(
+          1,
+          hue % 360,
+          sat.clamp(0.0, 1.0),
+          light.clamp(0.0, 1.0),
+        ).toColor();
+
+    final primary = at(h, s, l);
+    return MoodColors(
+      primary: primary,
+      secondary: at(h + 22, s * 0.9, l + 0.05),
+      gradientStart: at(h, s * 0.65, 0.065),
+      gradientEnd: const Color(0xFF0A0A0A),
+      glow: primary.withValues(alpha: 0.4),
+      cardBg: at(h, s * 0.55, 0.08),
+    );
   }
 
   /// Get linear gradient for background
