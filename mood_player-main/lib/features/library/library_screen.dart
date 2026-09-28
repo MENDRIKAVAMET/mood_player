@@ -7,10 +7,10 @@ import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/classify_progress_banner.dart';
+import '../../widgets/header_actions.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
-import '../profile/profile_screen.dart';
 import '../search/search_screen.dart';
 
 /// Onglet « Bibliothèque » : uniquement la liste complète des morceaux.
@@ -226,39 +226,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
-            child: Container(
-              width: 44,
-              height: 44,
-              margin: const EdgeInsets.only(right: AppTheme.spacingS),
-              decoration: BoxDecoration(
-                gradient: AppTheme.cardGradient,
-                borderRadius: BorderRadius.circular(AppTheme.radiusM),
-              ),
-              child: const Icon(
-                Icons.person_outline_rounded,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-          GestureDetector(
+          const HeaderActions(showSearch: false),
+          const SizedBox(width: AppTheme.spacingS),
+          AppHeaderButton(
+            icon: Icons.more_horiz_rounded,
+            tooltip: 'Plus d\'options',
             onTap: () => _showMenuSheet(context),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: AppTheme.cardGradient,
-                borderRadius: BorderRadius.circular(AppTheme.radiusM),
-              ),
-              child: const Icon(
-                Icons.more_horiz_rounded,
-                color: AppTheme.textPrimary,
-              ),
-            ),
           ),
         ],
       ),

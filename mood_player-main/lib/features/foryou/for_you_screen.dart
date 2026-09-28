@@ -7,9 +7,9 @@ import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/app_icon_button.dart';
 import '../../widgets/foryou_list_row.dart';
+import '../../widgets/header_actions.dart';
 import '../../widgets/period_mixes_section.dart';
 import '../../widgets/suggestion_mix_card.dart';
-import '../search/search_screen.dart';
 import 'see_all_tracks_screen.dart';
 import 'suggestion_mix_screen.dart';
 
@@ -120,14 +120,7 @@ class ForYouScreen extends ConsumerWidget {
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Rechercher',
-            icon: const Icon(Icons.search_rounded, color: AppTheme.textPrimary),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SearchScreen()),
-            ),
-          ),
+          const HeaderActions(),
         ],
       ),
     );
