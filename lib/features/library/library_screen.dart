@@ -88,22 +88,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     super.dispose();
   }
 
-  String get _greeting {
-    final hour = DateTime.now().hour;
-    if (hour < 6) return 'Bonne nuit';
-    if (hour < 12) return 'Bonjour';
-    if (hour < 18) return 'Bon après-midi';
-    return 'Bonsoir';
-  }
-
-  String get _greetingEmoji {
-    final hour = DateTime.now().hour;
-    if (hour < 6) return '🌙';
-    if (hour < 12) return '☀️';
-    if (hour < 18) return '🌤️';
-    return '🌅';
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.listen(trackProvider, (previous, next) {
@@ -206,23 +190,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '$_greeting $_greetingEmoji',
-                  style: AppTheme.bodyLarge.copyWith(color: AppTheme.textSecondary),
-                ).animate().fadeIn(duration: AppTheme.animSlow),
-                const SizedBox(height: AppTheme.spacingXS),
                 Text('Mood Player', style: AppTheme.displayLarge)
                     .animate()
-                    .fadeIn(
-                      duration: AppTheme.animSlow,
-                      delay: const Duration(milliseconds: 100),
-                    )
-                    .slideX(
-                      begin: 0.05,
-                      end: 0,
-                      duration: AppTheme.animSlow,
-                      delay: const Duration(milliseconds: 100),
-                    ),
+                    .fadeIn(duration: AppTheme.animSlow)
+                    .slideX(begin: 0.05, end: 0, duration: AppTheme.animSlow),
               ],
             ),
           ),

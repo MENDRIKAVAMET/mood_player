@@ -187,13 +187,37 @@ class TrackArtworkFitBlur extends StatelessWidget {
         ),
         // Léger assombrissement du fond pour faire ressortir l'image nette.
         const ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.25)),
-        // Image nette : "contain" = largeur de l'écran pour une pochette
-        // carrée ou en paysage, centrée verticalement.
-        _coverImage(
-          cover,
-          fit: BoxFit.contain,
-          cacheWidth: pixelWidth,
-          fallback: const SizedBox.shrink(),
+        // Pochette nette encadrée (coins arrondis, marge, ombre portée),
+        // comme l'écran "En cours de lecture" d'iPhone - plutôt que la
+        // pochette brute collée bord à bord sur toute la largeur.
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 44),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 32,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: _coverImage(
+                    cover,
+                    fit: BoxFit.cover,
+                    cacheWidth: pixelWidth,
+                    fallback: placeholder,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
