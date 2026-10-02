@@ -98,7 +98,7 @@ class ForYouScreen extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(
         AppTheme.spacingXL,
         AppTheme.spacingL,
-        AppTheme.spacingXL,
+        AppTheme.spacingL,
         0,
       ),
       child: Row(

@@ -52,6 +52,10 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     // track list/player state here - this is the one widget that's
     // guaranteed to live for the whole app session.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Si la bibliothèque est déjà chargée au premier build, `ref.listen`
+      // (qui ne réagit qu'aux changements) ne déclencherait jamais la
+      // reprise : on la tente une fois explicitement.
+      _maybeRestoreSession(ref.read(trackProvider));
       ref.read(audioHandlerProvider).whenData((handler) {
         _likeChangedSub = handler.likeChangedStream.listen((event) {
           final (trackId, liked) = event;
@@ -112,6 +116,9 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
       if (restoredTracks.any((t) => t == null)) return;
 
       final handler = await ref.read(audioHandlerProvider.future);
+      // L'utilisateur a déjà lancé un morceau pendant le chargement :
+      // on ne l'écrase pas.
+      if (handler.mediaItem.value != null) return;
       await handler.restoreSession(
         tracks: restoredTracks.cast<Track>(),
         index: index,

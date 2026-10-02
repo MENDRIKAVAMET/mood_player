@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/classify_progress_banner.dart';
 import '../../widgets/custom_mood_card.dart';
 import '../../widgets/header_actions.dart';
 import '../../widgets/mood_card.dart';
@@ -26,6 +27,7 @@ class MoodsScreen extends ConsumerWidget {
     final customMoods = ref.watch(customMoodProvider).moods;
     final libraryHasTracks = ref.watch(trackProvider).tracks.isNotEmpty;
     final trackCountByMood = ref.watch(trackCountByMoodProvider);
+    final trackState = ref.watch(trackProvider);
     final moodsWithTracks = trackCountByMood.entries
         .where((entry) => entry.value > 0)
         .map((entry) => entry.key)
@@ -42,10 +44,13 @@ class MoodsScreen extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: 120),
             children: [
               Padding(
+                // Même marge droite que l'en-tête de la Bibliothèque : les
+                // boutons de l'en-tête ne « sautent » plus d'un onglet à
+                // l'autre.
                 padding: const EdgeInsets.fromLTRB(
                   AppTheme.spacingXL,
                   AppTheme.spacingL,
-                  AppTheme.spacingXL,
+                  AppTheme.spacingL,
                   0,
                 ),
                 child: Row(
@@ -70,6 +75,18 @@ class MoodsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+
+              // Progression directement sur cet onglet (plus de simple
+              // SnackBar) : la même bannière que dans la Bibliothèque.
+              if (trackState.isClassifying)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppTheme.spacingM),
+                  child: ClassifyProgressBanner(
+                    progress: trackState.classifyProgress!,
+                    total: trackState.classifyTotal!,
+                    statusMessage: trackState.classifyStatusMessage,
+                  ),
+                ),
 
               _sectionHeader('Mes moods', customMoods.isEmpty ? null : customMoods.length),
               Padding(
@@ -98,7 +115,12 @@ class MoodsScreen extends ConsumerWidget {
 
               _sectionHeader('Par ambiance', null),
               if (moodsWithTracks.isEmpty)
-                _emptyAmbianceState(context, ref, libraryHasTracks: libraryHasTracks)
+                _emptyAmbianceState(
+                  context,
+                  ref,
+                  libraryHasTracks: libraryHasTracks,
+                  isClassifying: trackState.isClassifying,
+                )
               else
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
@@ -173,6 +195,7 @@ class MoodsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     required bool libraryHasTracks,
+    required bool isClassifying,
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -225,7 +248,7 @@ class MoodsScreen extends ConsumerWidget {
               style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
               textAlign: TextAlign.center,
             ),
-            if (libraryHasTracks) ...[
+            if (libraryHasTracks && !isClassifying) ...[
               const SizedBox(height: AppTheme.spacingL),
               GestureDetector(
                 onTap: () => _confirmClassify(context, ref),
@@ -255,11 +278,29 @@ class MoodsScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: AppTheme.spacingS),
+              TextButton(
+                onPressed: () => _startClassify(ref, limit: 20),
+                child: Text(
+                  'ou classifier seulement les 20 premiers',
+                  style: AppTheme.bodySmall.copyWith(
+                    color: AppTheme.textTertiary,
+                    decoration: TextDecoration.underline,
+                    decorationColor: AppTheme.textTertiary,
+                  ),
+                ),
+              ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  void _startClassify(WidgetRef ref, {int? limit}) {
+    // La bannière de progression s'affiche en haut de cet écran dès que
+    // l'état passe en « classification en cours ».
+    ref.read(trackProvider.notifier).classifyAllUnclassified(limit: limit);
   }
 
   void _confirmClassify(BuildContext context, WidgetRef ref) {
@@ -284,14 +325,7 @@ class MoodsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              ref.read(trackProvider.notifier).classifyAllUnclassified();
-              // La progression détaillée ne s'affiche que dans l'onglet
-              // Bibliothèque (ClassifyProgressBanner) : un petit accusé de
-              // réception ici évite de laisser croire que rien ne s'est
-              // passé.
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Classification lancée...')),
-              );
+              _startClassify(ref);
             },
             child: Text('Classifier', style: TextStyle(color: AppTheme.accentPrimary)),
           ),
