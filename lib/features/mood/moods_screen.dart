@@ -24,6 +24,7 @@ class MoodsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final customMoods = ref.watch(customMoodProvider).moods;
+    final libraryHasTracks = ref.watch(trackProvider).tracks.isNotEmpty;
     final trackCountByMood = ref.watch(trackCountByMoodProvider);
     final moodsWithTracks = trackCountByMood.entries
         .where((entry) => entry.value > 0)
@@ -97,14 +98,7 @@ class MoodsScreen extends ConsumerWidget {
 
               _sectionHeader('Par ambiance', null),
               if (moodsWithTracks.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXL),
-                  child: Text(
-                    'Aucune ambiance détectée pour l\'instant. Lance « Classifier » '
-                    'depuis la bibliothèque pour analyser tes morceaux.',
-                    style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
-                  ),
-                )
+                _emptyAmbianceState(context, ref, libraryHasTracks: libraryHasTracks)
               else
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
@@ -168,6 +162,142 @@ class MoodsScreen extends ConsumerWidget {
           icon: result.$2,
           colorValue: result.$3,
         );
+  }
+
+  /// Remplace l'ancien simple texte gris par un vrai état vide (icône,
+  /// titre, description et un bouton qui agit - pas juste "va voir
+  /// ailleurs"), cohérent avec celui de « Pour vous ». Le message change
+  /// selon qu'il n'y a tout simplement aucun morceau, ou qu'il y en a mais
+  /// qu'aucun n'est encore classifié.
+  Widget _emptyAmbianceState(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool libraryHasTracks,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingXL,
+        AppTheme.spacingL,
+        AppTheme.spacingXL,
+        AppTheme.spacingL,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppTheme.spacingXL),
+        decoration: BoxDecoration(
+          gradient: AppTheme.cardGradient,
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          border: Border.all(color: AppTheme.border, width: 1),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppTheme.accentPrimary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                libraryHasTracks
+                    ? Icons.auto_awesome_rounded
+                    : Icons.library_music_rounded,
+                size: 30,
+                color: AppTheme.accentPrimary,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingM),
+            Text(
+              libraryHasTracks
+                  ? 'Tes morceaux n\'ont pas encore d\'ambiance'
+                  : 'Aucun morceau pour l\'instant',
+              style: AppTheme.headlineMedium.copyWith(color: AppTheme.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppTheme.spacingXS),
+            Text(
+              libraryHasTracks
+                  ? 'Lance la classification : chaque morceau sera rangé '
+                      'automatiquement dans une ambiance (énergique, chill, '
+                      'triste...).'
+                  : 'Ajoute ou scanne de la musique depuis l\'onglet '
+                      'Bibliothèque pour commencer.',
+              style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
+              textAlign: TextAlign.center,
+            ),
+            if (libraryHasTracks) ...[
+              const SizedBox(height: AppTheme.spacingL),
+              GestureDetector(
+                onTap: () => _confirmClassify(context, ref),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spacingXL,
+                    vertical: AppTheme.spacingM,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.brandGradient,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded,
+                          color: Colors.white, size: 18),
+                      const SizedBox(width: AppTheme.spacingS),
+                      Text(
+                        'Classifier maintenant',
+                        style: AppTheme.labelMedium.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmClassify(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.backgroundSecondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        ),
+        title: Text('Classifier tous les morceaux', style: AppTheme.headlineMedium),
+        content: Text(
+          'Voulez-vous classifier tous les morceaux non classifiés ? '
+          'Cela peut prendre du temps selon le nombre de morceaux.',
+          style: AppTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text('Annuler', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              ref.read(trackProvider.notifier).classifyAllUnclassified();
+              // La progression détaillée ne s'affiche que dans l'onglet
+              // Bibliothèque (ClassifyProgressBanner) : un petit accusé de
+              // réception ici évite de laisser croire que rien ne s'est
+              // passé.
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Classification lancée...')),
+              );
+            },
+            child: Text('Classifier', style: TextStyle(color: AppTheme.accentPrimary)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openMoodDetail(BuildContext context, WidgetRef ref, MoodType mood) {

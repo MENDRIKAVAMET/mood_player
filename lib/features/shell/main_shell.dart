@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
 import '../../providers/providers.dart';
+import '../../providers/track_provider.dart';
+import '../../services/audio_handler.dart';
+import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/listen_reminder_host.dart';
 import '../../widgets/mini_player.dart';
@@ -26,9 +29,10 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserver {
   int _index = 0;
   StreamSubscription<(int, bool)>? _likeChangedSub;
+  bool _sessionRestoreAttempted = false;
 
   static const _navigationChannel =
       MethodChannel('com.example.mood_player/navigation');
@@ -42,6 +46,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // The notification's own "like" button persists straight to storage
     // (it has no access to Riverpod), so mirror that change into the
     // track list/player state here - this is the one widget that's
@@ -63,8 +68,63 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _likeChangedSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Filet de sécurité en plus de la sauvegarde périodique et de celle
+    // déclenchée par `pause()` : capture l'état dès que l'app passe en
+    // arrière-plan, juste avant le moment où MIUI/EMUI est le plus
+    // susceptible de tuer le processus.
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      ref.read(audioHandlerProvider).whenData((h) => h.persistPlaybackState());
+    }
+  }
+
+  /// Au premier lancement après un redémarrage du processus, recharge le
+  /// morceau et la position sauvegardés (voir `persistPlaybackState` /
+  /// `onTaskRemoved` dans [MoodAudioHandler]) - sans démarrer la lecture,
+  /// l'utilisateur la relance lui-même.
+  Future<void> _maybeRestoreSession(TrackState trackState) async {
+    if (_sessionRestoreAttempted || trackState.isLoading) return;
+    _sessionRestoreAttempted = true;
+    if (trackState.tracks.isEmpty) return;
+
+    final saved = await StorageService().loadLastPlaybackState();
+    if (saved == null) return;
+
+    try {
+      final rawIds = saved['trackIds'] as List<dynamic>?;
+      final index = saved['index'] as int?;
+      final positionMs = saved['positionMs'] as int?;
+      if (rawIds == null || index == null || positionMs == null) return;
+      if (index < 0 || index >= rawIds.length) return;
+
+      final byId = {for (final t in trackState.tracks) t.id: t};
+      final restoredTracks = [
+        for (final id in rawIds) byId[id as int],
+      ];
+      // Un morceau supprimé depuis la dernière session ferait planter la
+      // reprise à un mauvais index : on renonce plutôt que de deviner.
+      if (restoredTracks.any((t) => t == null)) return;
+
+      final handler = await ref.read(audioHandlerProvider.future);
+      await handler.restoreSession(
+        tracks: restoredTracks.cast<Track>(),
+        index: index,
+        position: Duration(milliseconds: positionMs),
+        shuffle: saved['shuffle'] as bool? ?? false,
+        repeatMode: PlayerRepeatMode.values.firstWhere(
+          (m) => m.name == saved['repeatMode'],
+          orElse: () => PlayerRepeatMode.off,
+        ),
+      );
+    } catch (_) {
+      // Pas grave : l'utilisateur repart juste sans reprise.
+    }
   }
 
   /// Renvoie la tâche en arrière-plan (comme le bouton Accueil) au lieu
@@ -83,6 +143,8 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget build(BuildContext context) {
     final currentTrack = ref.watch(currentTrackProvider);
     final mediaItem = currentTrack.valueOrNull;
+
+    ref.listen(trackProvider, (previous, next) => _maybeRestoreSession(next));
 
     return PopScope(
       // MainShell est la racine de l'app : il n'y a rien "en dessous" à

@@ -24,6 +24,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final StorageService _storageService = StorageService();
   PlayerRepeatMode _repeatMode = PlayerRepeatMode.off;
   bool _shuffleMode = false;
+  Timer? _persistTimer;
 
   /// Stream of repeat mode changes
   Stream<PlayerRepeatMode> get repeatModeStream => _repeatModeController.stream;
@@ -191,6 +192,15 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       }
     }, onError: _handlePlaybackError);
 
+    // Sur MIUI/EMUI (et d'autres surcouches agressives sur la gestion de
+    // batterie), le processus peut être tué complètement même après un
+    // simple `pause()` (voir onTaskRemoved) - ce qui efface tout l'état en
+    // mémoire. Un instantané régulier sur disque permet de retrouver le
+    // même morceau à la même position au prochain lancement.
+    _persistTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (_player.playing) persistPlaybackState();
+    });
+
     // just_audio/ExoPlayer surfaces genuine playback failures (corrupt file,
     // revoked content:// permission, unsupported codec, network hiccup for
     // streamed sources, etc.) here rather than as a synchronous throw. Left
@@ -255,6 +265,90 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   @override
   Future<void> pause() async {
     await _player.pause();
+    // Capture la position exacte à l'instant de la mise en pause - c'est
+    // le moment le plus probable d'une mise en arrière-plan juste avant
+    // qu'EMUI/MIUI ne tue le processus.
+    unawaited(persistPlaybackState());
+  }
+
+  /// Sauvegarde sur disque le morceau en cours, sa position et la file,
+  /// pour pouvoir reprendre pile où on en était si le processus est tué
+  /// par le système pendant que l'app est en arrière-plan.
+  Future<void> persistPlaybackState() async {
+    final current = mediaItem.value;
+    if (current == null) return;
+    final index = queue.value.indexWhere((e) => e.id == current.id);
+    if (index < 0) return;
+
+    final trackIds = <int>[];
+    for (final item in queue.value) {
+      final id = int.tryParse(item.id);
+      if (id == null) return; // File incohérente : on n'écrit rien de faux.
+      trackIds.add(id);
+    }
+
+    await _storageService.saveLastPlaybackState(
+      trackIds: trackIds,
+      index: index,
+      positionMs: _player.position.inMilliseconds,
+      shuffle: _shuffleMode,
+      repeatMode: _repeatMode.name,
+    );
+  }
+
+  /// Recharge la file et la position sauvegardées, sans démarrer la
+  /// lecture (l'utilisateur retrouve le morceau prêt, juste en pause).
+  /// [tracks] doit déjà être dans le même ordre que la file sauvegardée.
+  Future<void> restoreSession({
+    required List<Track> tracks,
+    required int index,
+    required Duration position,
+    bool shuffle = false,
+    PlayerRepeatMode repeatMode = PlayerRepeatMode.off,
+  }) async {
+    if (tracks.isEmpty || index < 0 || index >= tracks.length) return;
+
+    _queue
+      ..clear()
+      ..addAll(tracks.map(_trackToMediaItem));
+    _originalQueue
+      ..clear()
+      ..addAll(_queue);
+    queue.add(List.unmodifiable(_queue));
+
+    _shuffleMode = shuffle;
+    _shuffleModeController.add(shuffle);
+    _repeatMode = repeatMode;
+    _repeatModeController.add(repeatMode);
+
+    final item = _queue[index];
+    mediaItem.add(item);
+
+    final uri = item.extras?['uri'] as String?;
+    final filePath = item.extras?['filePath'] as String?;
+    if (uri == null && filePath == null) return;
+
+    try {
+      Duration? duration;
+      if (uri != null) {
+        duration = await _player.setAudioSource(AudioSource.uri(Uri.parse(uri)));
+      } else {
+        duration = await _player.setFilePath(filePath!);
+      }
+      if (duration != null) mediaItem.add(item.copyWith(duration: duration));
+
+      await _player.seek(position);
+      playbackState.add(playbackState.value.copyWith(
+        controls: _buildControls(false, item.extras?['isLiked'] == true),
+        processingState: AudioProcessingState.ready,
+        playing: false,
+        updatePosition: position,
+      ));
+    } catch (e, st) {
+      // Pas grave : l'utilisateur repart juste sans reprise, comme avant.
+      // ignore: avoid_print
+      print('MoodAudioHandler: failed to restore session: $e\n$st');
+    }
   }
 
   @override
@@ -628,6 +722,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<void> close() async {
+    _persistTimer?.cancel();
     await _repeatModeController.close();
     await _shuffleModeController.close();
     await _likeChangedController.close();

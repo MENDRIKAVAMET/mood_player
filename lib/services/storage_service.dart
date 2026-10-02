@@ -550,6 +550,45 @@ class StorageService {
     await _saveRecentSearches(<String>[]);
   }
 
+  Future<File> _lastPlaybackFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/last_playback.json');
+  }
+
+  /// Sauvegarde l'état de lecture courant (file, position) pour pouvoir le
+  /// restaurer si le processus est tué en arrière-plan (fréquent sur
+  /// MIUI/EMUI malgré `pause()` seul, qui ne garde l'état qu'en mémoire).
+  Future<void> saveLastPlaybackState({
+    required List<int> trackIds,
+    required int index,
+    required int positionMs,
+    required bool shuffle,
+    required String repeatMode,
+  }) async {
+    try {
+      final file = await _lastPlaybackFile();
+      await file.writeAsString(jsonEncode({
+        'trackIds': trackIds,
+        'index': index,
+        'positionMs': positionMs,
+        'shuffle': shuffle,
+        'repeatMode': repeatMode,
+      }));
+    } catch (_) {
+      // Non critique : au pire, l'utilisateur repart sans reprise.
+    }
+  }
+
+  Future<Map<String, dynamic>?> loadLastPlaybackState() async {
+    try {
+      final file = await _lastPlaybackFile();
+      if (!await file.exists()) return null;
+      return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Isar> _getIsar() async {
     if (_isar == null) {
       await initialize();
