@@ -9,6 +9,9 @@ jobs:
   release:
     name: Build APK and create GitHub Release
     runs-on: ubuntu-latest
+    # Nécessaire pour que le workflow puisse créer la Release GitHub.
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
