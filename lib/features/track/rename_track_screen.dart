@@ -5,6 +5,7 @@ import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../services/track_file_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_header.dart';
 
 /// Formulaire plein écran de modification d'un morceau : nom d'artiste et
 /// titre. Enregistrer renomme aussi le vrai fichier sur l'appareil.
@@ -107,26 +108,21 @@ class _RenameTrackScreenState extends ConsumerState<RenameTrackScreen> {
         height: double.infinity,
         decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    AppTheme.spacingS, AppTheme.spacingS, AppTheme.spacingL, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded,
-                          color: AppTheme.textPrimary),
-                      onPressed: _saving ? null : () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Text('Modifier le morceau',
-                          style: AppTheme.headlineLarge),
-                    ),
-                    FilledButton(
+              AppHeader(
+                title: 'Modifier le morceau',
+                showBack: true,
+                backIcon: Icons.close_rounded,
+                onBack: _saving ? () {} : () => Navigator.pop(context),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: AppTheme.spacingS),
+                    child: FilledButton(
                       onPressed: _canSave ? _save : null,
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.backgroundCardElevated),
+                          backgroundColor: AppTheme.accentPrimary),
                       child: _saving
                           ? const SizedBox(
                               width: 18,
@@ -136,8 +132,8 @@ class _RenameTrackScreenState extends ConsumerState<RenameTrackScreen> {
                             )
                           : const Text('Enregistrer'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               Expanded(
                 child: ListView(

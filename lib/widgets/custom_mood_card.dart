@@ -28,14 +28,21 @@ class CustomMoodCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              color.withValues(alpha: 0.18),
-              AppTheme.backgroundCard,
+              color.withValues(alpha: 0.3),
+              color.withValues(alpha: 0.1),
               AppTheme.backgroundCard,
             ],
           ),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
-          
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.25),
+              blurRadius: 24,
+              spreadRadius: -4,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Stack(
           children: [
@@ -48,7 +55,7 @@ class CustomMoodCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
-                    colors: [Colors.transparent, Colors.transparent],
+                    colors: [color.withValues(alpha: 0.3), Colors.transparent],
                   ),
                 ),
               ),

@@ -5,6 +5,7 @@ import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
 
@@ -84,6 +85,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildSearchField(),
@@ -139,67 +141,51 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildSearchField() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingS,
-        AppTheme.spacingS,
-        AppTheme.spacingL,
-        AppTheme.spacingS,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
-            onPressed: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: AppTheme.cardGradient,
-                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: AppTheme.spacingL),
-                  Icon(Icons.search_rounded, color: AppTheme.textTertiary, size: 20),
-                  const SizedBox(width: AppTheme.spacingM),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      textInputAction: TextInputAction.search,
-                      onChanged: (value) => setState(() => _query = value),
-                      onSubmitted: _commitSearch,
-                      style: AppTheme.bodyMedium.copyWith(color: AppTheme.textPrimary),
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher morceaux, artistes...',
-                        hintStyle:
-                            AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
-                        border: InputBorder.none,
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  if (_query.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        _controller.clear();
-                        setState(() => _query = '');
-                      },
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: AppTheme.textTertiary,
-                        size: 18,
-                      ),
-                    ),
-                  const SizedBox(width: AppTheme.spacingM),
-                ],
+    return AppHeader(
+      showBack: true,
+      titleWidget: Container(
+        height: 40,
+        decoration: BoxDecoration(
+          gradient: AppTheme.cardGradient,
+          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: AppTheme.spacingM),
+            Icon(Icons.search_rounded, color: AppTheme.textTertiary, size: 20),
+            const SizedBox(width: AppTheme.spacingS),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                textInputAction: TextInputAction.search,
+                onChanged: (value) => setState(() => _query = value),
+                onSubmitted: _commitSearch,
+                style: AppTheme.bodyMedium.copyWith(color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Rechercher morceaux, artistes...',
+                  hintStyle:
+                      AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
               ),
             ),
-          ),
-        ],
+            if (_query.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _controller.clear();
+                  setState(() => _query = '');
+                },
+                child: Icon(
+                  Icons.close_rounded,
+                  color: AppTheme.textTertiary,
+                  size: 18,
+                ),
+              ),
+            const SizedBox(width: AppTheme.spacingM),
+          ],
+        ),
       ),
     );
   }

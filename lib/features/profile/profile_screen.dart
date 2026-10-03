@@ -4,6 +4,7 @@ import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../services/import_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_header.dart';
 
 /// Écran de profil : nom, artistes préférés (modifiables), quelques
 /// statistiques de bibliothèque. Accessible depuis l'icône profil de
@@ -30,20 +31,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
-          child: ListView(
+          bottom: false,
+          child: Column(
+            children: [
+              const AppHeader(title: 'Profil', showBack: true),
+              Expanded(
+                child: ListView(
             padding: const EdgeInsets.all(AppTheme.spacingXL),
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: AppTheme.spacingS),
-                  Text('Profil', style: AppTheme.headlineLarge),
-                ],
-              ),
-              const SizedBox(height: AppTheme.spacingXL),
 
               // Importer : uniquement affiché tant que la bibliothèque est
               // vide - une fois des morceaux présents, cette entrée
@@ -70,7 +65,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ? profile.name![0].toUpperCase()
                             : '?',
                         style: AppTheme.displayLarge.copyWith(
-                          color: AppTheme.textInverse,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -204,6 +199,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                   ],
                 ),
+            ],
+                ),
+              ),
             ],
           ),
         ),

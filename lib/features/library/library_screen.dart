@@ -7,10 +7,11 @@ import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/classify_progress_banner.dart';
+import '../../widgets/app_header.dart';
+import '../../widgets/header_actions.dart';
 import '../../widgets/skeleton_loader.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
-import '../search/search_screen.dart';
 
 /// Onglet « Bibliothèque » : uniquement la liste complète des morceaux.
 ///
@@ -24,14 +25,10 @@ class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
   @override
-  ConsumerState<LibraryScreen> createState() => LibraryScreenState();
+  ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class LibraryScreenState extends ConsumerState<LibraryScreen> {
-  /// Ouvre le menu d'options de la bibliothèque (bouton « … » de la barre
-  /// du haut, partagée entre les trois onglets).
-  void showMenu() => _showMenuSheet(context);
-
+class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -114,12 +111,30 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
-          child: CustomScrollView(
+          child: Column(
+            children: [
+              AppHeader.tab(
+                title: 'Mood Player',
+                actions: [
+                  AppHeaderButton(
+                    icon: Icons.auto_awesome_rounded,
+                    tooltip: 'Classifier',
+                    color: AppTheme.accentPrimary,
+                    onTap: _classifyAllTracks,
+                  ),
+                  const HeaderActions(),
+                  AppHeaderButton(
+                    icon: Icons.more_horiz_rounded,
+                    tooltip: 'Plus d\'options',
+                    onTap: () => _showMenuSheet(context),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: CustomScrollView(
             controller: _scrollController,
             physics: const BouncingScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(child: _buildSearchBar()),
-              SliverToBoxAdapter(child: _buildActionButtons()),
               SliverToBoxAdapter(child: _buildAllTracksHeader(trackState)),
 
               if (trackState.isClassifying)
@@ -171,100 +186,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               // Marge basse pour le mini-lecteur et la barre d'onglets.
               const SliverToBoxAdapter(child: SizedBox(height: 120)),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingXL,
-        AppTheme.spacingL,
-        AppTheme.spacingXL,
-        0,
-      ),
-      child: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SearchScreen()),
-        ),
-        child: Container(
-          height: 48,
-          decoration: BoxDecoration(
-            gradient: AppTheme.cardGradient,
-            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: AppTheme.spacingL),
-              Icon(Icons.search_rounded, color: AppTheme.textTertiary, size: 20),
-              const SizedBox(width: AppTheme.spacingM),
-              Text(
-                'Rechercher morceaux, artistes...',
-                style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
-              ),
-            ],
-          ),
-        ),
-      ).animate().fadeIn(
-            duration: AppTheme.animSlow,
-            delay: const Duration(milliseconds: 200),
-          ),
-    );
-  }
-
-  /// Une seule action désormais : classifier. Importer et l'ancien bouton
-  /// « Ajouter » (saisie manuelle) ont été retirés d'ici - l'import vit
-  /// maintenant dans le profil, et uniquement tant que la bibliothèque est
-  /// vide.
-  Widget _buildActionButtons() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingXL,
-        AppTheme.spacingL,
-        AppTheme.spacingXL,
-        0,
-      ),
-      child: Row(
-        children: [
-          _buildActionButton(
-            icon: Icons.auto_awesome_rounded,
-            label: 'Classifier',
-            onTap: _classifyAllTracks,
-          ),
-        ],
-      ).animate().fadeIn(
-            duration: AppTheme.animSlow,
-            delay: const Duration(milliseconds: 300),
-          ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 44,
-          decoration: BoxDecoration(
-            gradient: AppTheme.cardGradient,
-            borderRadius: BorderRadius.circular(AppTheme.radiusM),
-            border: Border.all(color: AppTheme.border, width: 1),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: AppTheme.accentPrimary),
-              const SizedBox(width: AppTheme.spacingS),
-              Text(
-                label,
-                style: AppTheme.labelMedium.copyWith(color: AppTheme.textPrimary),
+                ),
               ),
             ],
           ),

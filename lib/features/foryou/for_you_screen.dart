@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/app_icon_button.dart';
 import '../../widgets/foryou_list_row.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/period_mixes_section.dart';
 import '../../widgets/suggestion_mix_card.dart';
 import 'see_all_tracks_screen.dart';
@@ -37,7 +38,11 @@ class ForYouScreen extends ConsumerWidget {
         decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
-          child: CustomScrollView(
+          child: Column(
+            children: [
+              const AppHeader.tab(title: 'Pour vous'),
+              Expanded(
+                child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               if (isEmpty)
@@ -84,6 +89,9 @@ class ForYouScreen extends ConsumerWidget {
                 ),
               ],
               const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            ],
+                ),
+              ),
             ],
           ),
         ),

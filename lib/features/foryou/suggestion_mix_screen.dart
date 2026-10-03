@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../providers/mood_suggestions_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/foryou_list_row.dart';
 
 /// Contenu d'un mix : ses 20 morceaux, avec lecture dans l'ordre ou en
@@ -25,26 +26,9 @@ class SuggestionMixScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    AppTheme.spacingS, AppTheme.spacingS, AppTheme.spacingL, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: AppTheme.textPrimary),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Text(
-                        '${mix.title} · ${mix.subtitle}',
-                        style: AppTheme.headlineLarge,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+              AppHeader(
+                title: '${mix.title} · ${mix.subtitle}',
+                showBack: true,
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(AppTheme.spacingL,
@@ -65,7 +49,7 @@ class SuggestionMixScreen extends StatelessWidget {
                       icon: const Icon(Icons.play_arrow_rounded),
                       label: const Text('Jouer'),
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.backgroundCardElevated),
+                          backgroundColor: AppTheme.accentPrimary),
                     ),
                     const SizedBox(width: AppTheme.spacingS),
                     OutlinedButton.icon(

@@ -29,8 +29,8 @@ class MoodCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              moodColors.primary.withValues(alpha: 0.20),
-              AppTheme.backgroundCard,
+              moodColors.primary.withValues(alpha: 0.3),
+              moodColors.primary.withValues(alpha: 0.1),
               AppTheme.backgroundCard,
             ],
           ),
@@ -39,7 +39,14 @@ class MoodCard extends StatelessWidget {
             color: moodColors.primary.withValues(alpha: 0.2),
             width: 1,
           ),
-          
+          boxShadow: [
+            BoxShadow(
+              color: moodColors.glow,
+              blurRadius: 24,
+              spreadRadius: -4,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Stack(
           children: [
@@ -54,7 +61,7 @@ class MoodCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      Colors.transparent,
+                      moodColors.primary.withValues(alpha: 0.3),
                       Colors.transparent,
                     ],
                   ),

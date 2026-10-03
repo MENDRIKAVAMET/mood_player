@@ -187,13 +187,95 @@ class TrackArtworkFitBlur extends StatelessWidget {
         ),
         // Léger assombrissement du fond pour faire ressortir l'image nette.
         const ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.25)),
-        // Image nette : "contain" = largeur de l'écran pour une pochette
-        // carrée ou en paysage, centrée verticalement.
-        _coverImage(
-          cover,
-          fit: BoxFit.contain,
-          cacheWidth: pixelWidth,
-          fallback: const SizedBox.shrink(),
+        // Pochette nette encadrée (coins arrondis, ombre portée), plus
+        // grande qu'avant (marge 24 au lieu de 44), avec un flou latéral
+        // qui démarre pile au bord du carré.
+        Center(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const margin = 24.0;
+              final side = constraints.maxWidth - margin * 2;
+              if (side <= 0) return const SizedBox.shrink();
+
+              // Flou de côté : la pochette (déjà décodée en 48px, donc
+              // floue à l'agrandissement) est retournée en miroir et
+              // collée contre chaque bord du carré. Les pixels voisins du
+              // carré sont ainsi continus avec la pochette nette, puis le
+              // flou s'estompe vers le fond. Pas d'ImageFilter.blur (voir
+              // plus haut : artefacts pendant les swipes).
+              Widget sideBlur({required bool left}) {
+                return SizedBox(
+                  width: margin,
+                  height: side,
+                  child: ShaderMask(
+                    blendMode: BlendMode.dstIn,
+                    shaderCallback: (rect) => LinearGradient(
+                      begin: left ? Alignment.centerRight : Alignment.centerLeft,
+                      end: left ? Alignment.centerLeft : Alignment.centerRight,
+                      colors: const [Colors.white, Colors.transparent],
+                    ).createShader(rect),
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment:
+                            left ? Alignment.centerRight : Alignment.centerLeft,
+                        minWidth: side,
+                        maxWidth: side,
+                        minHeight: side,
+                        maxHeight: side,
+                        child: Transform.flip(
+                          flipX: true,
+                          child: SizedBox(
+                            width: side,
+                            height: side,
+                            child: _coverImage(
+                              cover,
+                              fit: BoxFit.cover,
+                              cacheWidth: 48,
+                              fallback: placeholder,
+                              filterQuality: FilterQuality.high,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  sideBlur(left: true),
+                  SizedBox(
+                    width: side,
+                    height: side,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 32,
+                            offset: const Offset(0, 18),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: _coverImage(
+                          cover,
+                          fit: BoxFit.cover,
+                          cacheWidth: pixelWidth,
+                          fallback: placeholder,
+                        ),
+                      ),
+                    ),
+                  ),
+                  sideBlur(left: false),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );

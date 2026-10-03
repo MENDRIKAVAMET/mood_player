@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/track.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
-import '../../widgets/app_icon_button.dart';
+import '../../widgets/app_header.dart';
+import '../../widgets/header_actions.dart';
 import '../../widgets/track_tile.dart';
 
 /// Liste complète pour une section de « Pour vous » (Récemment écouté,
@@ -27,38 +28,20 @@ class SeeAllTracksScreen extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppTheme.spacingS,
-                  AppTheme.spacingS,
-                  AppTheme.spacingL,
-                  AppTheme.spacingS,
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                          color: AppTheme.textPrimary, size: 20),
-                      onPressed: () => Navigator.pop(context),
+              AppHeader(
+                title: title,
+                showBack: true,
+                actions: [
+                  if (tracks.isNotEmpty)
+                    AppHeaderButton(
+                      icon: Icons.play_arrow_rounded,
+                      tooltip: 'Tout lire',
+                      onTap: () => playAll(context, tracks),
                     ),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: AppTheme.headlineLarge,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (tracks.isNotEmpty)
-                      AppIconButton(
-                        icon: Icons.play_arrow_rounded,
-                        iconSize: 18,
-                        onTap: () => playAll(context, tracks),
-                      ),
-                  ],
-                ),
+                ],
               ),
               Expanded(
                 child: tracks.isEmpty

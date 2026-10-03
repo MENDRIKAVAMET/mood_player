@@ -5,6 +5,7 @@ import '../../providers/lyrics_provider.dart';
 import '../../services/lyrics_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
+import '../../widgets/app_header.dart';
 
 /// Recherche manuelle de paroles, sur le modèle de Muso Player : les champs
 /// artiste/titre sont pré-remplis avec les tags du morceau mais restent
@@ -99,13 +100,11 @@ class _LyricsSearchScreenState extends ConsumerState<LyricsSearchScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Rechercher les paroles', style: AppTheme.titleMedium),
-      ),
-      body: Column(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
         children: [
+          const AppHeader(title: 'Rechercher les paroles', showBack: true),
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppTheme.spacingL,
@@ -158,6 +157,7 @@ class _LyricsSearchScreenState extends ConsumerState<LyricsSearchScreen> {
           const Divider(height: 1),
           Expanded(child: _buildResults(moodColors)),
         ],
+        ),
       ),
     );
   }

@@ -598,11 +598,19 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// per Groq request) instead of one request per track - cuts the number
   /// of API calls by ~50x, which matters a lot against free-tier rate
   /// limits when classifying a whole library.
-  Future<void> classifyAllUnclassified({int batchSize = 50}) async {
+  ///
+  /// [limit] restreint la passe aux N premiers morceaux non classifiés
+  /// (test rapide sur une très grosse bibliothèque).
+  Future<void> classifyAllUnclassified({int batchSize = 50, int? limit}) async {
+    // Évite de lancer deux classifications en parallèle (double tap).
+    if (state.isClassifying) return;
     state = state.copyWith(error: null);
 
     try {
-      final unclassifiedTracks = await _storageService.getUnclassifiedTracks();
+      var unclassifiedTracks = await _storageService.getUnclassifiedTracks();
+      if (limit != null && unclassifiedTracks.length > limit) {
+        unclassifiedTracks = unclassifiedTracks.sublist(0, limit);
+      }
       if (unclassifiedTracks.isEmpty) return;
 
       state = state.copyWith(

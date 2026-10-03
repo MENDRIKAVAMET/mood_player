@@ -5,46 +5,50 @@ import '../features/profile/profile_screen.dart';
 import '../features/search/search_screen.dart';
 import '../theme/app_theme.dart';
 
-/// Bouton carré arrondi des en-têtes d'onglet (44x44 : zone tactile
-/// recommandée), avec léger retour haptique. Remplace les
-/// `GestureDetector` + `Container` recopiés à la main dans chaque écran.
+/// Bouton d'en-tête : icône seule, sans fond ni bordure. La zone tactile
+/// fait 44x44 (taille recommandée), avec un léger retour haptique.
 class AppHeaderButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final String? tooltip;
+  final Color? color;
 
   const AppHeaderButton({
     super.key,
     required this.icon,
     required this.onTap,
     this.tooltip,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
     final button = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: Container(
+      onTap: enabled
+          ? () {
+              HapticFeedback.selectionClick();
+              onTap!();
+            }
+          : null,
+      child: SizedBox(
         width: 44,
         height: 44,
-        decoration: BoxDecoration(
-          gradient: AppTheme.cardGradient,
-          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        child: Icon(
+          icon,
+          size: 24,
+          color: (color ?? AppTheme.textPrimary)
+              .withValues(alpha: enabled ? 1 : 0.4),
         ),
-        child: Icon(icon, color: AppTheme.textPrimary),
       ),
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
 }
 
-/// Raccourcis globaux (recherche + profil) présents en haut de chaque
-/// onglet, pour qu'on les retrouve toujours au même endroit. Sur la
-/// bibliothèque, la recherche a déjà sa barre dédiée : [showSearch] = false.
+/// Raccourcis globaux (recherche + profil), présents dans l'en-tête de
+/// chaque onglet pour qu'on les retrouve toujours au même endroit.
 class HeaderActions extends StatelessWidget {
   final bool showSearch;
   final bool showProfile;
@@ -69,7 +73,6 @@ class HeaderActions extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const SearchScreen()),
             ),
           ),
-        if (showSearch && showProfile) const SizedBox(width: AppTheme.spacingS),
         if (showProfile)
           AppHeaderButton(
             icon: Icons.person_outline_rounded,

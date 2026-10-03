@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_header.dart';
+import '../../widgets/header_actions.dart';
 import '../../widgets/track_artwork.dart';
 
 /// Écran de sélection de morceaux à ajouter à la file d'attente en cours,
@@ -88,6 +90,7 @@ class _AddToQueueScreenState extends ConsumerState<AddToQueueScreen> {
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               _buildHeader(),
@@ -118,64 +121,39 @@ class _AddToQueueScreenState extends ConsumerState<AddToQueueScreen> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacingL,
-        vertical: AppTheme.spacingM,
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: const SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(
-                Icons.arrow_back_rounded,
-                size: 22,
-                color: AppTheme.textPrimary,
+    return AppHeader(
+      title: _searching ? null : 'Ajouter de la musique',
+      titleWidget: _searching
+          ? TextField(
+              controller: _searchController,
+              autofocus: true,
+              style: AppTheme.bodyLarge.copyWith(color: AppTheme.textPrimary),
+              cursorColor: AppTheme.accentPrimary,
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: 'Rechercher un titre, un artiste...',
+                hintStyle: AppTheme.bodyLarge,
               ),
-            ),
-          ),
-          Expanded(
-            child: _searching
-                ? TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    style: AppTheme.bodyLarge.copyWith(color: AppTheme.textPrimary),
-                    cursorColor: AppTheme.accentPrimary,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: 'Rechercher un titre, un artiste...',
-                      hintStyle: AppTheme.bodyLarge,
-                    ),
-                    onChanged: (value) => setState(() => _query = value),
-                  )
-                : Text('Ajouter de la musique', style: AppTheme.headlineMedium),
-          ),
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _searching = !_searching;
-                if (!_searching) {
-                  _query = '';
-                  _searchController.clear();
-                }
-              });
-            },
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(
-                _searching ? Icons.close_rounded : Icons.search_rounded,
-                size: 22,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
+              onChanged: (value) => setState(() => _query = value),
+            )
+          : null,
+      showBack: true,
+      actions: [
+        AppHeaderButton(
+          icon: _searching ? Icons.close_rounded : Icons.search_rounded,
+          tooltip: _searching ? 'Fermer la recherche' : 'Rechercher',
+          onTap: () {
+            setState(() {
+              _searching = !_searching;
+              if (!_searching) {
+                _query = '';
+                _searchController.clear();
+              }
+            });
+          },
+        ),
+      ],
     );
   }
 
@@ -301,7 +279,7 @@ class _AddToQueueScreenState extends ConsumerState<AddToQueueScreen> {
                 child: ElevatedButton(
                   onPressed: () => _confirmSelection(allTracks),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.backgroundCardElevated,
+                    backgroundColor: AppTheme.accentPrimary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppTheme.radiusL),

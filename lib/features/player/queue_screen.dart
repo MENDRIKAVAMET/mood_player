@@ -6,6 +6,8 @@ import '../../providers/providers.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 import 'add_to_queue_screen.dart';
+import '../../widgets/app_header.dart';
+import '../../widgets/header_actions.dart';
 
 /// Queue screen showing all tracks in the current playback queue
 class QueueScreen extends ConsumerStatefulWidget {
@@ -74,6 +76,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               // Header
@@ -98,106 +101,30 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacingL,
-        vertical: AppTheme.spacingM,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Back button
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 24,
-                color: AppTheme.textPrimary,
-              ),
-            ),
+    return AppHeader(
+      title: 'File d\'attente',
+      showBack: true,
+      backIcon: Icons.keyboard_arrow_down_rounded,
+      actions: [
+        AppHeaderButton(
+          icon: Icons.add_rounded,
+          tooltip: 'Ajouter des morceaux',
+          color: AppTheme.accentPrimary,
+          onTap: _openAddToQueue,
+        ),
+        if (_localQueue.isNotEmpty)
+          AppHeaderButton(
+            icon: Icons.playlist_add_rounded,
+            tooltip: 'Enregistrer en playlist',
+            onTap: _showSavePlaylistDialog,
           ),
-          // Title
-          Text('File d\'attente', style: AppTheme.headlineMedium),
-          // Action buttons
-          Row(
-            children: [
-              // Add tracks to the queue
-              GestureDetector(
-                onTap: _openAddToQueue,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentPrimary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    size: 22,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppTheme.spacingS),
-              // Save as playlist button
-              if (_localQueue.isNotEmpty)
-                GestureDetector(
-                  onTap: _showSavePlaylistDialog,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.playlist_add_rounded,
-                      size: 20,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-              const SizedBox(width: AppTheme.spacingS),
-              // Reorder button
-              GestureDetector(
-                onTap: _toggleReorderMode,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _isReordering
-                        ? AppTheme.accentPrimary.withValues(alpha: 0.2)
-                        : AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                    border: _isReordering
-                        ? Border.all(
-                            color: AppTheme.accentPrimary.withValues(alpha: 0.5),
-                            width: 1,
-                          )
-                        : null,
-                  ),
-                  child: Icon(
-                    _isReordering
-                        ? Icons.check_rounded
-                        : Icons.drag_handle_rounded,
-                    size: 20,
-                    color: _isReordering
-                        ? AppTheme.accentPrimary
-                        : AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        AppHeaderButton(
+          icon: _isReordering ? Icons.check_rounded : Icons.drag_handle_rounded,
+          tooltip: _isReordering ? 'Terminer' : 'Réorganiser',
+          color: _isReordering ? AppTheme.accentPrimary : AppTheme.textPrimary,
+          onTap: _toggleReorderMode,
+        ),
+      ],
     );
   }
 
@@ -533,7 +460,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           FilledButton(
             onPressed: () => _savePlaylist(nameController.text),
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.backgroundCardElevated,
+              backgroundColor: AppTheme.accentPrimary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
               ),

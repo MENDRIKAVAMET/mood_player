@@ -176,12 +176,12 @@ class _PrimaryButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 18, color: AppTheme.textInverse),
+              Icon(icon, size: 18, color: AppTheme.textPrimary),
               const SizedBox(width: AppTheme.spacingS),
             ],
             Text(
               label,
-              style: AppTheme.labelLarge.copyWith(color: AppTheme.textInverse),
+              style: AppTheme.labelLarge.copyWith(color: AppTheme.textPrimary),
             ),
           ],
         ),

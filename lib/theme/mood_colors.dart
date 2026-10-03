@@ -62,18 +62,15 @@ class MoodColors {
     if (hsl == null) {
       // Inconnu : violet de la marque.
       return const MoodColors(
-        primary: Color(0xFFA1A1A6),
-        secondary: Color(0xFFC7C7CC),
-        gradientStart: Color(0xFF141416),
-        gradientEnd: Color(0xFF0B0B0C),
-        glow: Color(0x00000000),
-        cardBg: Color(0xFF161618),
+        primary: Color(0xFF7C6CFF),
+        secondary: Color(0xFFA78BFA),
+        gradientStart: Color(0xFF120F24),
+        gradientEnd: Color(0xFF0A0A0A),
+        glow: Color(0x667C6CFF),
+        cardBg: Color(0xFF120F24),
       );
     }
-    // Ambiances un peu adoucies (72 % de la saturation d'origine) pour
-    // ne pas faire « néon », sans être ternes.
-    final (h, rawS, l) = hsl;
-    final s = rawS * 0.72;
+    final (h, s, l) = hsl;
     Color at(double hue, double sat, double light) => HSLColor.fromAHSL(
           1,
           hue % 360,
@@ -85,9 +82,9 @@ class MoodColors {
     return MoodColors(
       primary: primary,
       secondary: at(h + 22, s * 0.9, l + 0.05),
-      gradientStart: at(h, s * 0.5, 0.06),
-      gradientEnd: const Color(0xFF0B0B0C),
-      glow: const Color(0x00000000),
+      gradientStart: at(h, s * 0.65, 0.065),
+      gradientEnd: const Color(0xFF0A0A0A),
+      glow: primary.withValues(alpha: 0.4),
       cardBg: at(h, s * 0.55, 0.08),
     );
   }

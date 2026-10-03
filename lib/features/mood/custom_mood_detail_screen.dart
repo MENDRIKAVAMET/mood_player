@@ -6,6 +6,7 @@ import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_icons.dart';
 import '../../widgets/add_tracks_to_mood_sheet.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/mood_editor_dialog.dart';
 import '../player/player_screen.dart';
 
@@ -42,9 +43,25 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildHeader(context, mood, color),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spacingL,
+                0,
+                AppTheme.spacingL,
+                AppTheme.spacingXS,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${mood.trackCount} morceau${mood.trackCount > 1 ? 'x' : ''}',
+                  style: AppTheme.bodySmall.copyWith(color: color),
+                ),
+              ),
+            ),
             Expanded(
               child: entriesAsync.when(
                 data: (entries) {
@@ -129,43 +146,19 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
   }
 
   Widget _buildHeader(BuildContext context, CustomMood mood, Color color) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingM,
-        AppTheme.spacingS,
-        AppTheme.spacingL,
-        AppTheme.spacingS,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const SizedBox(width: AppTheme.spacingXS),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                ),
-                child: Center(child: Icon(MoodIcons.iconDataForKey(mood.icon), size: 18, color: color)),
-              ),
-              const SizedBox(width: AppTheme.spacingS),
-              Expanded(
-                child: Text(
-                  mood.name,
-                  style: AppTheme.headlineMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+    return AppHeader(
+      title: mood.name,
+      showBack: true,
+      backIcon: Icons.arrow_back_ios_new_rounded,
+      actions: [
+        SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(MoodIcons.iconDataForKey(mood.icon), size: 24, color: color),
+        ),
               PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: AppTheme.textSecondary),
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.more_vert_rounded, color: AppTheme.textPrimary),
                 color: AppTheme.backgroundSecondary,
                 onSelected: (value) async {
                   if (value == 'sort_desc') {
@@ -220,17 +213,7 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
                   ),
                 ],
               ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 56, top: 2),
-            child: Text(
-              '${mood.trackCount} morceau${mood.trackCount > 1 ? 'x' : ''}',
-              style: AppTheme.bodySmall.copyWith(color: color),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 

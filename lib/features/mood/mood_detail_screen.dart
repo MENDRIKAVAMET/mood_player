@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../models/track.dart';
+import '../../widgets/app_header.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
 import '../player/player_screen.dart';
@@ -36,6 +37,7 @@ class MoodDetailScreen extends ConsumerWidget {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               // Header
@@ -162,53 +164,17 @@ class MoodDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildHeader(BuildContext context, MoodColors moodColors) {
-    return Padding(
-      padding: const EdgeInsets.all(AppTheme.spacingL),
-      child: Row(
-        children: [
-          // Back button
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundCardElevated.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 18,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppTheme.spacingM),
-          // Title
-          Expanded(
-            child: Text(
-              mood.displayName,
-              style: AppTheme.headlineLarge,
-            ),
-          ),
-          // Mood icon
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: moodColors.primary.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppTheme.radiusM),
-            ),
-            child: Center(
-              child: Icon(
-                mood.iconData,
-                size: 24,
-                color: moodColors.primary,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return AppHeader(
+      title: mood.displayName,
+      showBack: true,
+      backIcon: Icons.arrow_back_ios_new_rounded,
+      actions: [
+        SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(mood.iconData, size: 24, color: moodColors.primary),
+        ),
+      ],
     );
   }
 
