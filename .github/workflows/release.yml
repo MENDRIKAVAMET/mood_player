@@ -28,8 +28,34 @@ jobs:
       - name: Generate code (Isar, Riverpod, json_serializable)
         run: dart run build_runner build --delete-conflicting-outputs
 
+      # Signature stable : sans ça, l'APK serait signé avec une clé de debug
+      # différente à chaque build et Android refuserait la mise à jour par
+      # dessus l'app installée (obligeant à désinstaller). Les 4 secrets sont
+      # à créer dans GitHub : Settings > Secrets and variables > Actions.
+      - name: Setup release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Secret KEYSTORE_BASE64 manquant : build annulé pour ne pas publier un APK signé avec la clé de debug."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/release.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$GITHUB_WORKSPACE/android/release.jks
+          EOF
+
+      # versionName vient du tag (v1.2.0 -> 1.2.0) ; versionCode augmente à
+      # chaque exécution, condition obligatoire pour qu'Android accepte la
+      # mise à jour.
       - name: Build release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --build-name=${GITHUB_REF_NAME#v} --build-number=${{ github.run_number }}
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2
