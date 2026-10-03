@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,7 +39,8 @@ void main() {
     // The app title should be visible.
     expect(find.text('Mood Player'), findsOneWidget);
 
-    // The search bar should be rendered.
-    expect(find.text('Rechercher morceaux, artistes...'), findsOneWidget);
+    // La recherche et le profil sont des icônes dans l'en-tête fixe.
+    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
   });
 }
