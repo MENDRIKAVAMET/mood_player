@@ -5,6 +5,7 @@ import '../../providers/providers.dart';
 import '../../services/import_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
+import '../player/equalizer_screen.dart';
 import '../../widgets/data_transfer_section.dart';
 
 /// Écran de profil : artistes préférés (modifiables), quelques
@@ -89,6 +90,54 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
               const SizedBox(height: AppTheme.spacingXL),
+
+              // Égaliseur
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EqualizerScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(AppTheme.spacingL),
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundCard,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                        ),
+                        child: const Icon(Icons.equalizer_rounded,
+                            color: AppTheme.accentPrimary),
+                      ),
+                      const SizedBox(width: AppTheme.spacingM),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Égaliseur', style: AppTheme.titleMedium),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Préréglages, basses, aigus et volume',
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded,
+                          color: AppTheme.textTertiary),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppTheme.spacingM),
 
               // Lecture intelligente
               Container(

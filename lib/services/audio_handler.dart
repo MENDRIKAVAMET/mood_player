@@ -3,7 +3,9 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
+import '../models/equalizer_settings.dart';
 import '../models/track.dart';
+import 'equalizer_service.dart';
 import 'storage_service.dart';
 
 /// Repeat mode enum (renamed to avoid clashing with Flutter's own RepeatMode)
@@ -13,8 +15,31 @@ enum PlayerRepeatMode {
   one,
 }
 
+/// Description des bandes de l'égaliseur de l'appareil.
+class EqualizerBands {
+  final double minDb;
+  final double maxDb;
+  final List<double> centerFrequenciesHz;
+
+  const EqualizerBands({
+    required this.minDb,
+    required this.maxDb,
+    required this.centerFrequenciesHz,
+  });
+}
+
 class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
-  final AudioPlayer _player = AudioPlayer();
+  // Effets audio Android (égaliseur système + renforcement du volume). Ils
+  // ne s'attachent à la session audio qu'au premier morceau chargé.
+  final AndroidEqualizer _equalizer = AndroidEqualizer();
+  final AndroidLoudnessEnhancer _loudness = AndroidLoudnessEnhancer();
+  late final AudioPlayer _player = AudioPlayer(
+    audioPipeline: AudioPipeline(
+      androidAudioEffects: Platform.isAndroid ? [_equalizer, _loudness] : [],
+    ),
+  );
+  EqualizerSettings _eqSettings = const EqualizerSettings();
+  int _eqApplyToken = 0;
   final List<MediaItem> _queue = [];
   final List<MediaItem> _originalQueue = []; // Store original order for unshuffle
   final _repeatModeController = StreamController<PlayerRepeatMode>.broadcast();
@@ -50,6 +75,53 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   MoodAudioHandler() {
     _init();
+    // Réglages sauvegardés : appliqués dès que le premier morceau est chargé.
+    EqualizerService().load().then(applyEqualizerSettings);
+  }
+
+  /// Bandes de l'égaliseur de l'appareil (fréquences + plage de gain), ou
+  /// null si indisponible : hors Android, ou aucun morceau n'a encore été
+  /// chargé (les effets ne sont attachés qu'à ce moment-là).
+  Future<EqualizerBands?> equalizerBands() async {
+    if (!Platform.isAndroid) return null;
+    try {
+      final p = await _equalizer.parameters.timeout(
+        const Duration(milliseconds: 600),
+      );
+      return EqualizerBands(
+        minDb: p.minDecibels,
+        maxDb: p.maxDecibels,
+        centerFrequenciesHz: [for (final b in p.bands) b.centerFrequency],
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Applique [settings] à l'égaliseur. Si les effets ne sont pas encore
+  /// prêts, l'application attend le premier morceau ; seul le dernier appel
+  /// est pris en compte.
+  Future<void> applyEqualizerSettings(EqualizerSettings settings) async {
+    _eqSettings = settings;
+    if (!Platform.isAndroid) return;
+    final token = ++_eqApplyToken;
+    try {
+      await _equalizer.setEnabled(settings.enabled);
+      await _loudness.setEnabled(settings.enabled && settings.loudnessDb > 0);
+      await _loudness.setTargetGain(settings.loudnessDb);
+      final params = await _equalizer.parameters;
+      if (token != _eqApplyToken) return;
+      final gains = _eqSettings.gainsFor(params.bands.length);
+      for (var i = 0; i < params.bands.length; i++) {
+        await params.bands[i].setGain(
+          gains[i].clamp(params.minDecibels, params.maxDecibels).toDouble(),
+        );
+        if (token != _eqApplyToken) return;
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('applyEqualizerSettings: $e');
+    }
   }
 
   /// Boutons "aimer" et "fermer" de la notification.

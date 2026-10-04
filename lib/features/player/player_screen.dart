@@ -10,6 +10,7 @@ import '../../services/audio_handler.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/track_artwork.dart';
 import '../../theme/mood_colors.dart';
+import 'equalizer_screen.dart';
 import 'queue_screen.dart';
 import 'lyrics_screen.dart';
 import '../../widgets/track_options_sheet.dart';
@@ -553,6 +554,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
+            ),
+          ),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 220),
+            opacity: _controlsVisible ? 1 : 0,
+            child: IgnorePointer(
+              ignoring: !_controlsVisible,
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EqualizerScreen()),
+                ),
+                child: const SizedBox(
+                  width: 44,
+                  height: 48,
+                  child: Icon(
+                    Icons.equalizer_rounded,
+                    size: 22,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
             ),
           ),
           AnimatedOpacity(
