@@ -41,11 +41,16 @@ class EqualizerSettings {
   /// Renforcement du volume (dB, 0 = désactivé).
   final double loudnessDb;
 
+  /// « Volume uniforme » : ajuste le volume de chaque morceau pour que
+  /// tous sonnent à peu près aussi fort.
+  final bool normalizeVolume;
+
   const EqualizerSettings({
     this.enabled = false,
     this.preset = 'Neutre',
     this.gains = const [],
     this.loudnessDb = 0,
+    this.normalizeVolume = false,
   });
 
   EqualizerSettings copyWith({
@@ -53,12 +58,14 @@ class EqualizerSettings {
     String? preset,
     List<double>? gains,
     double? loudnessDb,
+    bool? normalizeVolume,
   }) =>
       EqualizerSettings(
         enabled: enabled ?? this.enabled,
         preset: preset ?? this.preset,
         gains: gains ?? this.gains,
         loudnessDb: loudnessDb ?? this.loudnessDb,
+        normalizeVolume: normalizeVolume ?? this.normalizeVolume,
       );
 
   /// Interpolation linéaire de [source] sur [count] points.
@@ -99,6 +106,7 @@ class EqualizerSettings {
         'preset': preset,
         'gains': gains,
         'loudnessDb': loudnessDb,
+        'normalizeVolume': normalizeVolume,
       };
 
   factory EqualizerSettings.fromJson(Map<String, dynamic> j) =>
@@ -112,5 +120,6 @@ class EqualizerSettings {
         loudnessDb: ((j['loudnessDb'] as num?)?.toDouble() ?? 0)
             .clamp(0.0, maxLoudnessDb)
             .toDouble(),
+        normalizeVolume: j['normalizeVolume'] as bool? ?? false,
       );
 }

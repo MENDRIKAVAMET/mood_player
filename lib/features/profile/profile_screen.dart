@@ -189,6 +189,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: AppTheme.spacingXL),
 
+              // Volume uniforme
+              _buildNormalizeCard(),
+              const SizedBox(height: AppTheme.spacingXL),
+
               // Artistes préférés
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -242,6 +246,78 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Interrupteur « Volume uniforme » + avancement de l'analyse.
+  Widget _buildNormalizeCard() {
+    final enabled = ref.watch(equalizerProvider.select((s) => s.normalizeVolume));
+    final analysis = ref.watch(loudnessProvider);
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spacingL),
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundCard,
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                ),
+                child: const Icon(Icons.volume_up_rounded,
+                    color: AppTheme.accentPrimary),
+              ),
+              const SizedBox(width: AppTheme.spacingM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Volume uniforme', style: AppTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Égalise le volume des morceaux : plus de musique '
+                      'trop forte ou trop faible.',
+                      style: AppTheme.bodySmall
+                          .copyWith(color: AppTheme.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: enabled,
+                activeThumbColor: AppTheme.accentPrimary,
+                onChanged: (value) async {
+                  await ref
+                      .read(equalizerProvider.notifier)
+                      .setNormalizeVolume(value);
+                  if (value) {
+                    ref.read(loudnessProvider.notifier).analyzeLibrary();
+                  }
+                },
+              ),
+            ],
+          ),
+          if (enabled && analysis.running) ...[
+            const SizedBox(height: AppTheme.spacingM),
+            LinearProgressIndicator(
+              value: analysis.total == 0 ? null : analysis.done / analysis.total,
+            ),
+            const SizedBox(height: AppTheme.spacingXS),
+            Text(
+              'Analyse de la bibliothèque : ${analysis.done} / ${analysis.total}'
+              ' morceaux (une seule fois, en arrière-plan)',
+              style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+            ),
+          ],
+        ],
       ),
     );
   }

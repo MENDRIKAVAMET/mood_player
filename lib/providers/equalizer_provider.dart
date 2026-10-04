@@ -45,6 +45,11 @@ class EqualizerNotifier extends StateNotifier<EqualizerSettings> {
   /// Écrit les réglages courants sur disque (fin de glissement d'un curseur).
   Future<void> persist() => _service.save(state);
 
+  Future<void> ensureLoaded() => _ready;
+
+  Future<void> setNormalizeVolume(bool value) =>
+      _commit(state.copyWith(normalizeVolume: value));
+
   Future<void> setEnabled(bool enabled) =>
       _commit(state.copyWith(enabled: enabled));
 
@@ -66,6 +71,9 @@ class EqualizerNotifier extends StateNotifier<EqualizerSettings> {
       _commit(state.copyWith(loudnessDb: db), persist: false);
 
   Future<void> reset() => _commit(
-        EqualizerSettings(enabled: state.enabled),
+        EqualizerSettings(
+          enabled: state.enabled,
+          normalizeVolume: state.normalizeVolume,
+        ),
       );
 }

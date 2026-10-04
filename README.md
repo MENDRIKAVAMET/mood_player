@@ -11,6 +11,7 @@ Une application mobile Flutter qui organise vos playlists musicales par "mood" (
 - **Transfert de données** : Profil → « Transfert de données » exporte classifications, favoris, ambiances perso, écoutes et réglages dans un fichier JSON ; l'import (autre téléphone, ou classifications d'une autre personne, hors ligne) retrouve les morceaux par titre + artiste + durée
 - **Égaliseur** : préréglages, curseurs par bande et renforcement du volume (Android), accessible depuis le lecteur et le profil
 - **Outils de listes** : sur les listes de morceaux, barre de défilement rapide, bouton ancre (retour au morceau en cours) et boutons Tout lire / Aléatoire / Trier
+- **Volume uniforme** : interrupteur dans le Profil ; mesure le volume de chaque morceau une fois (en arrière-plan) puis ajuste le gain à la lecture pour que tout sonne à peu près aussi fort
 - **Filtrage et recherche** : Filtrer par mood, rechercher par titre/artiste
 
 ## 📁 Structure du projet

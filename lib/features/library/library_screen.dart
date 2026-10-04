@@ -46,7 +46,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       // ouverture : récupère les nouveaux fichiers et rafraîchit les
       // métadonnées des morceaux déjà connus, sans toucher à leur
       // classification.
-      ref.read(trackProvider.notifier).scanAndLoadTracks();
+      ref.read(trackProvider.notifier).scanAndLoadTracks().then((_) {
+        // « Volume uniforme » : mesure les nouveaux morceaux (ne fait rien
+        // si la fonction est désactivée).
+        if (mounted) ref.read(loudnessProvider.notifier).analyzeLibrary();
+      });
       ref.read(customMoodProvider.notifier).loadMoods();
 
       // Démarre le suivi des écoutes réelles dès l'ouverture de l'app,

@@ -20,6 +20,12 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import java.nio.ByteOrder
+import java.util.concurrent.Executors
+import kotlin.math.log10
 
 class MainActivity : AudioServiceFragmentActivity() {
     private val crashLogChannelName = "com.example.mood_player/crash_log"
@@ -30,6 +36,9 @@ class MainActivity : AudioServiceFragmentActivity() {
     private val requestWriteAccess = 4711
     private var pendingRename: RenameRequest? = null
     private var pendingRenameResult: MethodChannel.Result? = null
+
+    // Analyse du volume (une seule à la fois, hors du thread principal).
+    private val analysisExecutor = Executors.newSingleThreadExecutor()
 
     private data class RenameRequest(
         val uri: Uri,
@@ -87,9 +96,143 @@ class MainActivity : AudioServiceFragmentActivity() {
                     "renameAudio" -> handleRenameAudio(call.argument("uri"),
                         call.argument("displayName"), call.argument("title"),
                         call.argument("artist"), result)
+                    "analyzeLoudness" -> {
+                        val uri = call.argument<String>("uri")
+                        val path = call.argument<String>("path")
+                        analysisExecutor.execute {
+                            val value = try {
+                                measureLoudness(uri, path)
+                            } catch (e: Throwable) {
+                                null
+                            }
+                            runOnUiThread { result.success(value) }
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /**
+     * Volume moyen d'un morceau en dBFS (RMS), mesuré sur ~20 s prises vers
+     * 30 % de la durée (là où la musique est « en plein régime », loin des
+     * intros et des fins calmes). Les passages quasi silencieux
+     * (< -50 dBFS) sont ignorés pour ne pas fausser la moyenne.
+     * Renvoie null si le fichier ne peut pas être décodé.
+     */
+    private fun measureLoudness(uri: String?, path: String?): Double? {
+        val extractor = MediaExtractor()
+        var codec: MediaCodec? = null
+        try {
+            if (uri != null) {
+                extractor.setDataSource(applicationContext, Uri.parse(uri), null)
+            } else if (path != null) {
+                extractor.setDataSource(path)
+            } else {
+                return null
+            }
+
+            var trackIndex = -1
+            var format: MediaFormat? = null
+            var mime = ""
+            for (i in 0 until extractor.trackCount) {
+                val f = extractor.getTrackFormat(i)
+                val m = f.getString(MediaFormat.KEY_MIME) ?: continue
+                if (m.startsWith("audio/")) {
+                    trackIndex = i
+                    format = f
+                    mime = m
+                    break
+                }
+            }
+            if (trackIndex < 0 || format == null) return null
+            extractor.selectTrack(trackIndex)
+
+            val durationUs =
+                if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0L
+            val windowUs = 20_000_000L
+            val startUs = if (durationUs > windowUs * 2) (durationUs * 0.3).toLong() else 0L
+            if (startUs > 0) extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+
+            codec = MediaCodec.createDecoderByType(mime)
+            codec.configure(format, null, null, 0)
+            codec.start()
+
+            val info = MediaCodec.BufferInfo()
+            var inputDone = false
+            var outputDone = false
+            var isFloat = false
+            val deadline = System.currentTimeMillis() + 15_000
+
+            val blockSize = 8192
+            var blockSum = 0.0
+            var blockCount = 0
+            var powerSum = 0.0
+            var validBlocks = 0
+            val silence = Math.pow(10.0, -50.0 / 10.0)
+
+            fun addSample(s: Double) {
+                blockSum += s * s
+                blockCount++
+                if (blockCount >= blockSize) {
+                    val power = blockSum / blockCount
+                    if (power > silence) {
+                        powerSum += power
+                        validBlocks++
+                    }
+                    blockSum = 0.0
+                    blockCount = 0
+                }
+            }
+
+            while (!outputDone && System.currentTimeMillis() < deadline) {
+                if (!inputDone) {
+                    val inIndex = codec.dequeueInputBuffer(10_000)
+                    if (inIndex >= 0) {
+                        val buf = codec.getInputBuffer(inIndex)!!
+                        val size = extractor.readSampleData(buf, 0)
+                        val time = extractor.sampleTime
+                        if (size < 0 || time < 0 || time - startUs > windowUs) {
+                            codec.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                        } else {
+                            codec.queueInputBuffer(inIndex, 0, size, time, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+
+                val outIndex = codec.dequeueOutputBuffer(info, 10_000)
+                if (outIndex >= 0) {
+                    val out = codec.getOutputBuffer(outIndex)
+                    if (out != null && info.size > 0) {
+                        out.position(info.offset)
+                        out.limit(info.offset + info.size)
+                        val data = out.slice().order(ByteOrder.nativeOrder())
+                        if (isFloat) {
+                            val fb = data.asFloatBuffer()
+                            while (fb.hasRemaining()) addSample(fb.get().toDouble())
+                        } else {
+                            val sb = data.asShortBuffer()
+                            while (sb.hasRemaining()) addSample(sb.get() / 32768.0)
+                        }
+                    }
+                    codec.releaseOutputBuffer(outIndex, false)
+                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
+                } else if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    val of = codec.outputFormat
+                    // 4 = ENCODING_PCM_FLOAT (clé "pcm-encoding", Android 7+)
+                    isFloat = of.containsKey("pcm-encoding") && of.getInteger("pcm-encoding") == 4
+                }
+            }
+
+            if (validBlocks == 0) return null
+            return 10.0 * log10(powerSum / validBlocks)
+        } finally {
+            try { codec?.stop() } catch (_: Throwable) {}
+            try { codec?.release() } catch (_: Throwable) {}
+            extractor.release()
+        }
     }
 
     @SuppressLint("NewApi")

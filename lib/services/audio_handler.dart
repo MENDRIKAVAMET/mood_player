@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/equalizer_settings.dart';
 import '../models/track.dart';
 import 'equalizer_service.dart';
+import 'loudness_service.dart';
 import 'storage_service.dart';
 
 /// Repeat mode enum (renamed to avoid clashing with Flutter's own RepeatMode)
@@ -40,6 +42,9 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   );
   EqualizerSettings _eqSettings = const EqualizerSettings();
   int _eqApplyToken = 0;
+
+  /// Gain (dB) de « Volume uniforme » pour le morceau en cours.
+  double _normalizationGainDb = 0;
   final List<MediaItem> _queue = [];
   final List<MediaItem> _originalQueue = []; // Store original order for unshuffle
   final _repeatModeController = StreamController<PlayerRepeatMode>.broadcast();
@@ -98,17 +103,59 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     }
   }
 
+  /// Règle le volume du morceau [item] pour « Volume uniforme » : une
+  /// atténuation passe par le volume du lecteur, un renforcement (morceaux
+  /// calmes) par le renforçateur de volume Android, ajouté à celui de
+  /// l'égaliseur. Sans mesure connue pour ce morceau, rien n'est changé.
+  Future<void> _applyNormalization(MediaItem item) async {
+    var gainDb = 0.0;
+    if (_eqSettings.normalizeVolume) {
+      final key = LoudnessService.keyFor(
+        item.extras?['filePath'] as String?,
+        item.extras?['uri'] as String?,
+      );
+      final measured = await LoudnessService.measured(key);
+      if (measured != null) gainDb = LoudnessService.gainFor(measured);
+    }
+    _normalizationGainDb = gainDb;
+    try {
+      await _player.setVolume(
+        gainDb < 0 ? math.pow(10, gainDb / 20).toDouble() : 1.0,
+      );
+    } catch (_) {}
+    if (Platform.isAndroid) unawaited(_syncLoudnessEnhancer());
+  }
+
+  /// Renforcement total (égaliseur + volume uniforme) du renforçateur de
+  /// volume Android.
+  Future<void> _syncLoudnessEnhancer() async {
+    try {
+      final eqBoost = _eqSettings.enabled ? _eqSettings.loudnessDb : 0.0;
+      final normBoost =
+          _eqSettings.normalizeVolume ? math.max(0.0, _normalizationGainDb) : 0.0;
+      final total = eqBoost + normBoost;
+      await _loudness.setEnabled(total > 0);
+      await _loudness.setTargetGain(total);
+    } catch (e) {
+      // ignore: avoid_print
+      print('_syncLoudnessEnhancer: $e');
+    }
+  }
+
   /// Applique [settings] à l'égaliseur. Si les effets ne sont pas encore
   /// prêts, l'application attend le premier morceau ; seul le dernier appel
   /// est pris en compte.
   Future<void> applyEqualizerSettings(EqualizerSettings settings) async {
     _eqSettings = settings;
+    // « Volume uniforme » activé/désactivé : s'applique tout de suite au
+    // morceau en cours.
+    final current = mediaItem.value;
+    if (current != null) await _applyNormalization(current);
     if (!Platform.isAndroid) return;
     final token = ++_eqApplyToken;
     try {
       await _equalizer.setEnabled(settings.enabled);
-      await _loudness.setEnabled(settings.enabled && settings.loudnessDb > 0);
-      await _loudness.setTargetGain(settings.loudnessDb);
+      await _syncLoudnessEnhancer();
       final params = await _equalizer.parameters;
       if (token != _eqApplyToken) return;
       final gains = _eqSettings.gainsFor(params.bands.length);
@@ -407,6 +454,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       } else {
         duration = await _player.setFilePath(filePath!);
       }
+      await _applyNormalization(item);
       if (duration != null) mediaItem.add(item.copyWith(duration: duration));
 
       await _player.seek(position);
@@ -721,6 +769,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       } else {
         duration = await _player.setFilePath(filePath!);
       }
+      await _applyNormalization(item);
 
       // Reflect the real duration on the media item as soon as it's known,
       // so the UI (queue, notification) has it immediately rather than
