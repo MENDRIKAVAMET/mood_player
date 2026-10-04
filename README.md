@@ -8,6 +8,7 @@ Une application mobile Flutter qui organise vos playlists musicales par "mood" (
 - **Moods supportés** : Énergique, Chill, Mélancolique, Festif, Romantique, Concentration, Motivant, Triste
 - **Cache local** : Stockage des classifications pour éviter les appels API répétés
 - **Lecteur audio** : Lecture avec contrôles depuis la notification/lock screen Android
+- **Transfert de données** : Profil → « Transfert de données » exporte classifications, favoris, ambiances perso, écoutes et réglages dans un fichier JSON ; l'import (autre téléphone, ou classifications d'une autre personne, hors ligne) retrouve les morceaux par titre + artiste + durée
 - **Filtrage et recherche** : Filtrer par mood, rechercher par titre/artiste
 
 ## 📁 Structure du projet
@@ -156,4 +157,4 @@ class Track {
 
 ## 📄 Licence
 
-Projet personnel - Pas destiné à la publication.
+Projet personnel - Pas destiné à la publication.

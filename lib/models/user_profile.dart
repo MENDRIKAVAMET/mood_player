@@ -1,9 +1,8 @@
-/// Profil local de l'utilisateur : un nom, jusqu'à 3 artistes préférés
+/// Profil local de l'utilisateur : ses artistes préférés
 /// (choisis dans sa propre bibliothèque au premier lancement, servent de
 /// base aux suggestions tant qu'il n'y a pas d'historique d'écoute), plus
 /// le drapeau qui dit si l'écran d'accueil "bienvenue" a déjà été passé.
 class UserProfile {
-  final String? name;
   final List<String> favoriteArtists;
   final bool onboardingCompleted;
 
@@ -22,7 +21,6 @@ class UserProfile {
   final bool smartQueueEnabled;
 
   const UserProfile({
-    this.name,
     this.favoriteArtists = const [],
     this.onboardingCompleted = false,
     this.periodMoods = const {},
@@ -30,21 +28,18 @@ class UserProfile {
   });
 
   const UserProfile.empty()
-      : name = null,
-        favoriteArtists = const [],
+      : favoriteArtists = const [],
         onboardingCompleted = false,
         periodMoods = const {},
         smartQueueEnabled = false;
 
   UserProfile copyWith({
-    String? name,
     List<String>? favoriteArtists,
     bool? onboardingCompleted,
     Map<String, List<String>>? periodMoods,
     bool? smartQueueEnabled,
   }) {
     return UserProfile(
-      name: name ?? this.name,
       favoriteArtists: favoriteArtists ?? this.favoriteArtists,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       periodMoods: periodMoods ?? this.periodMoods,
@@ -53,7 +48,6 @@ class UserProfile {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
         'favoriteArtists': favoriteArtists,
         'onboardingCompleted': onboardingCompleted,
         'periodMoods': periodMoods,
@@ -67,7 +61,6 @@ class UserProfile {
     final list = json['favoriteArtists'] as List<dynamic>?;
 
     return UserProfile(
-      name: json['name'] as String?,
       favoriteArtists: list != null
           ? list.map((e) => e as String).toList()
           : (legacySingle != null ? [legacySingle] : const []),

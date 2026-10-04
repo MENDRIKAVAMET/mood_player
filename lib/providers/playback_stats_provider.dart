@@ -49,6 +49,9 @@ class PlaybackStatsNotifier extends StateNotifier<Map<int, int>> {
     if (mounted) state = counts;
   }
 
+  /// Relit les compteurs depuis le disque (après un import de sauvegarde).
+  Future<void> reload() => _load();
+
   Future<void> _listen() async {
     try {
       final handler = await _ref.read(audioHandlerProvider.future);

@@ -16,10 +16,9 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
 
   /// Le chargement initial est asynchrone (lecture disque) et n'est pas
   /// attendu dans le constructeur, donc chaque méthode qui modifie l'état
-  /// l'attend elle-même avant d'écrire par-dessus. Sans ça, un prénom saisi
-  /// tout de suite sur l'écran d'accueil (avant la fin de cette lecture)
-  /// se faisait silencieusement écraser par le profil vide chargé juste
-  /// après - le prénom disparaissait alors qu'il venait d'être enregistré.
+  /// l'attend elle-même avant d'écrire par-dessus. Sans ça, une valeur saisie
+  /// tout de suite (avant la fin de cette lecture) se ferait silencieusement
+  /// écraser par le profil vide chargé juste après.
   late final Future<void> _ready;
 
   ProfileNotifier(this._service) : super(const UserProfile.empty()) {
@@ -28,12 +27,6 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
 
   Future<void> _load() async {
     state = await _service.load();
-  }
-
-  Future<void> setName(String name) async {
-    await _ready;
-    state = state.copyWith(name: name);
-    await _service.save(state);
   }
 
   Future<void> setFavoriteArtists(List<String> artists) async {
@@ -53,6 +46,28 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
       updated[periodKey] = moodNames;
     }
     state = state.copyWith(periodMoods: updated);
+    await _service.save(state);
+  }
+
+  /// Applique les réglages venant d'une sauvegarde importée. Les listes
+  /// vides sont ignorées (elles n'effacent rien) et les ambiances par
+  /// moment de la journée sont fusionnées avec celles déjà choisies.
+  Future<void> applyImported({
+    List<String>? favoriteArtists,
+    Map<String, List<String>>? periodMoods,
+    bool? smartQueueEnabled,
+  }) async {
+    await _ready;
+    state = state.copyWith(
+      favoriteArtists:
+          (favoriteArtists != null && favoriteArtists.isNotEmpty)
+              ? favoriteArtists
+              : null,
+      periodMoods: (periodMoods != null && periodMoods.isNotEmpty)
+          ? {...state.periodMoods, ...periodMoods}
+          : null,
+      smartQueueEnabled: smartQueueEnabled,
+    );
     await _service.save(state);
   }
 

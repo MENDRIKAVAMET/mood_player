@@ -7,10 +7,10 @@ import '../../theme/app_theme.dart';
 import '../../widgets/mood_splash.dart';
 import '../shell/main_shell.dart';
 
-enum _Step { name, permission, loading, artist, smartQueue }
+enum _Step { permission, loading, artist, smartQueue }
 
 /// Parcours de bienvenue, affiché une seule fois (tant que
-/// `profile.onboardingCompleted` est faux) : prénom -> autorisation
+/// `profile.onboardingCompleted` est faux) : autorisation
 /// d'accès à la musique -> scan de la bibliothèque -> artiste préféré
 /// (si des morceaux ont été trouvés). Chaque étape est un simple widget
 /// interchangé via un fondu doux, jamais un Navigator.push - on ne veut
@@ -23,15 +23,9 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  _Step _step = _Step.name;
+  _Step _step = _Step.permission;
   List<String> _artists = const [];
   List<String>? _pendingFavoriteArtists;
-
-  Future<void> _submitName(String name) async {
-    await ref.read(profileProvider.notifier).setName(name);
-    if (!mounted) return;
-    setState(() => _step = _Step.permission);
-  }
 
   Future<void> _grantAccessAndScan() async {
     setState(() => _step = _Step.loading);
@@ -122,8 +116,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Widget _buildStep() {
     switch (_step) {
-      case _Step.name:
-        return _NameStep(key: const ValueKey('name'), onSubmit: _submitName);
       case _Step.permission:
         return _PermissionStep(
           key: const ValueKey('permission'),
@@ -208,92 +200,6 @@ class _SecondaryButton extends StatelessWidget {
   }
 }
 
-class _NameStep extends StatefulWidget {
-  final ValueChanged<String> onSubmit;
-
-  const _NameStep({super.key, required this.onSubmit});
-
-  @override
-  State<_NameStep> createState() => _NameStepState();
-}
-
-class _NameStepState extends State<_NameStep> {
-  final _controller = TextEditingController();
-  bool get _canSubmit => _controller.text.trim().isNotEmpty;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppTheme.spacingXL),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Bienvenue.',
-            style: AppTheme.headlineLarge,
-            textAlign: TextAlign.center,
-          ).animate().fadeIn(duration: AppTheme.animSlow),
-          const SizedBox(height: AppTheme.spacingS),
-          Text(
-            'Comment souhaitez-vous qu\'on vous appelle ?',
-            style: AppTheme.bodyLarge,
-            textAlign: TextAlign.center,
-          ).animate().fadeIn(
-                duration: AppTheme.animSlow,
-                delay: const Duration(milliseconds: 120),
-              ),
-          const SizedBox(height: AppTheme.spacingXXL),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            textAlign: TextAlign.center,
-            textInputAction: TextInputAction.done,
-            style: AppTheme.titleLarge,
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (value) {
-              if (value.trim().isNotEmpty) widget.onSubmit(value.trim());
-            },
-            decoration: InputDecoration(
-              hintText: 'Votre prénom',
-              hintStyle: AppTheme.titleLarge.copyWith(color: AppTheme.textTertiary),
-              filled: true,
-              fillColor: AppTheme.backgroundCard,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: AppTheme.spacingL,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusL),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ).animate().fadeIn(
-                duration: AppTheme.animSlow,
-                delay: const Duration(milliseconds: 220),
-              ),
-          const SizedBox(height: AppTheme.spacingXXL),
-          _PrimaryButton(
-            label: 'Continuer',
-            icon: Icons.arrow_forward_rounded,
-            onPressed: _canSubmit
-                ? () => widget.onSubmit(_controller.text.trim())
-                : null,
-          ).animate().fadeIn(
-                duration: AppTheme.animSlow,
-                delay: const Duration(milliseconds: 300),
-              ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PermissionStep extends StatelessWidget {
   final VoidCallback onAllow;
   final VoidCallback onSkip;
@@ -323,7 +229,7 @@ class _PermissionStep extends StatelessWidget {
               ),
           const SizedBox(height: AppTheme.spacingXL),
           Text(
-            'Un dernier détail',
+            'Bienvenue',
             style: AppTheme.headlineMedium,
             textAlign: TextAlign.center,
           ).animate().fadeIn(

@@ -5,8 +5,9 @@ import '../../providers/providers.dart';
 import '../../services/import_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/data_transfer_section.dart';
 
-/// Écran de profil : nom, artistes préférés (modifiables), quelques
+/// Écran de profil : artistes préférés (modifiables), quelques
 /// statistiques de bibliothèque. Accessible depuis l'icône profil de
 /// l'onglet Bibliothèque - jusqu'ici le profil n'avait ni écran ni point
 /// d'entrée, seulement le modèle/service/provider en arrière-plan.
@@ -48,40 +49,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: AppTheme.spacingXL),
               ],
 
-              // Avatar + nom
+              // Avatar
               Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: const BoxDecoration(
-                        gradient: AppTheme.brandGradient,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        (profile.name?.isNotEmpty == true)
-                            ? profile.name![0].toUpperCase()
-                            : '?',
-                        style: AppTheme.displayLarge.copyWith(
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingM),
-                    Text(
-                      profile.name?.isNotEmpty == true
-                          ? profile.name!
-                          : 'Sans nom',
-                      style: AppTheme.headlineMedium,
-                    ),
-                    TextButton.icon(
-                      onPressed: () => _editName(context, profile.name),
-                      icon: const Icon(Icons.edit_rounded, size: 16),
-                      label: const Text('Modifier le nom'),
-                    ),
-                  ],
+                child: Container(
+                  width: 88,
+                  height: 88,
+                  decoration: const BoxDecoration(
+                    gradient: AppTheme.brandGradient,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.graphic_eq_rounded,
+                    size: 40,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
               ),
               const SizedBox(height: AppTheme.spacingXL),
@@ -199,6 +181,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                   ],
                 ),
+              const SizedBox(height: AppTheme.spacingXL),
+
+              // Transfert de données (changement de téléphone, classifications
+              // d'une autre personne)
+              const DataTransferSection(),
+              const SizedBox(height: AppTheme.spacingXL),
             ],
                 ),
               ),
@@ -207,31 +195,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _editName(BuildContext context, String? currentName) async {
-    final controller = TextEditingController(text: currentName ?? '');
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.backgroundSecondary,
-        title: const Text('Votre prénom'),
-        content: TextField(controller: controller, autofocus: true),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Enregistrer'),
-          ),
-        ],
-      ),
-    );
-    if (name != null && name.isNotEmpty && mounted) {
-      await ref.read(profileProvider.notifier).setName(name);
-    }
   }
 
   Future<void> _editFavoriteArtists(

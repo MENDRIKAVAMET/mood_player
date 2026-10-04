@@ -182,6 +182,14 @@ class StorageService {
     await _saveLikedIds(ids);
   }
 
+  /// Adds [ids] to the favorites without touching the ones already there
+  /// (used by the data-transfer import).
+  Future<void> addLikedTrackIds(Iterable<int> ids) async {
+    final current = await _loadLikedIds();
+    current.addAll(ids);
+    await _saveLikedIds(current);
+  }
+
   /// Insert or update multiple tracks
   Future<void> saveTracks(List<Track> tracks) async {
     final isar = await _getIsar();
@@ -406,6 +414,44 @@ class StorageService {
     await saveCustomMood(mood);
   }
 
+  /// Import d'une ambiance perso depuis une sauvegarde : si une ambiance du
+  /// même nom (insensible à la casse) existe déjà, on y AJOUTE les morceaux
+  /// manquants sans toucher à ceux déjà présents ; sinon elle est créée.
+  /// [entries] : id local du morceau -> pourcentage (0-100).
+  /// Renvoie le nombre de morceaux ajoutés.
+  Future<int> importCustomMood({
+    required String name,
+    required String icon,
+    required int colorValue,
+    required Map<int, double> entries,
+  }) async {
+    final isar = await _getIsar();
+    var mood = await isar.customMoods
+        .where()
+        .filter()
+        .nameEqualTo(name, caseSensitive: false)
+        .findFirst();
+    mood ??= CustomMood()
+      ..name = name
+      ..icon = icon
+      ..colorValue = colorValue
+      ..createdAt = DateTime.now();
+
+    final ids = List<int>.from(mood.trackIds);
+    final pcts = List<double>.from(mood.trackPercentages);
+    var added = 0;
+    entries.forEach((trackId, pct) {
+      if (ids.contains(trackId)) return;
+      ids.add(trackId);
+      pcts.add(pct.clamp(0, 100).toDouble());
+      added++;
+    });
+    mood.trackIds = ids;
+    mood.trackPercentages = pcts;
+    await saveCustomMood(mood);
+    return added;
+  }
+
   /// Get all tracks in a custom mood, paired with their percentage.
   Future<List<(Track, double)>> getTracksInCustomMood(int moodId) async {
     final isar = await _getIsar();
@@ -496,6 +542,23 @@ class StorageService {
       // pour la session en cours.
     }
     return Map<int, int>.from(counts);
+  }
+
+  /// Fusionne des compteurs d'écoute importés : pour chaque morceau on
+  /// garde le plus grand des deux (importer deux fois le même fichier ne
+  /// double donc rien).
+  Future<void> mergePlayCounts(Map<int, int> incoming) async {
+    final counts = await _loadPlayCounts();
+    incoming.forEach((id, n) {
+      if (n > (counts[id] ?? 0)) counts[id] = n;
+    });
+    _playCountsCache = counts;
+    try {
+      final file = await _playCountsFile();
+      await file.writeAsString(
+        jsonEncode({for (final e in counts.entries) e.key.toString(): e.value}),
+      );
+    } catch (_) {}
   }
 
   Future<List<String>> _loadRecentSearches() async {
