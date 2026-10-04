@@ -5,12 +5,14 @@ import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../models/track.dart';
 import '../../widgets/app_header.dart';
+import '../../providers/track_provider.dart' show TrackSortOption;
+import '../../widgets/track_list_tools.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
 import '../player/player_screen.dart';
 
 /// Detailed mood screen showing all tracks for a specific mood
-class MoodDetailScreen extends ConsumerWidget {
+class MoodDetailScreen extends ConsumerStatefulWidget {
   final MoodType mood;
   final List<Track> tracks;
 
@@ -21,7 +23,29 @@ class MoodDetailScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MoodDetailScreen> createState() => _MoodDetailScreenState();
+}
+
+class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
+  final ScrollController _scroll = ScrollController();
+  late final TrackListLocator _locator =
+      TrackListLocator(controller: _scroll);
+  TrackSortOption? _sort;
+
+  MoodType get mood => widget.mood;
+
+  List<Track> get tracks =>
+      _sort == null ? widget.tracks : sortTracks(widget.tracks, _sort!);
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tracks = this.tracks;
     final moodColors = MoodColors.forMood(mood);
 
     return Scaffold(
@@ -62,49 +86,13 @@ class MoodDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     const Spacer(),
-                    // Play all button
-                    if (tracks.isNotEmpty)
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PlayerScreen(
-                                track: tracks.first,
-                                tracks: tracks,
-                                initialIndex: 0,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.spacingL,
-                            vertical: AppTheme.spacingS,
-                          ),
-                          decoration: BoxDecoration(
-                            color: moodColors.primary,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.play_arrow_rounded,
-                                color: AppTheme.textInverse,
-                                size: 20,
-                              ),
-                              const SizedBox(width: AppTheme.spacingXS),
-                              Text(
-                                'Tout lire',
-                                style: AppTheme.labelLarge.copyWith(
-                                  color: AppTheme.textInverse,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    // Tout lire / Aléatoire / Trier
+                    TrackListActionBar(
+                      tracks: tracks,
+                      sort: _sort,
+                      color: moodColors.primary,
+                      onSort: (c) => setState(() => _sort = c.option),
+                    ),
                   ],
                 ),
               ),
@@ -115,43 +103,44 @@ class MoodDetailScreen extends ConsumerWidget {
               Expanded(
                 child: tracks.isEmpty
                     ? _buildEmptyState(moodColors)
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(
-                          bottom: AppTheme.spacingXXXL,
-                        ),
-                        itemCount: tracks.length,
-                        itemBuilder: (context, index) {
-                          final track = tracks[index];
-                          return TrackTile(
-                            track: track,
-                            index: index,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PlayerScreen(
+                    : Stack(
+                        children: [
+                          TrackListScrollbar(
+                            controller: _scroll,
+                            child: ListView.builder(
+                              controller: _scroll,
+                              padding: const EdgeInsets.only(
+                                bottom: AppTheme.spacingXXXL,
+                              ),
+                              itemCount: tracks.length,
+                              itemBuilder: (context, index) {
+                                final track = tracks[index];
+                                void open() => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => PlayerScreen(
+                                          track: track,
+                                          tracks: tracks,
+                                          initialIndex: index,
+                                        ),
+                                      ),
+                                    );
+                                return KeyedSubtree(
+                                  key: _locator.keyFor(track.id),
+                                  child: TrackTile(
                                     track: track,
-                                    tracks: tracks,
-                                    initialIndex: index,
+                                    index: index,
+                                    onTap: open,
+                                    onPlay: open,
+                                    onMore: () => showTrackOptionsSheet(
+                                        context, ref, track),
                                   ),
-                                ),
-                              );
-                            },
-                            onPlay: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PlayerScreen(
-                                    track: track,
-                                    tracks: tracks,
-                                    initialIndex: index,
-                                  ),
-                                ),
-                              );
-                            },
-                            onMore: () => showTrackOptionsSheet(context, ref, track),
-                          );
-                        },
+                                );
+                              },
+                            ),
+                          ),
+                          LocateTrackButton(locator: _locator, tracks: tracks),
+                        ],
                       ),
               ),
             ],

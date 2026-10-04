@@ -6,6 +6,7 @@ import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/track_list_tools.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
 
@@ -28,6 +29,10 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final ScrollController _scroll = ScrollController();
+  late final TrackListLocator _locator =
+      TrackListLocator(controller: _scroll);
+  TrackSortOption? _sort;
   List<String> _recentSearches = [];
   String _query = '';
 
@@ -64,6 +69,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -71,7 +77,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final allTracks = ref.watch(trackProvider).tracks;
     final lowerQuery = _query.trim().toLowerCase();
-    final results = lowerQuery.isEmpty
+    final matches = lowerQuery.isEmpty
         ? const <Track>[]
         : allTracks
             .where((t) =>
@@ -79,6 +85,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 t.artist.toLowerCase().contains(lowerQuery) ||
                 (t.album?.toLowerCase().contains(lowerQuery) ?? false))
             .toList();
+    final results = _sort == null ? matches : sortTracks(matches, _sort!);
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
@@ -109,28 +116,70 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     )
                   : results.isEmpty
                       ? _NoResults(query: _query)
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(
-                            top: AppTheme.spacingS,
-                            bottom: 40,
-                          ),
-                          itemCount: results.length,
-                          itemBuilder: (context, index) {
-                            final track = results[index];
-                            return TrackTile(
-                              track: track,
-                              index: index,
-                              onTap: () {
-                                _commitSearch(_query);
-                                openPlayer(context, track: track, tracks: results);
-                              },
-                              onPlay: () {
-                                _commitSearch(_query);
-                                openPlayer(context, track: track, tracks: results);
-                              },
-                              onMore: () => showTrackOptionsSheet(context, ref, track),
-                            );
-                          },
+                      : Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: AppTheme.spacingXL,
+                                right: AppTheme.spacingS,
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    '${results.length} résultat${results.length > 1 ? 's' : ''}',
+                                    style: AppTheme.bodyMedium.copyWith(
+                                        color: AppTheme.textTertiary),
+                                  ),
+                                  const Spacer(),
+                                  TrackListActionBar(
+                                    tracks: results,
+                                    sort: _sort,
+                                    onSort: (c) =>
+                                        setState(() => _sort = c.option),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Stack(
+                                children: [
+                                  TrackListScrollbar(
+                                    controller: _scroll,
+                                    child: ListView.builder(
+                                      controller: _scroll,
+                                      padding: const EdgeInsets.only(
+                                        top: AppTheme.spacingS,
+                                        bottom: 40,
+                                      ),
+                                      itemCount: results.length,
+                                      itemBuilder: (context, index) {
+                                        final track = results[index];
+                                        void open() {
+                                          _commitSearch(_query);
+                                          openPlayer(context,
+                                              track: track, tracks: results);
+                                        }
+
+                                        return KeyedSubtree(
+                                          key: _locator.keyFor(track.id),
+                                          child: TrackTile(
+                                            track: track,
+                                            index: index,
+                                            onTap: open,
+                                            onPlay: open,
+                                            onMore: () => showTrackOptionsSheet(
+                                                context, ref, track),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  LocateTrackButton(
+                                      locator: _locator, tracks: results),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
             ),
           ],

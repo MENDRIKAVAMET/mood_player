@@ -10,6 +10,7 @@ import '../../widgets/classify_progress_banner.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/header_actions.dart';
 import '../../widgets/skeleton_loader.dart';
+import '../../widgets/track_list_tools.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
 
@@ -30,6 +31,12 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _headerKey = GlobalKey();
+  final GlobalKey _bannerKey = GlobalKey();
+  late final TrackListLocator _locator = TrackListLocator(
+    controller: _scrollController,
+    leadingKeys: [_headerKey, _bannerKey],
+  );
 
   @override
   void initState() {
@@ -131,18 +138,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ],
               ),
               Expanded(
-                child: CustomScrollView(
+                child: Stack(
+                  children: [
+                    TrackListScrollbar(
+                      controller: _scrollController,
+                      child: CustomScrollView(
             controller: _scrollController,
             physics: const BouncingScrollPhysics(),
             slivers: [
-              SliverToBoxAdapter(child: _buildAllTracksHeader(trackState)),
+              SliverToBoxAdapter(
+                child: KeyedSubtree(
+                  key: _headerKey,
+                  child: _buildAllTracksHeader(trackState),
+                ),
+              ),
 
               if (trackState.isClassifying)
                 SliverToBoxAdapter(
-                  child: ClassifyProgressBanner(
-                    progress: trackState.classifyProgress!,
-                    total: trackState.classifyTotal!,
-                    statusMessage: trackState.classifyStatusMessage,
+                  child: KeyedSubtree(
+                    key: _bannerKey,
+                    child: ClassifyProgressBanner(
+                      progress: trackState.classifyProgress!,
+                      total: trackState.classifyTotal!,
+                      statusMessage: trackState.classifyStatusMessage,
+                    ),
                   ),
                 ),
 
@@ -162,21 +181,25 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       final track = trackState.filteredTracks[index];
                       final isPlaying =
                           currentTrack.valueOrNull?.id == track.id.toString();
-                      return TrackTile(
-                        track: track,
-                        index: index,
-                        isPlaying: isPlaying,
-                        onTap: () => openPlayer(
-                          context,
+                      return KeyedSubtree(
+                        key: _locator.keyFor(track.id),
+                        child: TrackTile(
                           track: track,
-                          tracks: trackState.filteredTracks,
+                          index: index,
+                          isPlaying: isPlaying,
+                          onTap: () => openPlayer(
+                            context,
+                            track: track,
+                            tracks: trackState.filteredTracks,
+                          ),
+                          onPlay: () => openPlayer(
+                            context,
+                            track: track,
+                            tracks: trackState.filteredTracks,
+                          ),
+                          onMore: () =>
+                              showTrackOptionsSheet(context, ref, track),
                         ),
-                        onPlay: () => openPlayer(
-                          context,
-                          track: track,
-                          tracks: trackState.filteredTracks,
-                        ),
-                        onMore: () => showTrackOptionsSheet(context, ref, track),
                       );
                     },
                     childCount: trackState.filteredTracks.length,
@@ -186,6 +209,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               // Marge basse pour le mini-lecteur et la barre d'onglets.
               const SliverToBoxAdapter(child: SizedBox(height: 120)),
             ],
+                      ),
+                    ),
+                    LocateTrackButton(
+                      locator: _locator,
+                      tracks: trackState.filteredTracks,
+                      bottom: 100,
+                    ),
+                  ],
                 ),
               ),
             ],
