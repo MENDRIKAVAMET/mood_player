@@ -343,7 +343,7 @@ class BackupService {
         artist: t.artist,
         album: t.album,
         durationMs: t.duration,
-        mood: classified ? mood!.name : null,
+        mood: classified ? mood.name : null,
         moodConfidence: classified ? t.moodConfidence : null,
         lastClassified: classified ? t.lastClassified : null,
       ));

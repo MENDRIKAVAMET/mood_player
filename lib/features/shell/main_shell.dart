@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
 import '../../providers/providers.dart';
-import '../../providers/track_provider.dart';
 import '../../services/audio_handler.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';

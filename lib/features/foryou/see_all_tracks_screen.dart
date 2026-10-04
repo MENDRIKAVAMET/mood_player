@@ -5,7 +5,6 @@ import '../../theme/app_theme.dart';
 import '../../providers/track_provider.dart' show TrackSortOption;
 import '../../utils/playback_navigation.dart';
 import '../../widgets/app_header.dart';
-import '../../widgets/header_actions.dart';
 import '../../widgets/track_list_tools.dart';
 import '../../widgets/track_tile.dart';
 
