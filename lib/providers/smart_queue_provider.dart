@@ -15,10 +15,15 @@ import 'track_provider.dart';
 ///   franchit 50%), jamais réévaluée ensuite pour cette même piste.
 /// - S'il n'existe aucune piste de la même ambiance dans la bibliothèque,
 ///   on ne touche à rien : la file d'attente d'origine continue.
-/// - On évite autant que possible de reproposer une piste déjà entendue
-///   pendant la session en cours.
+/// - Un morceau déjà écouté pendant la session n'est JAMAIS reproposé, ni
+///   par la lecture intelligente, ni par la file d'attente normale : dès
+///   qu'un morceau a été lancé, il est aussi retiré de la suite de la file
+///   (les morceaux déjà passés restent, pour que « précédent » marche).
+///   La session dure jusqu'à la fermeture de l'app, ou jusqu'à ce que la
+///   lecture intelligente soit désactivée puis réactivée.
 /// - Seule la toute prochaine piste est remplacée ; le reste de la file
-///   d'attente d'origine n'est pas perturbé (voir `playNext` côté handler).
+///   d'attente d'origine n'est pas perturbé (voir `playNext` côté handler),
+///   hormis le retrait des morceaux déjà écoutés.
 ///
 /// Instancié une seule fois pour toute la durée de vie de l'app (lu depuis
 /// [MainShell], qui reste monté en permanence) : ce n'est pas un
@@ -42,13 +47,24 @@ class SmartQueueController {
         if (previous?.valueOrNull?.id == item.id) return;
 
         _decidedForTrackId = null;
-        _recentlyPlayed.remove(item.id);
-        _recentlyPlayed.add(item.id);
-        if (_recentlyPlayed.length > _recentHistoryLimit) {
-          _recentlyPlayed.removeAt(0);
-        }
+        _sessionPlayed.add(item.id);
+        _pruneQueue(item.id);
       },
       fireImmediately: true,
+    );
+
+    // Désactivée puis réactivée = nouvelle session : on oublie ce qui a
+    // été écouté jusque-là.
+    _ref.listen<bool>(
+      profileProvider.select((p) => p.smartQueueEnabled),
+      (previous, next) {
+        if (!next) {
+          _sessionPlayed.clear();
+        } else if (previous == false) {
+          final id = _ref.read(currentTrackProvider).valueOrNull?.id;
+          if (id != null) _sessionPlayed.add(id);
+        }
+      },
     );
 
     // Chaque mise à jour de position est l'occasion de vérifier le seuil
@@ -59,12 +75,23 @@ class SmartQueueController {
     );
   }
 
-  static const int _recentHistoryLimit = 30;
-
   final Ref _ref;
   final Random _random = Random();
-  final List<String> _recentlyPlayed = [];
+
+  /// Identifiants des morceaux lancés pendant la session (sans limite).
+  final Set<String> _sessionPlayed = {};
   String? _decidedForTrackId;
+
+  /// Retire de la suite de la file tous les morceaux déjà écoutés (sauf
+  /// [currentId], qui est en cours).
+  void _pruneQueue(String currentId) {
+    if (!_ref.read(profileProvider).smartQueueEnabled) return;
+    final played = _sessionPlayed.difference({currentId});
+    if (played.isEmpty) return;
+    _ref
+        .read(audioHandlerProvider.future)
+        .then((handler) => handler.removeUpcomingByIds(played));
+  }
 
   void _maybeSubstituteNext(Duration? position) {
     if (position == null) return;
@@ -99,7 +126,9 @@ class SmartQueueController {
         ? const <Track>[]
         : sameMood.where((t) => t.artist.trim().toLowerCase() == artist).toList();
 
-    final pick = _pickPreferablyUnplayed(sameArtist) ?? _pickPreferablyUnplayed(sameMood);
+    // Jamais un morceau déjà écouté : s'il n'en reste aucun de la même
+    // ambiance, la file d'origine continue telle quelle.
+    final pick = _pickUnplayed(sameArtist) ?? _pickUnplayed(sameMood);
     if (pick == null) return;
 
     _ref.read(audioHandlerProvider.future).then((handler) => handler.playNext(pick));
@@ -112,14 +141,13 @@ class SmartQueueController {
     return null;
   }
 
-  /// Choisit une piste au hasard dans [pool], en excluant celles déjà
-  /// écoutées récemment dans la session quand c'est possible.
-  Track? _pickPreferablyUnplayed(List<Track> pool) {
-    if (pool.isEmpty) return null;
+  /// Choisit une piste au hasard dans [pool], parmi celles qui n'ont pas
+  /// encore été écoutées pendant la session. Null s'il n'y en a plus.
+  Track? _pickUnplayed(List<Track> pool) {
     final unplayed =
-        pool.where((t) => !_recentlyPlayed.contains(t.id.toString())).toList();
-    final effective = unplayed.isNotEmpty ? unplayed : pool;
-    return effective[_random.nextInt(effective.length)];
+        pool.where((t) => !_sessionPlayed.contains(t.id.toString())).toList();
+    if (unplayed.isEmpty) return null;
+    return unplayed[_random.nextInt(unplayed.length)];
   }
 
   void dispose() {}

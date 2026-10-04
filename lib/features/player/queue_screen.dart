@@ -222,21 +222,29 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
       buildDefaultDragHandles: false,
       // ignore: deprecated_member_use
       onReorder: _isReordering ? _onReorder : (oldIndex, newIndex) {},
+      // Le morceau tenu est affiché dans l'Overlay du Navigator, hors du
+      // Material du Scaffold. Sans Material ici, le ListTile qu'il contient
+      // lève « No Material widget found » dès le début du glissement - c'est
+      // ce qui rendait l'écran tout blanc. Un proxyDecorator personnalisé
+      // remplace celui par défaut, qui l'ajoutait.
       proxyDecorator: (child, index, animation) {
         final scale = 1.0 + (animation.value * 0.05);
-        return Transform.scale(
-          scale: scale,
-          child: Container(
-            decoration: BoxDecoration(
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        return Material(
+          type: MaterialType.transparency,
+          child: Transform.scale(
+            scale: scale,
+            child: Container(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: child,
             ),
-            child: child,
           ),
         );
       },
@@ -244,8 +252,16 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
         final item = _localQueue[index];
         final isCurrentTrack = currentTrack?.id == item.id;
 
+        // Le même morceau peut figurer plusieurs fois dans la file : la clé
+        // doit être unique, sinon Flutter lève « Duplicate keys found » en
+        // plein glissement.
+        var occurrence = 0;
+        for (var i = 0; i < index; i++) {
+          if (_localQueue[i].id == item.id) occurrence++;
+        }
+
         return _buildQueueItem(
-          key: ValueKey(item.id),
+          key: ValueKey('${item.id}#$occurrence'),
           item: item,
           index: index,
           isCurrentTrack: isCurrentTrack,

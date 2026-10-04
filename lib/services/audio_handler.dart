@@ -689,6 +689,29 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     queue.add(List.unmodifiable(_queue));
   }
 
+  /// Retire de la file les morceaux d'[ids] situés APRÈS le morceau en
+  /// cours (ceux déjà passés et le morceau en cours ne bougent pas, pour
+  /// que « précédent » continue de marcher). Utilisé par la lecture
+  /// intelligente pour ne jamais rejouer un morceau déjà écouté.
+  Future<void> removeUpcomingByIds(Set<String> ids) async {
+    if (ids.isEmpty) return;
+    final currentId = mediaItem.value?.id;
+    if (currentId == null) return;
+    final currentIndex = _queue.indexWhere((e) => e.id == currentId);
+    if (currentIndex < 0) return;
+
+    final kept = <MediaItem>[
+      for (var i = 0; i < _queue.length; i++)
+        if (i <= currentIndex || !ids.contains(_queue[i].id)) _queue[i],
+    ];
+    if (kept.length == _queue.length) return;
+
+    _queue
+      ..clear()
+      ..addAll(kept);
+    queue.add(List.unmodifiable(_queue));
+  }
+
   /// Clear the queue
   Future<void> clearQueue() async {
     await _player.stop();
