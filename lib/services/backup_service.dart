@@ -16,6 +16,36 @@ class BackupFormatException implements Exception {
   String toString() => message;
 }
 
+/// Les familles de données que l'utilisateur peut choisir d'exporter, puis
+/// d'importer. Chacune est indépendante des autres.
+enum BackupCategory {
+  classifications(
+    'Classifications',
+    'Ambiance de chaque morceau, sans refaire d\'appel à l\'IA',
+  ),
+  liked('Favoris', 'Les morceaux que vous avez aimés'),
+  playCounts('Écoutes', 'Compteurs d\'écoute (« les plus écoutés »)'),
+  customMoods('Ambiances perso', 'Vos ambiances et leurs morceaux'),
+  favoriteArtists('Artistes préférés', 'La liste choisie dans le profil'),
+  periodMoods(
+    'Ambiances par moment',
+    'Les ambiances choisies pour matin, soir...',
+  ),
+  smartQueue('Lecture intelligente', 'Le réglage activé ou non');
+
+  final String label;
+  final String description;
+  const BackupCategory(this.label, this.description);
+
+  /// Catégories qui s'appuient sur des morceaux (donc sur l'appariement
+  /// avec la bibliothèque de l'appareil qui importe).
+  bool get isTrackBased =>
+      this == classifications ||
+      this == liked ||
+      this == playCounts ||
+      this == customMoods;
+}
+
 /// Un morceau tel que décrit dans le fichier de transfert.
 ///
 /// Les identifiants Isar d'un téléphone n'ont aucun sens sur un autre :
@@ -150,6 +180,38 @@ class BackupData {
       customMoods.isNotEmpty ||
       favoriteArtists.isNotEmpty ||
       periodMoods.isNotEmpty;
+
+  /// Catégories réellement présentes dans ce fichier (l'import ne propose
+  /// que celles-là).
+  Set<BackupCategory> get availableCategories => {
+        if (classifiedCount > 0) BackupCategory.classifications,
+        if (likedRefs.isNotEmpty) BackupCategory.liked,
+        if (playCounts.isNotEmpty) BackupCategory.playCounts,
+        if (customMoods.isNotEmpty) BackupCategory.customMoods,
+        if (favoriteArtists.isNotEmpty) BackupCategory.favoriteArtists,
+        if (periodMoods.isNotEmpty) BackupCategory.periodMoods,
+        if (smartQueueEnabled != null) BackupCategory.smartQueue,
+      };
+
+  /// Nombre d'éléments d'une catégorie dans ce fichier.
+  int countFor(BackupCategory category) {
+    switch (category) {
+      case BackupCategory.classifications:
+        return classifiedCount;
+      case BackupCategory.liked:
+        return likedRefs.length;
+      case BackupCategory.playCounts:
+        return playCounts.length;
+      case BackupCategory.customMoods:
+        return customMoods.length;
+      case BackupCategory.favoriteArtists:
+        return favoriteArtists.length;
+      case BackupCategory.periodMoods:
+        return periodMoods.length;
+      case BackupCategory.smartQueue:
+        return smartQueueEnabled == null ? 0 : 1;
+    }
+  }
 
   Map<String, dynamic> toJson() => {
         'app': BackupService.appId,
@@ -317,20 +379,39 @@ class BackupService {
 
   // ───────────────────────── Export ─────────────────────────
 
-  /// Construit le contenu à exporter à partir de l'état actuel.
-  Future<BackupData> buildBackup({required UserProfile profile}) async {
+  /// Construit le contenu à exporter à partir de l'état actuel, limité aux
+  /// [categories] choisies : ce qui n'est pas coché n'entre pas dans le
+  /// fichier.
+  Future<BackupData> buildBackup({
+    required UserProfile profile,
+    required Set<BackupCategory> categories,
+  }) async {
+    final wantClassifications =
+        categories.contains(BackupCategory.classifications);
+    final wantLiked = categories.contains(BackupCategory.liked);
+    final wantCounts = categories.contains(BackupCategory.playCounts);
+    final wantMoods = categories.contains(BackupCategory.customMoods);
+
     final tracks = await _storage.getAllTracks();
-    final liked = await _storage.getLikedTrackIds();
-    final counts = await _storage.getPlayCounts();
-    final moods = await _storage.getAllCustomMoods();
+    final allLiked = await _storage.getLikedTrackIds();
+    final allCounts = await _storage.getPlayCounts();
+    final allMoods = await _storage.getAllCustomMoods();
+
+    final liked = wantLiked ? allLiked : <int>{};
+    final counts = wantCounts ? allCounts : <int, int>{};
+    final moods = wantMoods ? allMoods : allMoods.take(0).toList();
 
     final inCustomMood = <int>{for (final m in moods) ...m.trackIds};
 
+    // Un morceau n'est écrit dans le fichier que s'il porte une donnée
+    // exportée : sinon il alourdirait le fichier pour rien.
     final exported = <BackupTrack>[];
     final exportedIds = <int>{};
     for (final t in tracks) {
       final mood = t.mood;
-      final classified = mood != null && mood != MoodType.unknown;
+      final classified = wantClassifications &&
+          mood != null &&
+          mood != MoodType.unknown;
       final relevant = classified ||
           liked.contains(t.id) ||
           (counts[t.id] ?? 0) > 0 ||
@@ -372,15 +453,24 @@ class BackupService {
             },
           ),
       ],
-      favoriteArtists: profile.favoriteArtists,
-      periodMoods: profile.periodMoods,
-      smartQueueEnabled: profile.smartQueueEnabled,
+      favoriteArtists: categories.contains(BackupCategory.favoriteArtists)
+          ? profile.favoriteArtists
+          : const [],
+      periodMoods: categories.contains(BackupCategory.periodMoods)
+          ? profile.periodMoods
+          : const {},
+      smartQueueEnabled: categories.contains(BackupCategory.smartQueue)
+          ? profile.smartQueueEnabled
+          : null,
     );
   }
 
   /// Écrit la sauvegarde dans un fichier temporaire prêt à être partagé.
-  Future<File> exportToFile({required UserProfile profile}) async {
-    final data = await buildBackup(profile: profile);
+  Future<File> exportToFile({
+    required UserProfile profile,
+    required Set<BackupCategory> categories,
+  }) async {
+    final data = await buildBackup(profile: profile, categories: categories);
     final dir = await getTemporaryDirectory();
     final d = data.exportedAt;
     String two(int n) => n.toString().padLeft(2, '0');
@@ -430,21 +520,22 @@ class BackupService {
     return parse(content);
   }
 
-  /// Applique [data] sur cet appareil.
+  /// Applique [data] sur cet appareil, limité aux [categories] choisies.
   ///
-  /// - Les classifications sont toujours importées pour les morceaux
-  ///   retrouvés ; un morceau déjà classé ici n'est remplacé que si
-  ///   [overwriteClassifications] est vrai.
-  /// - Favoris, ambiances perso et compteurs d'écoute (données
-  ///   « personnelles ») ne sont importés que si [includePersonalData]
-  ///   est vrai - on ne veut pas forcément les favoris d'une autre personne.
+  /// - Classifications : importées pour les morceaux retrouvés ; un morceau
+  ///   déjà classé ici n'est remplacé que si [overwriteClassifications] est
+  ///   vrai.
+  /// - Favoris, écoutes et ambiances perso : chacun n'est importé que si sa
+  ///   catégorie est cochée.
   ///
-  /// Le profil (artistes préférés...) n'est pas traité ici : l'appelant
-  /// l'applique via le ProfileNotifier pour que l'interface se mette à jour.
+  /// Le profil (artistes préférés, ambiances par moment, lecture
+  /// intelligente) n'est pas traité ici : l'appelant l'applique via le
+  /// ProfileNotifier pour que l'interface se mette à jour (voir aussi
+  /// [matchFavoriteArtists]).
   Future<BackupImportResult> apply(
     BackupData data, {
     required bool overwriteClassifications,
-    required bool includePersonalData,
+    required Set<BackupCategory> categories,
   }) async {
     final local = await _storage.getAllTracks();
     final matched = matchTracks(data.tracks, local);
@@ -453,30 +544,32 @@ class BackupService {
     final toSave = <Track>[];
     var kept = 0;
 
-    for (final bt in data.tracks) {
-      final track = matched[bt.ref];
-      final mood = bt.moodType;
-      if (track == null || mood == null || mood == MoodType.unknown) continue;
+    if (categories.contains(BackupCategory.classifications)) {
+      for (final bt in data.tracks) {
+        final track = matched[bt.ref];
+        final mood = bt.moodType;
+        if (track == null || mood == null || mood == MoodType.unknown) continue;
 
-      final alreadyClassified =
-          track.mood != null && track.mood != MoodType.unknown;
-      if (alreadyClassified && !overwriteClassifications) {
-        kept++;
-        continue;
+        final alreadyClassified =
+            track.mood != null && track.mood != MoodType.unknown;
+        if (alreadyClassified && !overwriteClassifications) {
+          kept++;
+          continue;
+        }
+        track
+          ..mood = mood
+          ..moodConfidence = bt.moodConfidence?.clamp(0.0, 1.0).toDouble()
+          ..lastClassified = bt.lastClassified ?? now
+          ..updatedAt = now;
+        toSave.add(track);
       }
-      track
-        ..mood = mood
-        ..moodConfidence = bt.moodConfidence?.clamp(0.0, 1.0).toDouble()
-        ..lastClassified = bt.lastClassified ?? now
-        ..updatedAt = now;
-      toSave.add(track);
+      if (toSave.isNotEmpty) await _storage.saveTracks(toSave);
     }
-    if (toSave.isNotEmpty) await _storage.saveTracks(toSave);
 
     var likedAdded = 0;
     var customAdded = 0;
 
-    if (includePersonalData) {
+    if (categories.contains(BackupCategory.liked)) {
       final likedLocalIds = <int>{
         for (final ref in data.likedRefs)
           if (matched[ref] != null) matched[ref]!.id,
@@ -486,13 +579,17 @@ class BackupService {
         likedAdded = likedLocalIds.difference(before).length;
         await _storage.addLikedTrackIds(likedLocalIds);
       }
+    }
 
+    if (categories.contains(BackupCategory.playCounts)) {
       final counts = <int, int>{
         for (final e in data.playCounts.entries)
           if (matched[e.key] != null) matched[e.key]!.id: e.value,
       };
       if (counts.isNotEmpty) await _storage.mergePlayCounts(counts);
+    }
 
+    if (categories.contains(BackupCategory.customMoods)) {
       for (final mood in data.customMoods) {
         if (mood.name.trim().isEmpty) continue;
         final entries = <int, double>{
@@ -516,5 +613,38 @@ class BackupService {
       likedAdded: likedAdded,
       customMoodTracksAdded: customAdded,
     );
+  }
+
+  /// Ne garde, parmi les artistes préférés du fichier, que ceux qui existent
+  /// dans la bibliothèque de cet appareil (même nom, sans tenir compte de la
+  /// casse, des accents ni de la ponctuation).
+  ///
+  /// Les noms renvoyés sont ceux de CET appareil, tels qu'ils s'écrivent dans
+  /// la bibliothèque, pour correspondre exactement au sélecteur d'artistes du
+  /// profil. [skipped] = artistes du fichier absents de cet appareil.
+  Future<({List<String> onDevice, int skipped})> matchFavoriteArtists(
+    List<String> artists,
+  ) async {
+    final local = await _storage.getAllTracks();
+    final byKey = <String, String>{};
+    for (final t in local) {
+      final name = t.artist.trim();
+      if (name.isEmpty) continue;
+      byKey.putIfAbsent(_normalize(name), () => name);
+    }
+
+    final onDevice = <String>[];
+    final seen = <String>{};
+    var skipped = 0;
+    for (final artist in artists) {
+      final key = _normalize(artist);
+      final localName = key.isEmpty ? null : byKey[key];
+      if (localName == null) {
+        skipped++;
+        continue;
+      }
+      if (seen.add(key)) onDevice.add(localName);
+    }
+    return (onDevice: onDevice, skipped: skipped);
   }
 }
