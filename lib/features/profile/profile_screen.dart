@@ -56,7 +56,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Container(
                   width: 88,
                   height: 88,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: AppTheme.brandGradient,
                     shape: BoxShape.circle,
                   ),
@@ -113,7 +113,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(AppTheme.radiusM),
                         ),
-                        child: const Icon(Icons.equalizer_rounded,
+                        child: Icon(Icons.equalizer_rounded,
                             color: AppTheme.accentPrimary),
                       ),
                       const SizedBox(width: AppTheme.spacingM),
@@ -156,7 +156,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(AppTheme.radiusM),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.auto_awesome_rounded,
                         color: AppTheme.accentPrimary,
                       ),
@@ -231,11 +231,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   runSpacing: AppTheme.spacingS,
                   children: [
                     for (final artist in profile.favoriteArtists)
-                      Chip(
+                      // Un tap sur l'artiste le retire des préférés.
+                      InputChip(
                         label: Text(artist),
                         backgroundColor: AppTheme.backgroundCard,
                         labelStyle: AppTheme.bodyMedium,
                         side: BorderSide.none,
+                        deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                        deleteIconColor: AppTheme.textTertiary,
+                        onPressed: () => _removeFavoriteArtist(artist),
+                        onDeleted: () => _removeFavoriteArtist(artist),
                       ),
                   ],
                 ),
@@ -277,7 +282,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
-                child: const Icon(Icons.volume_up_rounded,
+                child: Icon(Icons.volume_up_rounded,
                     color: AppTheme.accentPrimary),
               ),
               const SizedBox(width: AppTheme.spacingM),
@@ -327,6 +332,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Future<void> _removeFavoriteArtist(String artist) async {
+    final current = ref.read(profileProvider).favoriteArtists;
+    await ref
+        .read(profileProvider.notifier)
+        .setFavoriteArtists(current.where((a) => a != artist).toList());
+  }
+
   Future<void> _editFavoriteArtists(
     BuildContext context,
     List<String> allArtists,
@@ -364,7 +376,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(AppTheme.radiusM),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.file_upload_rounded,
                 color: AppTheme.accentPrimary,
               ),

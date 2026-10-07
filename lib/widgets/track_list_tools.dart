@@ -247,7 +247,7 @@ class _LocateTrackButtonState extends ConsumerState<LocateTrackButton> {
                   ),
                 ],
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.anchor_rounded,
                 color: AppTheme.accentPrimary,
                 size: 20,
@@ -266,15 +266,18 @@ class TrackListActionBar extends StatelessWidget {
   final List<Track> tracks;
   final TrackSortOption? sort;
   final ValueChanged<TrackSortChoice>? onSort;
-  final Color color;
+  final Color? _color;
+
+  /// Par défaut la couleur principale choisie par l'utilisateur.
+  Color get color => _color ?? AppTheme.accentPrimary;
 
   const TrackListActionBar({
     super.key,
     required this.tracks,
     this.sort,
     this.onSort,
-    this.color = AppTheme.accentPrimary,
-  });
+    Color? color,
+  }) : _color = color;
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,9 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/audio_provider.dart';
 
 import '../features/player/player_screen.dart';
 import '../models/track.dart';
@@ -53,4 +56,38 @@ void playShuffled(BuildContext context, List<Track> tracks) {
   if (tracks.isEmpty) return;
   final shuffled = List<Track>.from(tracks)..shuffle(Random());
   openPlayer(context, track: shuffled.first, tracks: shuffled);
+}
+
+/// Bouton lecture d'une ligne de liste : joue le morceau SANS ouvrir
+/// l'écran du lecteur, ou met en pause / reprend s'il est déjà le morceau
+/// en cours (le même bouton fait donc lecture et pause).
+///
+/// Un autre morceau remplace la file par [tracks] (l'ordre affiché), comme
+/// le fait le lecteur plein écran.
+Future<void> togglePlayTrack(
+  WidgetRef ref,
+  Track track,
+  List<Track> tracks,
+) async {
+  try {
+    final handler = await ref.read(audioHandlerProvider.future);
+    final isCurrent = handler.mediaItem.value?.id == track.id.toString();
+    if (isCurrent) {
+      if (handler.playbackState.value.playing) {
+        await handler.pause();
+      } else {
+        await handler.play();
+      }
+      return;
+    }
+    final index = tracks.indexWhere((t) => t.id == track.id);
+    if (index >= 0) {
+      await handler.playTrackFromList(tracks, index);
+    } else {
+      await handler.addAndPlayTrack(track);
+    }
+  } catch (_) {
+    // Lecture impossible (fichier manquant…) : le handler gère déjà ses
+    // erreurs de lecture, inutile de faire planter le tap.
+  }
 }

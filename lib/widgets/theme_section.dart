@@ -4,8 +4,9 @@ import '../providers/theme_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Carte « Thème » de l'écran de profil : choix de la couleur de fond de
-/// l'app, soit parmi des préréglages, soit en la composant soi-même
-/// (teinte / intensité / clarté).
+/// l'app (préréglages ou composée soi-même) et de la couleur principale
+/// (le violet d'origine) : cette dernière n'a aucun préréglage, c'est
+/// l'utilisateur qui la compose librement (teinte / intensité / clarté).
 ///
 /// Les textes de l'app restent clairs, donc une couleur trop claire est
 /// assombrie automatiquement (voir [ThemePalette]) : l'aperçu montre
@@ -19,7 +20,7 @@ class ThemeSection extends ConsumerStatefulWidget {
 
 class _ThemeSectionState extends ConsumerState<ThemeSection> {
   static const List<(String, Color?)> _presets = [
-    ('Violet', null),
+    ('Origine', null),
     ('Minuit', Color(0xFF0B1030)),
     ('Océan', Color(0xFF06222E)),
     ('Forêt', Color(0xFF07200F)),
@@ -29,7 +30,11 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
     ('Noir', Color(0xFF000000)),
   ];
 
+  /// Violet d'origine, point de départ du sélecteur de couleur principale.
+  static const Color _defaultAccent = Color(0xFFA855F7);
+
   late HSLColor _hsl;
+  late HSLColor _accentHsl;
   bool _customOpen = false;
 
   @override
@@ -37,7 +42,12 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
     super.initState();
     final current = ref.read(themeProvider).background;
     _hsl = HSLColor.fromColor(current ?? const Color(0xFF1B1038));
+    _accentHsl = HSLColor.fromColor(
+        ref.read(themeProvider).accent ?? _defaultAccent);
   }
+
+  void _applyAccent(Color? color) =>
+      ref.read(themeProvider.notifier).setAccent(color);
 
   void _apply(Color? color) =>
       ref.read(themeProvider.notifier).setBackground(color);
@@ -47,7 +57,9 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
 
   @override
   Widget build(BuildContext context) {
-    final current = ref.watch(themeProvider).background;
+    final settings = ref.watch(themeProvider);
+    final current = settings.background;
+    final accent = settings.accent;
     final isPreset = _presets.any((p) => _isSelected(p.$2, current));
     final preview = _hsl.toColor();
 
@@ -69,7 +81,7 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
                   color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
-                child: const Icon(Icons.palette_rounded,
+                child: Icon(Icons.palette_rounded,
                     color: AppTheme.accentPrimary),
               ),
               const SizedBox(width: AppTheme.spacingM),
@@ -80,7 +92,7 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
                     Text('Thème', style: AppTheme.titleMedium),
                     const SizedBox(height: 2),
                     Text(
-                      'Couleur de fond de l\'application',
+                      'Couleurs de l\'application',
                       style: AppTheme.bodySmall
                           .copyWith(color: AppTheme.textTertiary),
                     ),
@@ -90,6 +102,8 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
             ],
           ),
           const SizedBox(height: AppTheme.spacingL),
+          Text('Fond', style: AppTheme.labelLarge),
+          const SizedBox(height: AppTheme.spacingS),
           Wrap(
             spacing: AppTheme.spacingM,
             runSpacing: AppTheme.spacingM,
@@ -143,8 +157,130 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
                   AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
             ),
           ],
+          const SizedBox(height: AppTheme.spacingXL),
+          _buildAccentSection(accent),
         ],
       ),
+    );
+  }
+
+  /// Couleur principale : aucune couleur imposée, l'utilisateur choisit
+  /// librement. Sa clarté est bornée (0.50-0.72) pour rester visible sur
+  /// le fond sombre ; les curseurs reflètent exactement ce qui est appliqué.
+  Widget _buildAccentSection(Color? accent) {
+    final preview = _accentHsl.toColor();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text('Couleur principale', style: AppTheme.labelLarge),
+            ),
+            if (accent != null)
+              TextButton(
+                onPressed: () {
+                  setState(() => _accentHsl = HSLColor.fromColor(_defaultAccent));
+                  _applyAccent(null);
+                },
+                child: Text('Violet d\'origine',
+                    style: AppTheme.labelMedium
+                        .copyWith(color: AppTheme.accentPrimary)),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppTheme.spacingS),
+        Container(
+          height: 36,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusM),
+            gradient: LinearGradient(colors: [
+              _accentHsl.withHue((_accentHsl.hue + 12) % 360).toColor(),
+              preview,
+              _accentHsl.withHue((_accentHsl.hue + 348) % 360).toColor(),
+            ]),
+            border: Border.all(color: AppTheme.border),
+          ),
+        ),
+        const SizedBox(height: AppTheme.spacingS),
+        Row(
+          children: [
+            SizedBox(width: 76, child: Text('Teinte', style: AppTheme.bodyMedium)),
+            Expanded(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Piste arc-en-ciel derrière le curseur.
+                  Container(
+                    height: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      gradient: LinearGradient(colors: [
+                        for (var h = 0; h <= 360; h += 60)
+                          HSLColor.fromAHSL(1, h.toDouble(), 1, 0.5).toColor(),
+                      ]),
+                    ),
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Colors.transparent,
+                      inactiveTrackColor: Colors.transparent,
+                    ),
+                    child: Slider(
+                      value: _accentHsl.hue.clamp(0.0, 360.0).toDouble(),
+                      min: 0,
+                      max: 360,
+                      onChanged: (v) =>
+                          setState(() => _accentHsl = _accentHsl.withHue(v)),
+                      onChangeEnd: (_) => _applyAccent(_accentHsl.toColor()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        _buildAccentSlider(
+          label: 'Intensité',
+          value: _accentHsl.saturation,
+          min: 0,
+          max: 1,
+          onChanged: (v) =>
+              setState(() => _accentHsl = _accentHsl.withSaturation(v)),
+        ),
+        _buildAccentSlider(
+          label: 'Clarté',
+          value: _accentHsl.lightness,
+          min: 0.5,
+          max: 0.72,
+          onChanged: (v) =>
+              setState(() => _accentHsl = _accentHsl.withLightness(v)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccentSlider({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(width: 76, child: Text(label, style: AppTheme.bodyMedium)),
+        Expanded(
+          child: Slider(
+            value: value.clamp(min, max).toDouble(),
+            min: min,
+            max: max,
+            onChanged: onChanged,
+            onChangeEnd: (_) => _applyAccent(_accentHsl.toColor()),
+          ),
+        ),
+      ],
     );
   }
 

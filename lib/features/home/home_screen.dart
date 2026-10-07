@@ -18,6 +18,7 @@ import '../../widgets/custom_mood_card.dart';
 import '../../widgets/mood_editor_dialog.dart';
 import '../mood/custom_mood_detail_screen.dart';
 import '../player/player_screen.dart';
+import '../../utils/playback_navigation.dart';
 import '../mood/mood_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -350,7 +351,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     index: index,
                                     isPlaying: isPlaying,
                                     onTap: () => _playTrack(track),
-                                    onPlay: () => _playTrack(track),
+                                    onPlay: () => togglePlayTrack(
+                                        ref, track, trackState.filteredTracks),
                                     onMore: () => showTrackOptionsSheet(context, ref, track),
                                   ),
                                 );
@@ -419,7 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.anchor_rounded,
                             color: AppTheme.accentPrimary,
                             size: 20,
@@ -921,7 +923,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.accentPrimary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.music_note_rounded,
                 size: 48,
                 color: AppTheme.accentPrimary,

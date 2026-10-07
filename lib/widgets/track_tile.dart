@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/audio_provider.dart' show isPlayingProvider;
 import '../theme/app_theme.dart';
 import 'track_artwork.dart';
 import '../theme/mood_colors.dart';
@@ -231,6 +233,7 @@ class _TrackTileState extends State<TrackTile> {
                   child: Center(
                     child: GestureDetector(
                       onTap: widget.onPlay,
+                      behavior: HitTestBehavior.opaque,
                       child: AnimatedContainer(
                         duration: AppTheme.animFast,
                         width: 38,
@@ -255,10 +258,22 @@ class _TrackTileState extends State<TrackTile> {
                                 ]
                               : null,
                         ),
-                        child: Icon(
-                          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                          color: isPlaying ? AppTheme.backgroundPrimary : AppTheme.textPrimary,
-                          size: 20,
+                        // `isPlaying` = c'est le morceau en cours ; le pictogramme
+                        // « pause » n'apparaît que s'il est réellement en
+                        // lecture (en pause, on propose de reprendre).
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final audioPlaying = ref.watch(isPlayingProvider);
+                            return Icon(
+                              isPlaying && audioPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              color: isPlaying
+                                  ? AppTheme.backgroundPrimary
+                                  : AppTheme.textPrimary,
+                              size: 20,
+                            );
+                          },
                         ),
                       ),
                     ),

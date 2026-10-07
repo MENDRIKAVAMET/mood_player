@@ -67,6 +67,7 @@ void main() {
       final background =
           await ThemeService.instance.load().timeout(_startupStepTimeout);
       AppTheme.applyBackground(background);
+      AppTheme.applyAccent(ThemeService.instance.accent);
       _applySystemUi();
     } catch (e, st) {
       // ignore: avoid_print
@@ -161,7 +162,8 @@ class _MyAppState extends ConsumerState<MyApp> {
     // reconstruction de tout le reste.
     ref.watch(themeProvider);
     ref.listen<ThemeSettings>(themeProvider, (previous, next) {
-      if (previous?.background?.toARGB32() != next.background?.toARGB32()) {
+      if (previous?.background?.toARGB32() != next.background?.toARGB32() ||
+          previous?.accent?.toARGB32() != next.accent?.toARGB32()) {
         _repaintEverything();
       }
     });
@@ -238,4 +240,4 @@ class _StartupErrorScreen extends StatelessWidget {
       ),
     );
   }
-}
+}

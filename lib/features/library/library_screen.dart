@@ -196,11 +196,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             track: track,
                             tracks: trackState.filteredTracks,
                           ),
-                          onPlay: () => openPlayer(
-                            context,
-                            track: track,
-                            tracks: trackState.filteredTracks,
-                          ),
+                          onPlay: () => togglePlayTrack(
+                              ref, track, trackState.filteredTracks),
                           onMore: () =>
                               showTrackOptionsSheet(context, ref, track),
                         ),
@@ -425,7 +422,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 color: AppTheme.accentPrimary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.music_note_rounded,
                 size: 48,
                 color: AppTheme.accentPrimary,

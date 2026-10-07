@@ -90,7 +90,7 @@ class _RenameTrackScreenState extends ConsumerState<RenameTrackScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        borderSide: const BorderSide(color: AppTheme.accentPrimary, width: 1.5),
+        borderSide: BorderSide(color: AppTheme.accentPrimary, width: 1.5),
       ),
     );
   }

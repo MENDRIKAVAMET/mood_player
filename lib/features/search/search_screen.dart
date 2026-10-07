@@ -169,7 +169,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                             isPlaying:
                                                 currentId == track.id.toString(),
                                             onTap: open,
-                                            onPlay: open,
+                                            onPlay: () => togglePlayTrack(ref, track, results),
                                             onMore: () => showTrackOptionsSheet(
                                                 context, ref, track),
                                           ),

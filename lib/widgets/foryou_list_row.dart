@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/track.dart';
-import '../providers/audio_provider.dart' show currentTrackIdProvider;
+import '../providers/audio_provider.dart'
+    show currentTrackIdProvider, isPlayingProvider;
 import '../theme/mood_colors.dart';
 import '../theme/app_theme.dart';
 import 'track_artwork.dart';
@@ -19,6 +20,9 @@ class ForYouListRow extends ConsumerWidget {
   final Track track;
   final VoidCallback onTap;
 
+  /// Bouton lecture/pause de droite : joue sans ouvrir le lecteur.
+  final VoidCallback? onPlay;
+
   /// Libellé optionnel sous la pochette (ex. « 12 écoutes »), affiché en
   /// petit badge superposé au coin, comme le compteur d'écoutes des
   /// captures de référence.
@@ -28,6 +32,7 @@ class ForYouListRow extends ConsumerWidget {
     super.key,
     required this.track,
     required this.onTap,
+    this.onPlay,
     this.badge,
   });
 
@@ -128,22 +133,31 @@ class ForYouListRow extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: AppTheme.spacingS),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isPlaying
-                        ? accent
-                        : AppTheme.textTertiary.withValues(alpha: 0.4),
-                    width: 1,
+              GestureDetector(
+                onTap: onPlay ?? onTap,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isPlaying
+                            ? accent
+                            : AppTheme.textTertiary.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      isPlaying && ref.watch(isPlayingProvider)
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                      color: isPlaying ? accent : AppTheme.textSecondary,
+                      size: 18,
+                    ),
                   ),
-                ),
-                child: Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: isPlaying ? accent : AppTheme.textSecondary,
-                  size: 18,
                 ),
               ),
             ],

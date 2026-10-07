@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
 import '../../providers/mood_suggestions_provider.dart';
@@ -11,16 +12,16 @@ import '../../widgets/track_list_tools.dart';
 
 /// Contenu d'un mix : ses 20 morceaux, avec lecture dans l'ordre ou en
 /// aléatoire.
-class SuggestionMixScreen extends StatefulWidget {
+class SuggestionMixScreen extends ConsumerStatefulWidget {
   final TrackMix mix;
 
   const SuggestionMixScreen({super.key, required this.mix});
 
   @override
-  State<SuggestionMixScreen> createState() => _SuggestionMixScreenState();
+  ConsumerState<SuggestionMixScreen> createState() => _SuggestionMixScreenState();
 }
 
-class _SuggestionMixScreenState extends State<SuggestionMixScreen> {
+class _SuggestionMixScreenState extends ConsumerState<SuggestionMixScreen> {
   final ScrollController _scroll = ScrollController();
   late final TrackListLocator _locator =
       TrackListLocator(controller: _scroll);
@@ -118,6 +119,8 @@ class _SuggestionMixScreenState extends State<SuggestionMixScreen> {
                             track: tracks[i],
                             onTap: () => openPlayer(context,
                                 track: tracks[i], tracks: tracks),
+                            onPlay: () =>
+                                togglePlayTrack(ref, tracks[i], tracks),
                           ),
                         ),
                       ),

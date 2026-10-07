@@ -15,9 +15,13 @@ class ThemeService {
   static final ThemeService instance = ThemeService._();
 
   Color? _background;
+  Color? _accent;
 
   /// Couleur de fond choisie, ou null = thème d'origine.
   Color? get background => _background;
+
+  /// Couleur principale choisie, ou null = violet d'origine.
+  Color? get accent => _accent;
 
   Future<File> _file() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -29,23 +33,30 @@ class ThemeService {
       final file = await _file();
       if (await file.exists()) {
         final json = jsonDecode(await file.readAsString());
-        final value = json is Map ? json['background'] : null;
-        _background = value is int ? Color(value) : null;
+        final bg = json is Map ? json['background'] : null;
+        final ac = json is Map ? json['accent'] : null;
+        _background = bg is int ? Color(bg) : null;
+        _accent = ac is int ? Color(ac) : null;
       }
     } catch (_) {
       // Fichier absent ou corrompu : thème d'origine plutôt que de bloquer
       // le démarrage pour une préférence d'affichage.
       _background = null;
+      _accent = null;
     }
     return _background;
   }
 
-  Future<void> save(Color? background) async {
+  Future<void> save({Color? background, Color? accent}) async {
     _background = background;
+    _accent = accent;
     try {
       final file = await _file();
       await file.writeAsString(
-        jsonEncode({'background': background?.toARGB32()}),
+        jsonEncode({
+          'background': background?.toARGB32(),
+          'accent': accent?.toARGB32(),
+        }),
       );
     } catch (_) {
       // Le choix reste valable pour la session même si l'écriture échoue.

@@ -100,6 +100,8 @@ class _SeeAllTracksScreenState extends State<SeeAllTracksScreen> {
                                         track: track,
                                         tracks: tracks,
                                       ),
+                                      onPlay: () =>
+                                          togglePlayTrack(ref, track, tracks),
                                     ),
                                   ),
                                 );

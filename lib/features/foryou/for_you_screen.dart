@@ -320,6 +320,7 @@ class ForYouScreen extends ConsumerWidget {
                             badge: badgeBuilder?.call(track),
                             onTap: () =>
                                 openPlayer(context, track: track, tracks: tracks),
+                            onPlay: () => togglePlayTrack(ref, track, tracks),
                           ),
                       ],
                     ),

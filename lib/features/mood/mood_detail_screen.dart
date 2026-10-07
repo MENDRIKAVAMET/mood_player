@@ -11,6 +11,7 @@ import '../../widgets/track_list_tools.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
 import '../player/player_screen.dart';
+import '../../utils/playback_navigation.dart';
 
 /// Detailed mood screen showing all tracks for a specific mood
 class MoodDetailScreen extends ConsumerStatefulWidget {
@@ -134,7 +135,7 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
                                     index: index,
                                     isPlaying: currentId == track.id.toString(),
                                     onTap: open,
-                                    onPlay: open,
+                                    onPlay: () => togglePlayTrack(ref, track, tracks),
                                     onMore: () => showTrackOptionsSheet(
                                         context, ref, track),
                                   ),

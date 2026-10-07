@@ -164,7 +164,7 @@ class _ReminderDialog extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(Icons.play_circle_fill_rounded,
+                    Icon(Icons.play_circle_fill_rounded,
                         color: AppTheme.accentPrimary, size: 30),
                   ],
                 ),

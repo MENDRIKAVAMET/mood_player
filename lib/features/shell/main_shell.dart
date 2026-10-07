@@ -205,7 +205,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
           elevation: 0,
           height: 64,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: const [
+          destinations: [
             NavigationDestination(
               icon: Icon(Icons.library_music_outlined),
               selectedIcon: Icon(Icons.library_music_rounded, color: AppTheme.accentPrimary),

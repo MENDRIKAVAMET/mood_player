@@ -11,9 +11,56 @@ class AppTheme {
   // magenta-violet (#BF00FE) vers indigo (#5D00FF). Tout part de ces deux
   // teintes plutôt que d'un violet générique, pour que l'app et son icône
   // se ressemblent vraiment.
-  static const Color brandTop = Color(0xFFBF00FE);
-  static const Color brandBottom = Color(0xFF5D00FF);
-  static const Color brandMid = Color(0xFF8A00FF);
+  //
+  // Ces couleurs suivent la couleur principale choisie par l'utilisateur
+  // (voir [applyAccent]) ; sans choix, ce sont les violets d'origine.
+  static const Color _defaultBrandTop = Color(0xFFBF00FE);
+  static const Color _defaultBrandBottom = Color(0xFF5D00FF);
+  static const Color _defaultBrandMid = Color(0xFF8A00FF);
+  static const Color _defaultAccentPrimary = Color(0xFFA855F7);
+  static const Color _defaultAccentSecondary = Color(0xFFC94DFF);
+
+  static Color? _customAccent;
+  static Color _brandTop = _defaultBrandTop;
+  static Color _brandBottom = _defaultBrandBottom;
+  static Color _brandMid = _defaultBrandMid;
+  static Color _accentPrimary = _defaultAccentPrimary;
+  static Color _accentSecondary = _defaultAccentSecondary;
+
+  /// Couleur principale choisie par l'utilisateur, ou null = violet d'origine.
+  static Color? get customAccent => _customAccent;
+
+  /// Applique (ou retire, avec null) la couleur principale choisie.
+  ///
+  /// La couleur est conservée telle quelle pour la teinte, mais sa clarté est
+  /// bornée pour rester visible sur le fond sombre et lisible sous du texte
+  /// foncé (boutons pleins).
+  static void applyAccent(Color? base) {
+    _customAccent = base;
+    if (base == null) {
+      _brandTop = _defaultBrandTop;
+      _brandBottom = _defaultBrandBottom;
+      _brandMid = _defaultBrandMid;
+      _accentPrimary = _defaultAccentPrimary;
+      _accentSecondary = _defaultAccentSecondary;
+      return;
+    }
+    final hsl = HSLColor.fromColor(Color(base.toARGB32() | 0xFF000000));
+    final sat = hsl.saturation.clamp(0.0, 1.0).toDouble();
+    final l = hsl.lightness.clamp(0.50, 0.72).toDouble();
+    HSLColor shifted(double dh, double sat, double light) => HSLColor.fromAHSL(
+        1, (hsl.hue + dh + 360) % 360, sat.clamp(0.0, 1.0).toDouble(),
+        light.clamp(0.0, 1.0).toDouble());
+    _accentPrimary = shifted(0, sat, l).toColor();
+    _accentSecondary = shifted(10, sat, l + 0.08).toColor();
+    _brandTop = shifted(12, sat, 0.50).toColor();
+    _brandBottom = shifted(-12, sat, 0.50).toColor();
+    _brandMid = shifted(0, sat, 0.50).toColor();
+  }
+
+  static Color get brandTop => _brandTop;
+  static Color get brandBottom => _brandBottom;
+  static Color get brandMid => _brandMid;
 
   // Fonds : dérivés de la couleur de fond choisie par l'utilisateur (voir
   // [ThemePalette]). Sans choix, ce sont les quasi-noirs légèrement teintés
@@ -49,10 +96,10 @@ class AppTheme {
   // profondeur sans multiplier les aplats.
   static const Color surfaceGlass = Color(0x14FFFFFF);
   static const Color surfaceGlassStrong = Color(0x1FFFFFFF);
-  static const Color surfaceTint = Color(0x1A8A00FF);
+  static Color get surfaceTint => _brandMid.withValues(alpha: 0.10);
 
-  static const Color accentPrimary = Color(0xFFA855F7);
-  static const Color accentSecondary = Color(0xFFC94DFF);
+  static Color get accentPrimary => _accentPrimary;
+  static Color get accentSecondary => _accentSecondary;
   static const Color accentWarm = Color(0xFFFF5FA2);
   static const Color accentSuccess = Color(0xFF10B981);
   static const Color accentWarning = Color(0xFFFF6B35);
@@ -78,7 +125,7 @@ class AppTheme {
   // ═══════════════════════════════════════════════════════════════
 
   /// Le dégradé de marque, tel quel (boutons pleins, éléments actifs).
-  static const LinearGradient brandGradient = LinearGradient(
+  static LinearGradient get brandGradient => LinearGradient(
     colors: [brandTop, brandBottom],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -86,7 +133,23 @@ class AppTheme {
 
   /// Fond d'écran : la marque en très faible opacité en haut, qui se fond
   /// dans le noir. Remplace l'ancien bloc bleu-gris plaqué en haut.
-  static LinearGradient get screenGradient => _palette.screen;
+  static LinearGradient get screenGradient {
+    // Fond d'origine + couleur principale choisie : le halo du haut prend
+    // la couleur choisie (sinon il resterait violet).
+    if (_customBackground == null && _customAccent != null) {
+      return LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          _brandTop.withValues(alpha: 0.24),
+          _brandBottom.withValues(alpha: 0.10),
+          _palette.primary,
+        ],
+        stops: const [0.0, 0.22, 0.55],
+      );
+    }
+    return _palette.screen;
+  }
 
   /// Surface de carte : un voile clair très léger, en diagonale.
   static const LinearGradient cardGradient = LinearGradient(

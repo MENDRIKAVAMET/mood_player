@@ -182,7 +182,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
               color: AppTheme.accentPrimary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.queue_music_rounded,
               size: 40,
               color: AppTheme.accentPrimary,
@@ -456,7 +456,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                  borderSide: const BorderSide(
+                  borderSide: BorderSide(
                     color: AppTheme.accentPrimary,
                     width: 1,
                   ),
