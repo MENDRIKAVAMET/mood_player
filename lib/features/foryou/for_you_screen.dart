@@ -315,12 +315,15 @@ class ForYouScreen extends ConsumerWidget {
                     child: Column(
                       children: [
                         for (final track in column)
-                          ForYouListRow(
-                            track: track,
-                            badge: badgeBuilder?.call(track),
-                            onTap: () =>
-                                openPlayer(context, track: track, tracks: tracks),
-                            onPlay: () => togglePlayTrack(ref, track, tracks),
+                          Consumer(
+                            builder: (context, ref, _) => ForYouListRow(
+                              track: track,
+                              badge: badgeBuilder?.call(track),
+                              onTap: () => openPlayer(context,
+                                  track: track, tracks: tracks),
+                              onPlay: () =>
+                                  togglePlayTrack(ref, track, tracks),
+                            ),
                           ),
                       ],
                     ),
