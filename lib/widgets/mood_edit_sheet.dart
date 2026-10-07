@@ -60,7 +60,7 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
     final moodColors = MoodColors.forMood(_selectedMood);
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.backgroundSecondary,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXL)),
       ),

@@ -106,7 +106,7 @@ class _RenameTrackScreenState extends ConsumerState<RenameTrackScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
+        decoration: BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
           child: Column(

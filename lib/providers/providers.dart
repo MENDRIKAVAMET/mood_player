@@ -8,3 +8,4 @@ export 'mood_suggestions_provider.dart';
 export 'smart_queue_provider.dart';
 export 'equalizer_provider.dart';
 export 'loudness_provider.dart';
+export 'theme_provider.dart';

@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../models/track.dart';
 import '../../widgets/app_header.dart';
+import '../../providers/audio_provider.dart' show currentTrackIdProvider;
 import '../../providers/track_provider.dart' show TrackSortOption;
 import '../../widgets/track_list_tools.dart';
 import '../../widgets/track_tile.dart';
@@ -47,6 +48,7 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
   Widget build(BuildContext context) {
     final tracks = this.tracks;
     final moodColors = MoodColors.forMood(mood);
+    final currentId = ref.watch(currentTrackIdProvider);
 
     return Scaffold(
       body: Container(
@@ -130,6 +132,7 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
                                   child: TrackTile(
                                     track: track,
                                     index: index,
+                                    isPlaying: currentId == track.id.toString(),
                                     onTap: open,
                                     onPlay: open,
                                     onMore: () => showTrackOptionsSheet(

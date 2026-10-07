@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/debug/crash_log_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/shell/main_shell.dart';
+import 'providers/theme_provider.dart';
 import 'services/crash_log_service.dart';
 import 'services/profile_service.dart';
 import 'services/storage_service.dart';
+import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 
 /// Every startup step wrapped in a timeout so a hung native call (e.g.
@@ -34,12 +36,7 @@ void main() {
     };
 
     // Set system UI overlay style for immersive dark theme
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: AppTheme.backgroundPrimary,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ));
+    _applySystemUi();
 
     String? startupError;
 
@@ -61,6 +58,19 @@ void main() {
       // ignore: avoid_print
       print('main: StorageService.initialize failed: $e\n$st');
       startupError = 'Le stockage local n\'a pas pu être initialisé.\n$e';
+    }
+
+    // Couleur de fond choisie par l'utilisateur : chargée AVANT runApp pour
+    // que la toute première image ait déjà la bonne couleur. Non bloquant :
+    // en cas d'échec on garde le thème d'origine.
+    try {
+      final background =
+          await ThemeService.instance.load().timeout(_startupStepTimeout);
+      AppTheme.applyBackground(background);
+      _applySystemUi();
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('main: theme load failed: $e\n$st');
     }
 
     // If the previous run died from an uncaught (often native) exception,
@@ -100,7 +110,17 @@ void main() {
   });
 }
 
-class MyApp extends StatelessWidget {
+/// Barre de navigation système aux couleurs du fond courant.
+void _applySystemUi() {
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: AppTheme.backgroundPrimary,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
+}
+
+class MyApp extends ConsumerStatefulWidget {
   final String? crashLog;
   final String? startupError;
   final bool needsOnboarding;
@@ -113,13 +133,45 @@ class MyApp extends StatelessWidget {
   });
 
   @override
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  /// Les couleurs de fond sont lues via `AppTheme.backgroundXxx` (des
+  /// getters statiques), pas via `Theme.of(context)` : changer le thème ne
+  /// reconstruit donc pas les widgets tout seul. On marque donc tout l'arbre
+  /// comme à reconstruire - l'état (navigation, lecture, scroll) est
+  /// conservé, seuls les `build()` sont rejoués.
+  void _repaintEverything() {
+    _applySystemUi();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      void rebuild(Element element) {
+        element.markNeedsBuild();
+        element.visitChildren(rebuild);
+      }
+
+      (context as Element).visitChildren(rebuild);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // watch : recalcule `AppTheme.darkTheme` ; listen : force la
+    // reconstruction de tout le reste.
+    ref.watch(themeProvider);
+    ref.listen<ThemeSettings>(themeProvider, (previous, next) {
+      if (previous?.background?.toARGB32() != next.background?.toARGB32()) {
+        _repaintEverything();
+      }
+    });
+
     Widget home;
-    if (crashLog != null) {
-      home = CrashLogScreen(log: crashLog!);
-    } else if (startupError != null) {
-      home = _StartupErrorScreen(message: startupError!);
-    } else if (needsOnboarding) {
+    if (widget.crashLog != null) {
+      home = CrashLogScreen(log: widget.crashLog!);
+    } else if (widget.startupError != null) {
+      home = _StartupErrorScreen(message: widget.startupError!);
+    } else if (widget.needsOnboarding) {
       home = const OnboardingScreen();
     } else {
       home = const MainShell();

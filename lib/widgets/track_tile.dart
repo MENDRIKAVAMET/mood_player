@@ -127,7 +127,7 @@ class _TrackTileState extends State<TrackTile> {
                   width: 22,
                   child: Center(
                     child: isPlaying
-                        ? _EqualizerIndicator(color: moodColors.primary)
+                        ? EqualizerIndicator(color: moodColors.primary)
                         : Text(
                             '${widget.index + 1}',
                             style: AppTheme.labelMedium.copyWith(
@@ -349,16 +349,16 @@ class _AlbumArt extends StatelessWidget {
 
 /// Small live-looking equalizer made of three bars animating in a loop —
 /// replaces the static icon so the currently playing row visibly breathes.
-class _EqualizerIndicator extends StatefulWidget {
+class EqualizerIndicator extends StatefulWidget {
   final Color color;
 
-  const _EqualizerIndicator({required this.color});
+  const EqualizerIndicator({required this.color});
 
   @override
-  State<_EqualizerIndicator> createState() => _EqualizerIndicatorState();
+  State<EqualizerIndicator> createState() => EqualizerIndicatorState();
 }
 
-class _EqualizerIndicatorState extends State<_EqualizerIndicator>
+class EqualizerIndicatorState extends State<EqualizerIndicator>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 

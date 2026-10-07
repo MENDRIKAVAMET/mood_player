@@ -15,14 +15,34 @@ class AppTheme {
   static const Color brandBottom = Color(0xFF5D00FF);
   static const Color brandMid = Color(0xFF8A00FF);
 
-  // Fonds : quasi-noirs très légèrement teintés de violet plutôt que du
-  // gris neutre, pour que le dégradé de marque ne flotte pas au-dessus
+  // Fonds : dérivés de la couleur de fond choisie par l'utilisateur (voir
+  // [ThemePalette]). Sans choix, ce sont les quasi-noirs légèrement teintés
+  // de violet d'origine, pour que le dégradé de marque ne flotte pas au-dessus
   // d'un fond qui n'a rien à voir.
-  static const Color backgroundPrimary = Color(0xFF07040D);
-  static const Color backgroundSecondary = Color(0xFF0D0716);
-  static const Color backgroundTertiary = Color(0xFF130B20);
-  static const Color backgroundCard = Color(0xFF16102A);
-  static const Color backgroundCardElevated = Color(0xFF1F1738);
+  //
+  // Ce sont des getters et non des `const` pour pouvoir changer à l'exécution :
+  // MyApp force le rafraîchissement de l'arbre quand le choix change.
+  static ThemePalette _palette = ThemePalette.standard;
+  static Color? _customBackground;
+
+  /// Couleur de fond choisie par l'utilisateur, ou null = thème d'origine.
+  static Color? get customBackground => _customBackground;
+
+  /// Applique (ou retire, avec null) la couleur de fond choisie.
+  static void applyBackground(Color? base) {
+    _customBackground = base;
+    _palette =
+        base == null ? ThemePalette.standard : ThemePalette.fromBase(base);
+  }
+
+  static Color get backgroundPrimary => _palette.primary;
+  static Color get backgroundSecondary => _palette.secondary;
+  static Color get backgroundTertiary => _palette.tertiary;
+  static Color get backgroundCard => _palette.card;
+  static Color get backgroundCardElevated => _palette.cardElevated;
+
+  /// Halo en haut de l'accueil (bleu-gris d'origine, ou fond choisi).
+  static Color get homeGlow => _palette.homeTop;
 
   // Surfaces translucides : à poser sur un fond dégradé, elles laissent la
   // couleur transparaître au lieu de l'aplatir. C'est ce qui donne de la
@@ -66,16 +86,7 @@ class AppTheme {
 
   /// Fond d'écran : la marque en très faible opacité en haut, qui se fond
   /// dans le noir. Remplace l'ancien bloc bleu-gris plaqué en haut.
-  static const LinearGradient screenGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      Color(0x3DBF00FE),
-      Color(0x1A5D00FF),
-      backgroundPrimary,
-    ],
-    stops: [0.0, 0.22, 0.55],
-  );
+  static LinearGradient get screenGradient => _palette.screen;
 
   /// Surface de carte : un voile clair très léger, en diagonale.
   static const LinearGradient cardGradient = LinearGradient(
@@ -326,7 +337,7 @@ class AppTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: backgroundPrimary,
       primaryColor: accentPrimary,
-      colorScheme: const ColorScheme.dark(
+      colorScheme: ColorScheme.dark(
         primary: accentPrimary,
         secondary: accentSecondary,
         surface: backgroundSecondary,
@@ -360,6 +371,100 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(color: textPrimary, size: 24),
       dividerTheme: const DividerThemeData(color: divider, thickness: 1),
+    );
+  }
+}
+
+/// Palette de fonds de l'app, dérivée d'une couleur choisie par l'utilisateur.
+///
+/// Les textes restent clairs : la couleur choisie est donc assombrie
+/// automatiquement jusqu'à ce que la surface la plus claire (cartes
+/// surélevées) reste assez sombre pour garder un texte lisible. Le choix
+/// de l'utilisateur est conservé tel quel, seul le rendu est limité.
+class ThemePalette {
+  final Color primary;
+  final Color secondary;
+  final Color tertiary;
+  final Color card;
+  final Color cardElevated;
+  final Color homeTop;
+  final LinearGradient screen;
+
+  const ThemePalette._({
+    required this.primary,
+    required this.secondary,
+    required this.tertiary,
+    required this.card,
+    required this.cardElevated,
+    required this.homeTop,
+    required this.screen,
+  });
+
+  /// Thème d'origine (quasi-noirs teintés de violet + halo de marque).
+  static const ThemePalette standard = ThemePalette._(
+    primary: Color(0xFF07040D),
+    secondary: Color(0xFF0D0716),
+    tertiary: Color(0xFF130B20),
+    card: Color(0xFF16102A),
+    cardElevated: Color(0xFF1F1738),
+    homeTop: Color(0xFF1A1A2E),
+    screen: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Color(0x3DBF00FE),
+        Color(0x1A5D00FF),
+        Color(0xFF07040D),
+      ],
+      stops: [0.0, 0.22, 0.55],
+    ),
+  );
+
+  /// Luminance relative maximale de la surface la plus claire. Au-delà, le
+  /// texte tertiaire (#8B7EAB) n'est plus assez contrasté dessus.
+  static const double _maxElevatedLuminance = 0.03;
+
+  static Color _at(HSLColor c, double l) =>
+      c.withLightness(l.clamp(0.0, 1.0).toDouble()).toColor();
+
+  factory ThemePalette.fromBase(Color base) {
+    final hsl = HSLColor.fromColor(Color(base.toARGB32() | 0xFF000000));
+
+    // Assombrit la base tant que la surface surélevée (base + 0.075 de
+    // clarté) est trop claire pour du texte clair.
+    var l = hsl.lightness;
+    while (l > 0 &&
+        _at(hsl, l + 0.075).computeLuminance() > _maxElevatedLuminance) {
+      l -= 0.01;
+    }
+    if (l < 0) l = 0;
+
+    final primary = _at(hsl, l);
+    final elevated = _at(hsl, l + 0.075);
+
+    // Halo de haut d'écran : la teinte choisie, très translucide. Pas de
+    // halo pour un gris/noir pur (AMOLED), qui doit rester noir.
+    final tinted = hsl.saturation > 0.05;
+    final glowTop = tinted
+        ? hsl.withLightness(0.42).withAlpha(0.22).toColor()
+        : const Color(0x0DFFFFFF);
+    final glowMid = tinted
+        ? hsl.withLightness(0.42).withAlpha(0.08).toColor()
+        : const Color(0x05FFFFFF);
+
+    return ThemePalette._(
+      primary: primary,
+      secondary: _at(hsl, l + 0.01),
+      tertiary: _at(hsl, l + 0.03),
+      card: _at(hsl, l + 0.05),
+      cardElevated: elevated,
+      homeTop: elevated,
+      screen: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [glowTop, glowMid, primary],
+        stops: const [0.0, 0.22, 0.55],
+      ),
     );
   }
 }

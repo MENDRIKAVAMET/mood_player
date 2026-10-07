@@ -8,6 +8,7 @@ import '../../theme/mood_icons.dart';
 import '../../widgets/add_tracks_to_mood_sheet.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/mood_editor_dialog.dart';
+import '../../widgets/track_tile.dart' show EqualizerIndicator;
 import '../player/player_screen.dart';
 
 enum _MoodTrackSort { percentageDesc, percentageAsc, nameAsc }
@@ -341,7 +342,7 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
   }
 }
 
-class _MoodTrackRow extends StatelessWidget {
+class _MoodTrackRow extends ConsumerWidget {
   final Track track;
   final double percentage;
   final Color color;
@@ -359,7 +360,10 @@ class _MoodTrackRow extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isPlaying = ref.watch(
+      currentTrackIdProvider.select((id) => id == track.id.toString()),
+    );
     return Dismissible(
       key: ValueKey('mood_track_${track.id}'),
       direction: DismissDirection.endToStart,
@@ -386,8 +390,16 @@ class _MoodTrackRow extends StatelessWidget {
           ),
           padding: const EdgeInsets.all(AppTheme.spacingM),
           decoration: BoxDecoration(
-            color: AppTheme.backgroundCard,
+            color: isPlaying
+                ? Color.alphaBlend(
+                    color.withValues(alpha: 0.12), AppTheme.backgroundCard)
+                : AppTheme.backgroundCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            border: Border.all(
+              color: isPlaying
+                  ? color.withValues(alpha: 0.35)
+                  : Colors.transparent,
+            ),
           ),
           child: Row(
             children: [
@@ -398,7 +410,11 @@ class _MoodTrackRow extends StatelessWidget {
                   color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
-                child: Icon(Icons.music_note_rounded, color: color, size: 20),
+                child: Center(
+                  child: isPlaying
+                      ? EqualizerIndicator(color: color)
+                      : Icon(Icons.music_note_rounded, color: color, size: 20),
+                ),
               ),
               const SizedBox(width: AppTheme.spacingM),
               Expanded(
@@ -407,7 +423,10 @@ class _MoodTrackRow extends StatelessWidget {
                   children: [
                     Text(
                       track.title,
-                      style: AppTheme.bodyMedium,
+                      style: isPlaying
+                          ? AppTheme.bodyMedium.copyWith(
+                              color: color, fontWeight: FontWeight.w600)
+                          : AppTheme.bodyMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

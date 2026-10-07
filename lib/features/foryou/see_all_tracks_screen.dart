@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
 import '../../theme/app_theme.dart';
+import '../../providers/audio_provider.dart' show currentTrackIdProvider;
 import '../../providers/track_provider.dart' show TrackSortOption;
 import '../../utils/playback_navigation.dart';
 import '../../widgets/app_header.dart';
@@ -46,7 +48,7 @@ class _SeeAllTracksScreenState extends State<SeeAllTracksScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
+        decoration: BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -84,13 +86,20 @@ class _SeeAllTracksScreenState extends State<SeeAllTracksScreen> {
                                 final track = tracks[index];
                                 return KeyedSubtree(
                                   key: _locator.keyFor(track.id),
-                                  child: TrackTile(
-                                    track: track,
-                                    index: index,
-                                    onTap: () => openPlayer(
-                                      context,
+                                  child: Consumer(
+                                    builder: (context, ref, _) => TrackTile(
                                       track: track,
-                                      tracks: tracks,
+                                      index: index,
+                                      isPlaying: ref.watch(
+                                        currentTrackIdProvider.select(
+                                          (id) => id == track.id.toString(),
+                                        ),
+                                      ),
+                                      onTap: () => openPlayer(
+                                        context,
+                                        track: track,
+                                        tracks: tracks,
+                                      ),
                                     ),
                                   ),
                                 );

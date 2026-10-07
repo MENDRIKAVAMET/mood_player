@@ -59,7 +59,7 @@ class _EqualizerScreenState extends ConsumerState<EqualizerScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
+        decoration: BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
           child: Column(

@@ -119,7 +119,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
+        decoration: BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -460,7 +460,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.backgroundSecondary,
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXL)),
         ),

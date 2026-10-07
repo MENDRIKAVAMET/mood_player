@@ -19,6 +19,13 @@ final currentTrackProvider = StreamProvider.autoDispose<MediaItem?>((ref) async*
   yield* audioHandler.mediaItem;
 });
 
+// Id (String) du morceau actuellement chargé dans le lecteur, ou null.
+// Les listes comparent cet id à `track.id.toString()` pour mettre en
+// évidence la ligne « en lecture ». `select` => ne notifie que si l'id change.
+final currentTrackIdProvider = Provider.autoDispose<String?>((ref) {
+  return ref.watch(currentTrackProvider.select((v) => v.valueOrNull?.id));
+});
+
 // Playback state provider
 final playbackStateProvider = StreamProvider.autoDispose<PlaybackState>((ref) async* {
   final audioHandler = await ref.watch(audioHandlerProvider.future);

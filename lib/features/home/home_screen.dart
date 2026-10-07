@@ -222,12 +222,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF1A1A2E),
+              AppTheme.homeGlow,
               AppTheme.backgroundPrimary,
             ],
             stops: [0.0, 0.3],
@@ -1064,7 +1064,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.backgroundSecondary,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppTheme.radiusXL),
@@ -1132,7 +1132,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.backgroundSecondary,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(AppTheme.radiusXL),

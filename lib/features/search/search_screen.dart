@@ -76,6 +76,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final allTracks = ref.watch(trackProvider).tracks;
+    final currentId = ref.watch(currentTrackIdProvider);
     final lowerQuery = _query.trim().toLowerCase();
     final matches = lowerQuery.isEmpty
         ? const <Track>[]
@@ -90,7 +91,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
+        decoration: BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
         bottom: false,
         child: Column(
@@ -165,6 +166,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                           child: TrackTile(
                                             track: track,
                                             index: index,
+                                            isPlaying:
+                                                currentId == track.id.toString(),
                                             onTap: open,
                                             onPlay: open,
                                             onMore: () => showTrackOptionsSheet(

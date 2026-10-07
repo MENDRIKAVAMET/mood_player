@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import '../player/equalizer_screen.dart';
 import '../../widgets/data_transfer_section.dart';
+import '../../widgets/theme_section.dart';
 
 /// Écran de profil : artistes préférés (modifiables), quelques
 /// statistiques de bibliothèque. Accessible depuis l'icône profil de
@@ -31,7 +32,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.screenGradient),
+        decoration: BoxDecoration(gradient: AppTheme.screenGradient),
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -191,6 +192,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
               // Volume uniforme
               _buildNormalizeCard(),
+              const SizedBox(height: AppTheme.spacingXL),
+
+              // Thème : couleur de fond de l'application
+              const ThemeSection(),
               const SizedBox(height: AppTheme.spacingXL),
 
               // Artistes préférés
@@ -390,7 +395,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.backgroundSecondary,
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXL)),
         ),
@@ -613,7 +618,7 @@ class _ArtistPickerSheetState extends State<_ArtistPickerSheet> {
 
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.backgroundSecondary,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXL)),
       ),

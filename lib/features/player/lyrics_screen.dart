@@ -5,6 +5,7 @@ import '../../models/track.dart';
 import '../../models/lyric_line.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/lyrics_provider.dart';
+import '../../providers/track_provider.dart' show trackProvider;
 import '../../services/lyrics_service.dart';
 import '../../services/lyrics_text_settings.dart';
 import '../../theme/app_theme.dart';
@@ -38,6 +39,12 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   int _lastActiveIndex = -1;
+
+  /// Morceau dont on affiche les paroles. Part de `widget.track`, puis suit
+  /// le morceau réellement en lecture (suivant / précédent, fin du morceau,
+  /// clic dans la notification...) pour que les paroles changent sans
+  /// avoir à quitter l'écran.
+  late Track _track = widget.track;
 
   /// Une clé par ligne synchronisée, pour pouvoir centrer la ligne active
   /// même quand les lignes ont des hauteurs différentes (retours à la
@@ -114,7 +121,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     setState(() => _hasFileAccess = granted);
     if (granted) {
       // Relance la recherche : les .lrc du téléphone sont enfin lisibles.
-      ref.invalidate(lyricsProvider(lyricsKeyFor(widget.track)));
+      ref.invalidate(lyricsProvider(lyricsKeyFor(_track)));
     }
   }
 
@@ -124,6 +131,31 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     _resumeTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // --- Changement de morceau ---------------------------------------------
+
+  /// Appelé quand le morceau en lecture change (hors de cet écran : next /
+  /// prev, notification, fin du morceau). Repart de zéro : nouvelles
+  /// paroles, décalage de synchro, clés de lignes et position de défilement.
+  void _onCurrentTrackChanged(String? id) {
+    if (!mounted || id == null || id == _track.id.toString()) return;
+    final matched = ref
+        .read(trackProvider)
+        .tracks
+        .where((t) => t.id.toString() == id)
+        .toList();
+    if (matched.isEmpty) return;
+
+    _resumeTimer?.cancel();
+    setState(() {
+      _track = matched.first;
+      _offset = null;
+      _userInteracting = false;
+      _lastActiveIndex = -1;
+      _lineKeys.clear();
+    });
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
 
   // --- Défilement automatique ------------------------------------------
@@ -204,7 +236,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     setState(() => _offset = next);
 
     await ref.read(lyricsServiceProvider).saveOffset(
-          trackKey: '${widget.track.artist} - ${widget.track.title}',
+          trackKey: '${_track.artist} - ${_track.title}',
           offset: next,
           localPath: result.localPath,
         );
@@ -214,12 +246,12 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => LyricsSearchScreen(track: widget.track),
+        builder: (_) => LyricsSearchScreen(track: _track),
       ),
     );
     // Au retour, même sans import (l'utilisateur a juste regardé), pas de
     // souci à revalider : le provider garde son cache si rien n'a changé.
-    if (mounted) ref.invalidate(lyricsProvider(lyricsKeyFor(widget.track)));
+    if (mounted) ref.invalidate(lyricsProvider(lyricsKeyFor(_track)));
   }
 
   Future<void> _openTextSettings(Color color) async {
@@ -266,11 +298,15 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final moodColors = MoodColors.forMood(widget.track.mood);
+    ref.listen<String?>(
+      currentTrackIdProvider,
+      (_, next) => _onCurrentTrackChanged(next),
+    );
+    final moodColors = MoodColors.forMood(_track.mood);
     final position = ref.watch(currentPositionProvider);
     final totalDuration = ref.watch(durationProvider).valueOrNull ??
-        Duration(milliseconds: widget.track.duration ?? 0);
-    final lyricsAsync = ref.watch(lyricsProvider(lyricsKeyFor(widget.track)));
+        Duration(milliseconds: _track.duration ?? 0);
+    final lyricsAsync = ref.watch(lyricsProvider(lyricsKeyFor(_track)));
     final hasText = lyricsAsync.valueOrNull != null &&
         !lyricsAsync.valueOrNull!.instrumental &&
         (lyricsAsync.valueOrNull!.hasSynced ||
@@ -287,11 +323,11 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
         ),
         title: Column(
           children: [
-            Text(widget.track.title,
+            Text(_track.title,
                 style: AppTheme.labelMedium.copyWith(fontWeight: FontWeight.w600),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
-            Text(widget.track.artist,
+            Text(_track.artist,
                 style: AppTheme.labelSmall.copyWith(color: AppTheme.textTertiary)),
           ],
         ),
@@ -468,7 +504,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
             onReset: () async {
               setState(() => _offset = Duration.zero);
               await ref.read(lyricsServiceProvider).saveOffset(
-                    trackKey: '${widget.track.artist} - ${widget.track.title}',
+                    trackKey: '${_track.artist} - ${_track.title}',
                     offset: Duration.zero,
                     localPath: result.localPath,
                   );
