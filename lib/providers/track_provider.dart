@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:on_audio_query/on_audio_query.dart';
@@ -9,6 +10,7 @@ import '../services/groq_service.dart';
 import '../services/library_scan_service.dart';
 import '../services/artwork_service.dart';
 import '../services/track_file_service.dart';
+import '../utils/app_error.dart';
 
 // Service providers
 final storageServiceProvider = Provider<StorageService>((ref) {
@@ -67,10 +69,6 @@ class TrackState {
   final int? classifyProgress;
   final int? classifyTotal;
 
-  /// Short status line shown under the progress bar (e.g. waiting out a
-  /// rate limit). Null when there's nothing special to report.
-  final String? classifyStatusMessage;
-
   const TrackState({
     this.tracks = const [],
     this.filteredTracks = const [],
@@ -82,7 +80,6 @@ class TrackState {
     this.minDurationSeconds,
     this.classifyProgress,
     this.classifyTotal,
-    this.classifyStatusMessage,
   });
 
   bool get isClassifying => classifyTotal != null;
@@ -100,8 +97,6 @@ class TrackState {
     int? classifyProgress,
     int? classifyTotal,
     bool clearClassifyProgress = false,
-    String? classifyStatusMessage,
-    bool clearClassifyStatusMessage = false,
   }) {
     return TrackState(
       tracks: tracks ?? this.tracks,
@@ -120,9 +115,6 @@ class TrackState {
       classifyTotal: clearClassifyProgress
           ? null
           : (classifyTotal ?? this.classifyTotal),
-      classifyStatusMessage: clearClassifyProgress || clearClassifyStatusMessage
-          ? null
-          : (classifyStatusMessage ?? this.classifyStatusMessage),
     );
   }
 }
@@ -201,7 +193,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Erreur lors du chargement des morceaux: $e',
+        error: 'Erreur lors du chargement des morceaux. ${friendlyError(e)}',
       );
     }
   }
@@ -350,7 +342,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
       }
       state = state.copyWith(
         isLoading: false,
-        error: 'Erreur lors du scan de la bibliothèque: $e',
+        error: 'Erreur lors du scan de la bibliothèque. ${friendlyError(e)}',
       );
     }
   }
@@ -365,7 +357,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Erreur lors de l\'ajout du morceau: $e',
+        error: 'Erreur lors de l\'ajout du morceau. ${friendlyError(e)}',
       );
     }
   }
@@ -416,7 +408,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
         ..mood = previousMood
         ..moodConfidence = previousConfidence;
       state = state.copyWith(
-        error: 'Erreur lors de la mise à jour de l\'ambiance: $e',
+        error: 'Erreur lors de la mise à jour de l\'ambiance. ${friendlyError(e)}',
       );
     }
   }
@@ -435,7 +427,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
       _applyFilters();
     } catch (e) {
       track.isLiked = !newValue;
-      state = state.copyWith(error: 'Erreur lors de la mise à jour du favori: $e');
+      state = state.copyWith(error: 'Erreur lors de la mise à jour du favori. ${friendlyError(e)}');
     }
   }
 
@@ -477,7 +469,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     } on TrackRenameException catch (e) {
       return e.message;
     } catch (e) {
-      return 'Erreur lors du renommage : $e';
+      return 'Erreur lors du renommage. ${friendlyError(e)}';
     }
   }
 
@@ -491,7 +483,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// Sends one Groq request classifying every track in [chunk] together,
   /// applies the results, and retries the whole chunk automatically if
   /// Groq responds with a rate limit (429).
-  Future<void> _classifyChunk(
+  Future<bool> _classifyChunk(
     List<Track> chunk, {
     required int maxRateLimitRetries,
     int maxNetworkRetries = 4,
@@ -519,7 +511,9 @@ class TrackNotifier extends StateNotifier<TrackState> {
             final index = updatedTracks.indexWhere((t) => t.id == track.id);
             if (index != -1) updatedTracks[index] = track;
           } else {
-            lastError = 'Erreur lors de la classification de "${track.title}": ${result.error}';
+            debugPrint('[erreur] classification "${track.title}" : ${result.error}');
+            lastError = 'Impossible de classer « ${track.title} ». '
+                'Il sera retenté à la prochaine classification.';
           }
         }
 
@@ -530,66 +524,46 @@ class TrackNotifier extends StateNotifier<TrackState> {
         state = state.copyWith(
           tracks: updatedTracks,
           error: lastError,
-          clearClassifyStatusMessage: true,
         );
         _applyFilters();
-        return;
+        return true;
       } on GroqRateLimitException catch (e) {
         attempt++;
         if (attempt > maxRateLimitRetries) {
           state = state.copyWith(
-            error: 'Limite de requêtes Groq atteinte pour ce lot de '
-                '${chunk.length} morceaux, nouvelle tentative nécessaire plus tard.',
-            clearClassifyStatusMessage: true,
+            error: 'La classification est interrompue : trop de requêtes pour '
+                'le moment. Relance-la dans quelques minutes, les morceaux '
+                'déjà classés sont conservés.',
           );
-          return;
+          return false;
         }
 
-        // Count down visibly instead of freezing with no feedback.
-        var remaining = e.retryAfter.inSeconds.clamp(1, 120);
-        while (remaining > 0) {
-          state = state.copyWith(
-            error: state.error,
-            classifyStatusMessage:
-                'Limite Groq atteinte, reprise dans ${remaining}s…',
-          );
-          await Future.delayed(const Duration(seconds: 1));
-          remaining--;
-        }
+        // Attente silencieuse : l'utilisateur ne voit que la progression
+        // (ex. « 50 / 300 »), pas le détail de la limite de requêtes.
+        await Future.delayed(
+          Duration(seconds: e.retryAfter.inSeconds.clamp(1, 120)),
+        );
         // loop back around and retry this same chunk
-      } on GroqNetworkException catch (e) {
+      } on GroqNetworkException {
         networkAttempt++;
         if (networkAttempt > maxNetworkRetries) {
           state = state.copyWith(
-            error: 'Connexion à Groq impossible pour ce lot de '
-                '${chunk.length} morceaux après plusieurs tentatives : '
-                '${e.message}',
-            clearClassifyStatusMessage: true,
+            error: 'Classification interrompue : connexion impossible. '
+                'Vérifie ta connexion internet puis relance-la, les morceaux '
+                'déjà classés sont conservés.',
           );
-          return;
+          return false;
         }
 
-        // Exponential backoff (3s, 6s, 12s, 24s...) instead of hammering a
-        // connection that's currently down/blocked.
+        // Exponential backoff (3s, 6s, 12s, 24s...) en silence.
         final waitSeconds = (3 * (1 << (networkAttempt - 1))).clamp(1, 30);
-        var remaining = waitSeconds;
-        while (remaining > 0) {
-          state = state.copyWith(
-            error: state.error,
-            classifyStatusMessage:
-                'Connexion à Groq impossible, nouvelle tentative dans ${remaining}s… '
-                '($networkAttempt/$maxNetworkRetries)',
-          );
-          await Future.delayed(const Duration(seconds: 1));
-          remaining--;
-        }
+        await Future.delayed(Duration(seconds: waitSeconds));
         // loop back around and retry this same chunk
       } catch (e) {
         state = state.copyWith(
-          error: 'Erreur lors de la classification du lot: $e',
-          clearClassifyStatusMessage: true,
+          error: 'Erreur lors de la classification du lot. ${friendlyError(e)}',
         );
-        return;
+        return false;
       }
     }
   }
@@ -623,7 +597,10 @@ class TrackNotifier extends StateNotifier<TrackState> {
         final end = (start + batchSize).clamp(0, unclassifiedTracks.length);
         final chunk = unclassifiedTracks.sublist(start, end);
 
-        await _classifyChunk(chunk, maxRateLimitRetries: 5);
+        final completed = await _classifyChunk(chunk, maxRateLimitRetries: 5);
+        // Échec définitif (réseau / limite de requêtes) : inutile d'enchaîner
+        // les lots suivants, le message d'erreur est déjà affiché.
+        if (!completed) break;
         processed += chunk.length;
         state = state.copyWith(classifyProgress: processed, error: state.error);
 
@@ -636,7 +613,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
       }
     } catch (e) {
       state = state.copyWith(
-        error: 'Erreur lors de la classification en lot: $e',
+        error: 'Erreur lors de la classification en lot. ${friendlyError(e)}',
       );
     } finally {
       // Always clear the progress indicator, whether every track
@@ -735,7 +712,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Erreur lors de la suppression: $e',
+        error: 'Erreur lors de la suppression. ${friendlyError(e)}',
       );
     }
   }
@@ -750,7 +727,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Erreur lors de la suppression: $e',
+        error: 'Erreur lors de la suppression. ${friendlyError(e)}',
       );
     }
   }

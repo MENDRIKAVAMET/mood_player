@@ -15,6 +15,7 @@ import 'queue_screen.dart';
 import 'lyrics_screen.dart';
 import '../../widgets/track_options_sheet.dart';
 import '../../widgets/mood_edit_sheet.dart';
+import '../../utils/app_error.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final Track track;
@@ -362,9 +363,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Impossible de lire ce morceau : $e')),
+            showAppError(
+              context,
+              'Impossible de lire ce morceau. Il a peut-être été déplacé ou supprimé.',
             );
+            debugPrint('[erreur] lecture : $e');
           }
         }
       },
@@ -377,12 +380,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       },
       error: (e, st) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Lecteur audio indisponible : $e'),
-              duration: const Duration(seconds: 5),
-            ),
+          showAppError(
+            context,
+            'Le lecteur audio est indisponible. Ferme puis relance l\'app.',
           );
+          debugPrint('[erreur] lecteur audio : $e');
         }
       },
     );

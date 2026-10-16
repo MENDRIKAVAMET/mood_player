@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/debug/crash_log_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
@@ -39,15 +38,6 @@ void main() {
     _applySystemUi();
 
     String? startupError;
-
-    // Load environment variables. Non-fatal if it fails/times out - the
-    // app can still run without it.
-    try {
-      await dotenv.load().timeout(_startupStepTimeout);
-    } catch (e, st) {
-      // ignore: avoid_print
-      print('main: dotenv.load failed: $e\n$st');
-    }
 
     // Initialize local storage. This is the step most likely to hang or
     // throw right after a crash mid-write (corrupted/locked database) -

@@ -10,6 +10,7 @@ import '../../widgets/app_header.dart';
 import '../../widgets/mood_editor_dialog.dart';
 import '../../widgets/track_tile.dart' show EqualizerIndicator;
 import '../player/player_screen.dart';
+import '../../utils/app_error.dart';
 
 enum _MoodTrackSort { percentageDesc, percentageAsc, nameAsc }
 
@@ -103,7 +104,7 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
                 loading: () => const Center(child: SizedBox.shrink()),
                 error: (e, _) => Center(
                   child: Text(
-                    'Erreur: $e',
+                    friendlyError(e),
                     style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
                   ),
                 ),

@@ -17,9 +17,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create .env
-        run: echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > .env
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -57,8 +54,25 @@ jobs:
       # versionName vient du tag (v1.2.0 -> 1.2.0) ; versionCode augmente à
       # chaque exécution, condition obligatoire pour qu'Android accepte la
       # mise à jour.
+      # --obfuscate + --split-debug-info : noms de classes/fonctions Dart
+      # illisibles dans l'APK. Les symboles sont gardés à part (artifact
+      # ci-dessous) pour pouvoir relire les stack traces avec
+      # `flutter symbolize`.
       - name: Build release APK
-        run: flutter build apk --release --build-name=${GITHUB_REF_NAME#v} --build-number=${{ github.run_number }}
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_BASE_URL: ${{ secrets.GROQ_BASE_URL }}
+        run: |
+          DEFINES="--dart-define=GROQ_API_KEY=$GROQ_API_KEY"
+          if [ -n "$GROQ_BASE_URL" ]; then DEFINES="$DEFINES --dart-define=GROQ_BASE_URL=$GROQ_BASE_URL"; fi
+          flutter build apk --release --obfuscate --split-debug-info=build/symbols \
+            --build-name=${GITHUB_REF_NAME#v} --build-number=${{ github.run_number }} $DEFINES
+
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-symbols-${{ github.ref_name }}
+          path: build/symbols
 
       - name: Create GitHub Release with APK
         uses: softprops/action-gh-release@v2

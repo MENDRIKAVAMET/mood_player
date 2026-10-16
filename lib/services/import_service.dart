@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import '../models/track.dart';
+import '../utils/app_error.dart';
 
 class ImportService {
   /// Supported audio file extensions
@@ -30,7 +31,7 @@ class ImportService {
       final file = result.files.first;
       return _processFile(file);
     } catch (e) {
-      return ImportResult.error('Erreur lors de la sélection du fichier: $e');
+      return ImportResult.error('Erreur lors de la sélection du fichier. ${friendlyError(e)}');
     }
   }
 
@@ -70,7 +71,7 @@ class ImportService {
         errors: errors.isNotEmpty ? errors : null,
       );
     } catch (e) {
-      return ImportResult.error('Erreur lors de la sélection des fichiers: $e');
+      return ImportResult.error('Erreur lors de la sélection des fichiers. ${friendlyError(e)}');
     }
   }
 
@@ -121,7 +122,7 @@ class ImportService {
         errors: errors.isNotEmpty ? errors : null,
       );
     } catch (e) {
-      return ImportResult.error('Erreur lors de l\'import du dossier: $e');
+      return ImportResult.error('Erreur lors de l\'import du dossier. ${friendlyError(e)}');
     }
   }
 
@@ -153,7 +154,7 @@ class ImportService {
 
       return ImportResult.success(tracks: [track]);
     } catch (e) {
-      return ImportResult.error('Erreur lors du traitement de ${file.name}: $e');
+      return ImportResult.error('Erreur lors du traitement de ${file.name}. ${friendlyError(e)}');
     }
   }
 

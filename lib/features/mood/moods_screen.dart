@@ -55,7 +55,6 @@ class MoodsScreen extends ConsumerWidget {
                   child: ClassifyProgressBanner(
                     progress: trackState.classifyProgress!,
                     total: trackState.classifyTotal!,
-                    statusMessage: trackState.classifyStatusMessage,
                   ),
                 ),
 

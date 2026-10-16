@@ -20,6 +20,7 @@ import '../mood/custom_mood_detail_screen.dart';
 import '../player/player_screen.dart';
 import '../../utils/playback_navigation.dart';
 import '../mood/mood_detail_screen.dart';
+import '../../utils/app_error.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -206,13 +207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     ref.listen(trackProvider, (previous, next) {
       if (next.error != null && next.error != previous?.error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.error!),
-            backgroundColor: AppTheme.backgroundCardElevated,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        showAppError(context, next.error!);
       }
     });
 
@@ -315,7 +310,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: ClassifyProgressBanner(
                                 progress: trackState.classifyProgress!,
                                 total: trackState.classifyTotal!,
-                                statusMessage: trackState.classifyStatusMessage,
                               ),
                             ),
                           ),

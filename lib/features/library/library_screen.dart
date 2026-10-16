@@ -13,6 +13,7 @@ import '../../widgets/skeleton_loader.dart';
 import '../../widgets/track_list_tools.dart';
 import '../../widgets/track_tile.dart';
 import '../../widgets/track_options_sheet.dart';
+import '../../utils/app_error.dart';
 
 /// Onglet « Bibliothèque » : uniquement la liste complète des morceaux.
 ///
@@ -103,13 +104,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Widget build(BuildContext context) {
     ref.listen(trackProvider, (previous, next) {
       if (next.error != null && next.error != previous?.error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.error!),
-            backgroundColor: AppTheme.backgroundCardElevated,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        showAppError(context, next.error!);
       }
     });
 
@@ -164,7 +159,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     child: ClassifyProgressBanner(
                       progress: trackState.classifyProgress!,
                       total: trackState.classifyTotal!,
-                      statusMessage: trackState.classifyStatusMessage,
                     ),
                   ),
                 ),

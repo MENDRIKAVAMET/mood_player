@@ -62,6 +62,16 @@ android {
 
     buildTypes {
         release {
+            // R8 : renomme et réduit le code Java/Kotlin (classes natives et
+            // plugins) pour compliquer la lecture après décompilation. On
+            // n'active PAS isShrinkResources : les icônes de notification
+            // sont référencées par nom depuis Dart, R8 ne les verrait pas
+            // et pourrait les supprimer.
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Signature stable dès que key.properties existe. Tant qu'il
             // n'existe pas (poste de dev sans le fichier), on retombe sur
             // debug uniquement pour que le build local continue de

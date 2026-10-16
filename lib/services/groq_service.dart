@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/track.dart';
 
 /// Classifies tracks by mood using Groq's OpenAI-compatible chat
@@ -11,16 +10,26 @@ import '../models/track.dart';
 /// important when classifying a whole library sequentially.
 class GroqService {
   late final Dio _dio;
-  final String _apiKey;
+  /// Injectées à la compilation avec --dart-define (voir README). Le .env
+  /// n'est plus embarqué dans l'APK : il y restait en clair et lisible par
+  /// n'importe qui en dézippant le fichier.
+  static const String _apiKey = String.fromEnvironment('GROQ_API_KEY');
+
+  /// Par défaut l'API Groq directe. Pour qu'aucune clé ne soit dans l'APK,
+  /// pointer vers ton propre proxy (ex. un petit service sur Render qui
+  /// garde la clé côté serveur) avec --dart-define=GROQ_BASE_URL=https://...
+  static const String _baseUrl = String.fromEnvironment(
+    'GROQ_BASE_URL',
+    defaultValue: 'https://api.groq.com/openai/v1',
+  );
 
   /// Any current Groq-hosted instruction-following model works well for
   /// this simple JSON classification task.
   static const String _model = 'openai/gpt-oss-120b';
 
-  GroqService()
-      : _apiKey = dotenv.isInitialized ? (dotenv.env['GROQ_API_KEY'] ?? '') : '' {
+  GroqService() {
     _dio = Dio(BaseOptions(
-      baseUrl: 'https://api.groq.com/openai/v1',
+      baseUrl: _baseUrl,
       // Connecting to the host itself should always be quick; keep this
       // short so a genuinely unreachable host fails fast.
       connectTimeout: const Duration(seconds: 15),
@@ -30,7 +39,7 @@ class GroqService {
       // on a slow connection - see _receiveTimeoutFor.
       sendTimeout: const Duration(seconds: 20),
       headers: {
-        'Authorization': 'Bearer $_apiKey',
+        if (_apiKey.isNotEmpty) 'Authorization': 'Bearer $_apiKey',
         'Content-Type': 'application/json',
       },
     ));
@@ -106,7 +115,7 @@ class GroqService {
 
       if (e.response?.statusCode == 429) {
         throw GroqRateLimitException(
-          'Limite de requêtes Groq atteinte: $serverMessage',
+          'Trop de requêtes : $serverMessage',
           retryAfter: _parseRetryAfter(e.response?.headers),
           originalError: e,
         );
@@ -127,9 +136,7 @@ class GroqService {
 
       if (isConnectionIssue) {
         throw GroqNetworkException(
-          'Impossible de joindre Groq (api.groq.com) : $serverMessage. '
-          'Vérifie ta connexion internet, ou qu\'aucun pare-feu / VPN / '
-          'DNS filtrant ne bloque ce domaine.',
+          'Connexion au service de classification impossible : $serverMessage',
           e,
         );
       }

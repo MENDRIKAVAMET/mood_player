@@ -35,8 +35,7 @@ class LyricsScreen extends ConsumerStatefulWidget {
   ConsumerState<LyricsScreen> createState() => _LyricsScreenState();
 }
 
-class _LyricsScreenState extends ConsumerState<LyricsScreen>
-    with WidgetsBindingObserver {
+class _LyricsScreenState extends ConsumerState<LyricsScreen> {
   final ScrollController _scrollController = ScrollController();
   int _lastActiveIndex = -1;
 
@@ -64,26 +63,9 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
   Duration? _offset;
   bool _showSyncControls = false;
 
-  /// Accès à tous les fichiers accordé ? Null tant qu'on n'a pas vérifié.
-  bool? _hasFileAccess;
-
-  /// True entre le moment où on ouvre l'écran système "Accès à tous les
-  /// fichiers" et le retour de l'utilisateur dans l'app.
-  ///
-  /// Nécessaire parce que `Permission.manageExternalStorage.request()`
-  /// n'attend pas vraiment que l'utilisateur bascule le réglage : cet
-  /// écran système n'est pas une boîte de dialogue de permission normale,
-  /// Android ne renvoie donc pas de résultat à `permission_handler`, et
-  /// son Future se termine avant que la permission soit réellement
-  /// accordée. La seule façon fiable de savoir ce qui s'est passé est de
-  /// revérifier la permission quand l'app redevient active.
-  bool _awaitingFileAccessResume = false;
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _checkFileAccess();
     LyricsTextSettings.load().then((value) {
       if (mounted) {
         setState(() {
@@ -95,39 +77,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _awaitingFileAccessResume) {
-      _awaitingFileAccessResume = false;
-      _recheckFileAccessAfterSettings();
-    }
-  }
-
-  Future<void> _checkFileAccess() async {
-    final granted = await LyricsService.hasAllFilesAccess();
-    if (mounted) setState(() => _hasFileAccess = granted);
-  }
-
-  Future<void> _requestFileAccess() async {
-    _awaitingFileAccessResume = true;
-    // Ouvre l'écran système. On ignore volontairement la valeur renvoyée
-    // (voir la note sur `_awaitingFileAccessResume`) : la vérité vient de
-    // `_recheckFileAccessAfterSettings`, appelé au retour dans l'app.
-    await LyricsService.requestAllFilesAccess();
-  }
-
-  Future<void> _recheckFileAccessAfterSettings() async {
-    final granted = await LyricsService.hasAllFilesAccess();
-    if (!mounted) return;
-    setState(() => _hasFileAccess = granted);
-    if (granted) {
-      // Relance la recherche : les .lrc du téléphone sont enfin lisibles.
-      ref.invalidate(lyricsProvider(lyricsKeyFor(_track)));
-    }
-  }
-
-  @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _resumeTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
@@ -427,22 +377,11 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen>
 
               return _EmptyState(
                 icon: Icons.lyrics_outlined,
-                message: _hasFileAccess == false
-                    ? "Aucune parole trouvée en ligne, et l'app n'a pas encore le "
-                        "droit de lire les fichiers .lrc de ton téléphone.\n\n"
-                        "Android ne considère pas un .lrc comme un fichier "
-                        "musical : la permission « musique » ne suffit pas, il "
-                        "faut l'accès à tous les fichiers."
-                    : "Paroles introuvables pour ce morceau.",
-                action: _hasFileAccess == false
-                    ? _EmptyStateAction(
-                        label: "Autoriser l'accès aux fichiers",
-                        onPressed: _requestFileAccess,
-                      )
-                    : _EmptyStateAction(
-                        label: 'Rechercher les paroles',
-                        onPressed: _openSearch,
-                      ),
+                message: 'Paroles introuvables pour ce morceau.',
+                action: _EmptyStateAction(
+                  label: 'Rechercher les paroles',
+                  onPressed: _openSearch,
+                ),
               );
             },
           ),

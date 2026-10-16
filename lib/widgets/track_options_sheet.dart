@@ -6,6 +6,7 @@ import '../models/playlist.dart';
 import '../features/track/rename_track_screen.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_error.dart';
 
 /// Shows the "..." options sheet for a single [track]. Shared between
 /// every place a track is listed (library, home, search, custom moods)
@@ -62,9 +63,7 @@ class _TrackOptionsSheet extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Partage impossible : $e')),
-        );
+        showAppError(context, 'Partage impossible. ${friendlyError(e)}');
       }
     }
   }

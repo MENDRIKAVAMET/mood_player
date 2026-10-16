@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/providers.dart';
 import '../services/backup_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_error.dart';
 
 final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService(ref.watch(storageServiceProvider));
@@ -43,6 +44,10 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
 
   void _snack(String message, {bool error = false}) {
     if (!mounted) return;
+    if (error) {
+      showAppError(context, message);
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -76,7 +81,7 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
         text: 'Mes données Mood Player',
       );
     } catch (e) {
-      _snack('Export impossible : $e', error: true);
+      _snack('Export impossible. ${friendlyError(e)}', error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -160,7 +165,7 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
     } on BackupFormatException catch (e) {
       _snack(e.message, error: true);
     } catch (e) {
-      _snack('Import impossible : $e', error: true);
+      _snack('Import impossible. ${friendlyError(e)}', error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

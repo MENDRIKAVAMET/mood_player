@@ -7,13 +7,11 @@ import '../theme/app_theme.dart';
 class ClassifyProgressBanner extends StatefulWidget {
   final int progress;
   final int total;
-  final String? statusMessage;
 
   const ClassifyProgressBanner({
     super.key,
     required this.progress,
     required this.total,
-    this.statusMessage,
   });
 
   @override
@@ -103,15 +101,23 @@ class _ClassifyProgressBannerState extends State<ClassifyProgressBanner>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.statusMessage ?? '${widget.progress} / ${widget.total} morceaux',
+                    '${widget.progress} / ${widget.total} morceaux',
                     style: AppTheme.bodySmall.copyWith(
-                      color: widget.statusMessage != null
-                          ? AppTheme.accentPrimary
-                          : AppTheme.textTertiary,
-                      fontWeight: widget.statusMessage != null ? FontWeight.w600 : null,
+                      color: AppTheme.textTertiary,
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(width: AppTheme.spacingM),
+            // Loader : montre que ça travaille, même entre deux lots
+            // (la progression, elle, n'avance que tous les 50 morceaux).
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                valueColor: AlwaysStoppedAnimation(AppTheme.accentPrimary),
               ),
             ),
           ],

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/custom_mood.dart';
 import '../models/track.dart';
 import 'track_provider.dart' show storageServiceProvider;
+import '../utils/app_error.dart';
 
 class CustomMoodState {
   final List<CustomMood> moods;
@@ -41,7 +42,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Erreur lors du chargement des moods: $e',
+        error: 'Erreur lors du chargement des moods. ${friendlyError(e)}',
       );
     }
   }
@@ -56,7 +57,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
       await storage.createCustomMood(name: name, icon: icon, colorValue: colorValue);
       await loadMoods();
     } catch (e) {
-      state = state.copyWith(error: 'Erreur lors de la création du mood: $e');
+      state = state.copyWith(error: 'Erreur lors de la création du mood. ${friendlyError(e)}');
     }
   }
 
@@ -69,7 +70,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
       await storage.saveCustomMood(mood);
       await loadMoods();
     } catch (e) {
-      state = state.copyWith(error: 'Erreur lors de la modification du mood: $e');
+      state = state.copyWith(error: 'Erreur lors de la modification du mood. ${friendlyError(e)}');
     }
   }
 
@@ -79,7 +80,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
       await storage.deleteCustomMood(moodId);
       await loadMoods();
     } catch (e) {
-      state = state.copyWith(error: 'Erreur lors de la suppression du mood: $e');
+      state = state.copyWith(error: 'Erreur lors de la suppression du mood. ${friendlyError(e)}');
     }
   }
 
@@ -89,7 +90,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
       await storage.addTrackToCustomMood(moodId, track.id, percentage: percentage);
       await loadMoods();
     } catch (e) {
-      state = state.copyWith(error: 'Erreur lors de l\'ajout du morceau: $e');
+      state = state.copyWith(error: 'Erreur lors de l\'ajout du morceau. ${friendlyError(e)}');
     }
   }
 
@@ -101,7 +102,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
       }
       await loadMoods();
     } catch (e) {
-      state = state.copyWith(error: 'Erreur lors de l\'ajout des morceaux: $e');
+      state = state.copyWith(error: 'Erreur lors de l\'ajout des morceaux. ${friendlyError(e)}');
     }
   }
 
@@ -111,7 +112,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
       await storage.removeTrackFromCustomMood(moodId, trackId);
       await loadMoods();
     } catch (e) {
-      state = state.copyWith(error: 'Erreur lors de la suppression du morceau: $e');
+      state = state.copyWith(error: 'Erreur lors de la suppression du morceau. ${friendlyError(e)}');
     }
   }
 
@@ -121,7 +122,7 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
       await storage.setTrackPercentageInMood(moodId, trackId, percentage);
       await loadMoods();
     } catch (e) {
-      state = state.copyWith(error: 'Erreur lors de la mise à jour du pourcentage: $e');
+      state = state.copyWith(error: 'Erreur lors de la mise à jour du pourcentage. ${friendlyError(e)}');
     }
   }
 }

@@ -70,12 +70,14 @@ flutter pub get
 
 ### 2. Configurer la clé API
 
-Créez le fichier `.env` à la racine du projet :
+Copiez `env.json.example` en `env.json` (ignoré par git) et mettez-y votre clé :
 
-```env
-GROQ_API_KEY=votre_cle_api_ici
-APP_NAME=Mood Player
+```json
+{ "GROQ_API_KEY": "votre_cle_api_ici" }
 ```
+
+La clé est injectée à la compilation (`--dart-define-from-file`), elle n'est
+plus embarquée dans l'APK sous forme de fichier `.env`.
 
 ### 3. Générer le code Isar
 
@@ -86,8 +88,18 @@ dart run build_runner build --delete-conflicting-outputs
 ### 4. Lancer l'application
 
 ```bash
-flutter run
+flutter run --dart-define-from-file=env.json
 ```
+
+Build release protégé (code obfusqué) :
+
+```bash
+flutter build apk --release --obfuscate --split-debug-info=build/symbols \
+  --dart-define-from-file=env.json
+```
+
+Gardez le dossier `build/symbols` de chaque version publiée : il sert à
+relire les stack traces (`flutter symbolize`).
 
 ## 🎯 Utilisation
 
@@ -141,14 +153,13 @@ class Track {
 
 - **Pas de backend** : Tout est géré côté client
 - **Pas d'authentification** : Application personnelle
-- **Clé API** : Ne jamais commiter le fichier `.env`
+- **Clé API** : Ne jamais commiter `env.json`. Une clé dans une app mobile reste récupérable : pour la cacher vraiment, passer par un proxy (`GROQ_BASE_URL`)
 - **API Groq** : Vérifiez les quotas et tarifs
 
 ## 🐛 Dépannage
 
 ### Erreur "GROQ_API_KEY not found"
-- Vérifiez que le fichier `.env` existe
-- Vérifiez que `dotenv.load()` est appelé dans `main()`
+- Lancez bien l'app avec `--dart-define-from-file=env.json`
 
 ### Erreur Isar
 - Relancez `dart run build_runner build --delete-conflicting-outputs`
