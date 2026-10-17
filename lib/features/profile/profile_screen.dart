@@ -14,7 +14,11 @@ import '../../widgets/theme_section.dart';
 /// l'onglet Bibliothèque - jusqu'ici le profil n'avait ni écran ni point
 /// d'entrée, seulement le modèle/service/provider en arrière-plan.
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  /// `true` quand l'écran est l'onglet « Profil » de la barre du bas :
+  /// en-tête d'onglet (sans bouton retour) au lieu d'une page poussée.
+  final bool embedded;
+
+  const ProfileScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -37,7 +41,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           bottom: false,
           child: Column(
             children: [
-              const AppHeader(title: 'Profil', showBack: true),
+              widget.embedded
+                  ? const AppHeader.tab(title: 'Profil')
+                  : const AppHeader(title: 'Profil', showBack: true),
+              if (widget.embedded)
+                const PageTitle(
+                  title: 'Profil',
+                  subtitle: 'Réglages et préférences',
+                ),
               Expanded(
                 child: ListView(
             padding: const EdgeInsets.all(AppTheme.spacingXL),
@@ -100,10 +111,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(AppTheme.spacingL),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundCard,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusL),
-                  ),
+                  decoration: AppTheme.glassDecoration,
                   child: Row(
                     children: [
                       Container(
@@ -143,10 +151,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               // Lecture intelligente
               Container(
                 padding: const EdgeInsets.all(AppTheme.spacingL),
-                decoration: BoxDecoration(
-                  color: AppTheme.backgroundCard,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusL),
-                ),
+                decoration: AppTheme.glassDecoration,
                 child: Row(
                   children: [
                     Container(
@@ -266,10 +271,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final analysis = ref.watch(loudnessProvider);
     return Container(
       padding: const EdgeInsets.all(AppTheme.spacingL),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundCard,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-      ),
+      decoration: AppTheme.glassDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -574,10 +576,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppTheme.spacingL),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundCard,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-      ),
+      decoration: AppTheme.glassDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

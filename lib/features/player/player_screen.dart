@@ -639,19 +639,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             onPointerDown: (_) => _pointerOnSlider = true,
             child: SliderTheme(
             data: SliderThemeData(
-              activeTrackColor: moodColors.primary,
-              inactiveTrackColor: moodColors.primary.withValues(alpha: 0.2),
-              thumbColor: moodColors.primary,
-              thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 7,
-                elevation: 4,
-              ),
+              activeTrackColor: AppTheme.accentPrimary,
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.18),
+              thumbColor: Colors.white,
+              thumbShape: _GlowThumbShape(glow: AppTheme.accentPrimary),
               overlayShape: const RoundSliderOverlayShape(
-                overlayRadius: 16,
+                overlayRadius: 18,
               ),
-              overlayColor: moodColors.primary.withValues(alpha: 0.2),
-              trackHeight: 4,
-              trackShape: const RoundedRectSliderTrackShape(),
+              overlayColor: AppTheme.accentPrimary.withValues(alpha: 0.2),
+              trackHeight: 6,
+              trackShape: _GradientTrackShape(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.accentPrimary,
+                    AppTheme.accentSecondary,
+                  ],
+                ),
+              ),
             ),
             child: Slider(
               value: position.inSeconds.toDouble().clamp(
@@ -774,19 +778,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         width: 72,
         height: 72,
         decoration: BoxDecoration(
-          color: AppTheme.textPrimary,
+          gradient: AppTheme.brandGradient,
           shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.25),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: moodColors.primary.withValues(alpha: 0.3),
-              blurRadius: 24,
-              spreadRadius: -4,
+              color: AppTheme.accentPrimary.withValues(alpha: 0.55),
+              blurRadius: 28,
+              spreadRadius: 0,
             ),
           ],
         ),
         child: Icon(
           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-          color: AppTheme.backgroundPrimary,
+          color: Colors.white,
           size: 40,
         ),
       ),
@@ -1005,5 +1013,97 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _displayTrack,
       onShowQueue: _showQueueScreen,
     );
+  }
+}
+
+
+/// Piste de lecture : partie déjà lue en dégradé, reste en gris translucide,
+/// extrémités arrondies.
+class _GradientTrackShape extends SliderTrackShape with BaseSliderTrackShape {
+  final Gradient gradient;
+
+  const _GradientTrackShape({required this.gradient});
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+    double additionalActiveTrackHeight = 2,
+  }) {
+    final trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+    final radius = Radius.circular(trackRect.height / 2);
+    final canvas = context.canvas;
+
+    // Piste complète (partie non lue).
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(trackRect, radius),
+      Paint()..color = sliderTheme.inactiveTrackColor ?? Colors.white24,
+    );
+
+    // Partie lue, remplie avec le dégradé.
+    final activeRect = Rect.fromLTRB(
+      trackRect.left,
+      trackRect.top,
+      thumbCenter.dx.clamp(trackRect.left, trackRect.right),
+      trackRect.bottom,
+    );
+    if (activeRect.width > 0) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(activeRect, radius),
+        Paint()..shader = gradient.createShader(trackRect),
+      );
+    }
+  }
+}
+
+/// Curseur : pastille blanche avec un halo lumineux de la couleur de marque.
+class _GlowThumbShape extends SliderComponentShape {
+  final Color glow;
+  final double radius;
+
+  const _GlowThumbShape({required this.glow, this.radius = 8});
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      Size.fromRadius(radius);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final canvas = context.canvas;
+    canvas.drawCircle(
+      center,
+      radius + 4,
+      Paint()
+        ..color = glow.withValues(alpha: 0.6)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.drawCircle(center, radius, Paint()..color = Colors.white);
   }
 }

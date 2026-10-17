@@ -13,10 +13,11 @@ import '../../widgets/listen_reminder_host.dart';
 import '../../widgets/mini_player.dart';
 import '../foryou/for_you_screen.dart';
 import '../library/library_screen.dart';
+import '../profile/profile_screen.dart';
 import '../mood/moods_screen.dart';
 
-/// Coquille principale de l'app : trois onglets (Bibliothèque, Pour vous,
-/// Ambiances) plus le mini-lecteur, partagé entre les trois.
+/// Coquille principale de l'app : quatre onglets (Bibliothèque, Pour vous,
+/// Ambiances, Profil) plus le mini-lecteur, partagé entre les trois.
 ///
 /// Les onglets sont gardés vivants par un [IndexedStack] : changer
 /// d'onglet ne relance pas un scan de la bibliothèque et ne fait pas
@@ -40,6 +41,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     LibraryScreen(),
     ForYouScreen(),
     MoodsScreen(),
+    ProfileScreen(embedded: true),
   ];
 
   @override
@@ -220,6 +222,11 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
               icon: Icon(Icons.graphic_eq_outlined),
               selectedIcon: Icon(Icons.graphic_eq_rounded, color: AppTheme.accentPrimary),
               label: 'Ambiances',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded, color: AppTheme.accentPrimary),
+              label: 'Profil',
             ),
           ],
         ),

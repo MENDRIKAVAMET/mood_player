@@ -31,12 +31,15 @@ class AppHeader extends StatelessWidget {
     this.actions = const [],
   }) : assert(title != null || titleWidget != null);
 
-  /// En-tête d'onglet : titre + [actions] + recherche + profil.
+  /// En-tête d'onglet, IDENTIQUE sur tous les onglets : logo + nom de l'app
+  /// à gauche, puis [actions] (Classer + recherche par défaut). Le titre de
+  /// la page s'affiche juste dessous avec [PageTitle]. [title] ne sert plus
+  /// qu'à identifier l'onglet côté code.
   const AppHeader.tab({
     super.key,
     required String this.title,
     this.actions = const [HeaderActions()],
-  })  : titleWidget = null,
+  })  : titleWidget = const _BrandTitle(),
         showBack = false,
         backIcon = Icons.arrow_back_rounded,
         onBack = null;
@@ -70,6 +73,71 @@ class AppHeader extends StatelessWidget {
             ...actions,
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// Logo + nom de l'app, affichés à l'identique dans l'en-tête de chaque onglet.
+class _BrandTitle extends StatelessWidget {
+  const _BrandTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.asset(
+            'assets/icon/app_icon_square.png',
+            width: 32,
+            height: 32,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Icon(
+              Icons.graphic_eq_rounded,
+              size: 28,
+              color: AppTheme.accentPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppTheme.spacingS),
+        Flexible(
+          child: Text(
+            'Mood Player',
+            style: AppTheme.headlineMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Grand titre de page (+ sous-titre optionnel), posé sous l'en-tête fixe.
+class PageTitle extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+
+  const PageTitle({super.key, required this.title, this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingL,
+        AppTheme.spacingXS,
+        AppTheme.spacingL,
+        AppTheme.spacingS,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppTheme.headlineLarge),
+          if (subtitle != null)
+            Text(subtitle!, style: AppTheme.bodyMedium),
+        ],
       ),
     );
   }

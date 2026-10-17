@@ -41,6 +41,7 @@ class ForYouScreen extends ConsumerWidget {
           child: Column(
             children: [
               const AppHeader.tab(title: 'Pour vous'),
+              const PageTitle(title: 'Pour vous', subtitle: 'Basé sur tes écoutes'),
               Expanded(
                 child: CustomScrollView(
             physics: const BouncingScrollPhysics(),

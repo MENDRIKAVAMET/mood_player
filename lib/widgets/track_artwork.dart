@@ -258,6 +258,12 @@ class TrackArtworkFitBlur extends StatelessWidget {
                             blurRadius: 32,
                             offset: const Offset(0, 18),
                           ),
+                          // Halo aurora autour de la pochette.
+                          BoxShadow(
+                            color: AppTheme.accentPrimary.withValues(alpha: 0.35),
+                            blurRadius: 48,
+                            spreadRadius: 2,
+                          ),
                         ],
                       ),
                       child: ClipRRect(

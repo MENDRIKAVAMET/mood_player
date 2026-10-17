@@ -20,6 +20,13 @@ class MoodCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final moodColors = MoodColors.forMood(mood);
+    // Icône noire sur les teintes claires (jaune, orange...), blanche sur
+    // les autres : contraste lisible quelle que soit l'ambiance.
+    final onPrimary =
+        ThemeData.estimateBrightnessForColor(moodColors.primary) ==
+                Brightness.light
+            ? Colors.black87
+            : Colors.white;
 
     return GestureDetector(
       onTap: onTap,
@@ -29,20 +36,20 @@ class MoodCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              moodColors.primary.withValues(alpha: 0.3),
-              moodColors.primary.withValues(alpha: 0.1),
+              moodColors.primary.withValues(alpha: 0.55),
+              moodColors.secondary.withValues(alpha: 0.2),
               AppTheme.backgroundCard,
             ],
           ),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
-            color: moodColors.primary.withValues(alpha: 0.2),
+            color: moodColors.primary.withValues(alpha: 0.4),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: moodColors.glow,
-              blurRadius: 24,
+              color: moodColors.primary.withValues(alpha: 0.5),
+              blurRadius: 26,
               spreadRadius: -4,
               offset: const Offset(0, 4),
             ),
@@ -75,21 +82,63 @@ class MoodCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Mood icon
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: moodColors.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        mood.iconData,
-                        size: 24,
-                        color: moodColors.primary,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Mood icon : pastille en dégradé, icône à fort contraste
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [moodColors.primary, moodColors.secondary],
+                          ),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                          boxShadow: [
+                            BoxShadow(
+                              color: moodColors.primary.withValues(alpha: 0.5),
+                              blurRadius: 14,
+                              spreadRadius: -2,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Icon(mood.iconData, size: 26, color: onPrimary),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: AppTheme.spacingS),
+                      // Compteur de morceaux : se réduit si la carte est
+                      // étroite (plutôt que de déborder).
+                      Flexible(
+                        child: Align(
+                          alignment: Alignment.topRight,
+                          child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.14),
+                          ),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '$trackCount morceau${trackCount > 1 ? 'x' : ''}',
+                            maxLines: 1,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const Spacer(),
                   // Mood name
@@ -99,28 +148,10 @@ class MoodCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: AppTheme.spacingXS),
-                  // Track count
-                  Text(
-                    '$trackCount morceau${trackCount > 1 ? 'x' : ''}',
-                    style: AppTheme.bodySmall.copyWith(
-                      color: moodColors.primary,
-                    ),
-                  ),
                 ],
               ),
             ),
 
-            // Arrow icon
-            Positioned(
-              bottom: AppTheme.spacingL,
-              right: AppTheme.spacingL,
-              child: Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: moodColors.primary.withValues(alpha: 0.6),
-              ),
-            ),
           ],
         ),
       ).animate().fadeIn(

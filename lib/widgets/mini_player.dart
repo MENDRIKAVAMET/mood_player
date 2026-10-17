@@ -24,6 +24,11 @@ class MiniPlayer extends ConsumerWidget {
     final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
 
     final moodColors = MoodColors.forMood(currentTrack.mood);
+    // currentTrack vient du MediaItem (isLiked pas renseigné) : on lit
+    // l'état « aimé » dans la bibliothèque, qui est la source de vérité.
+    final isLiked = ref.watch(trackProvider.select((s) =>
+        s.tracks.any((t) => t.id == currentTrack.id && t.isLiked)));
+    final mood = currentTrack.mood;
     final progress = duration.inMilliseconds > 0
         ? position.inMilliseconds / duration.inMilliseconds
         : 0.0;
@@ -53,6 +58,9 @@ class MiniPlayer extends ConsumerWidget {
           vertical: AppTheme.spacingS,
         ),
         decoration: BoxDecoration(
+          // Base OPAQUE sous le dégradé translucide : rien du contenu
+          // défilant ne doit transparaître à travers le mini-lecteur.
+          color: AppTheme.backgroundSecondary,
           gradient: AppTheme.auroraGradient(tint: moodColors.primary),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
@@ -99,14 +107,27 @@ class MiniPlayer extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            currentTrack.title,
-                            style: AppTheme.bodyLarge.copyWith(
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  currentTrack.title,
+                                  style: AppTheme.bodyLarge.copyWith(
+                                    color: AppTheme.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (mood != null) ...[
+                                const SizedBox(width: AppTheme.spacingS),
+                                _MoodBadge(
+                                  label: mood.displayName,
+                                  color: moodColors.primary,
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: AppTheme.spacingXXS),
                           Text(
@@ -116,6 +137,34 @@ class MiniPlayer extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
+                      ),
+                    ),
+
+                    // Bouton « aimer » (zone tactile 44 px)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        final tracks = ref.read(trackProvider).tracks;
+                        for (final t in tracks) {
+                          if (t.id == currentTrack.id) {
+                            ref.read(trackProvider.notifier).toggleLike(t);
+                            break;
+                          }
+                        }
+                      },
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Icon(
+                          isLiked
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          size: 24,
+                          color: isLiked
+                              ? AppTheme.accentPrimary
+                              : AppTheme.textPrimary,
+                        ),
                       ),
                     ),
 
@@ -137,11 +186,11 @@ class MiniPlayer extends ConsumerWidget {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: moodColors.primary,
+                          gradient: AppTheme.brandGradient,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: moodColors.primary.withValues(alpha: 0.4),
+                              color: AppTheme.accentPrimary.withValues(alpha: 0.45),
                               blurRadius: 12,
                               spreadRadius: -1,
                             ),
@@ -149,7 +198,7 @@ class MiniPlayer extends ConsumerWidget {
                         ),
                         child: Icon(
                           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                          color: Colors.black,
+                          color: Colors.white,
                           size: 24,
                         ),
                       ),
@@ -173,6 +222,37 @@ class MiniPlayer extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Petite pastille de mood affichée à droite du titre.
+class _MoodBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _MoodBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        maxLines: 1,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
         ),
       ),
     );

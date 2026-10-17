@@ -19,6 +19,11 @@ class CustomMoodCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(mood.colorValue);
+    // Icône sombre sur les couleurs claires, blanche sur les foncées.
+    final onColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.light
+            ? Colors.black87
+            : Colors.white;
 
     return GestureDetector(
       onTap: onTap,
@@ -28,17 +33,17 @@ class CustomMoodCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              color.withValues(alpha: 0.3),
-              color.withValues(alpha: 0.1),
+              color.withValues(alpha: 0.55),
+              color.withValues(alpha: 0.2),
               AppTheme.backgroundCard,
             ],
           ),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
-          border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.25),
-              blurRadius: 24,
+              color: color.withValues(alpha: 0.5),
+              blurRadius: 26,
               spreadRadius: -4,
               offset: const Offset(0, 4),
             ),
@@ -69,14 +74,21 @@ class CustomMoodCard extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.2),
+                      color: color,
                       borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.5),
+                          blurRadius: 14,
+                          spreadRadius: -2,
+                        ),
+                      ],
                     ),
                     child: Center(
                       child: Icon(
                         MoodIcons.iconDataForKey(mood.icon),
-                        size: 24,
-                        color: color,
+                        size: 26,
+                        color: onColor,
                       ),
                     ),
                   ),

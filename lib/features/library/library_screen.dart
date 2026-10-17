@@ -122,12 +122,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               AppHeader.tab(
                 title: 'Mood Player',
                 actions: [
-                  AppHeaderButton(
-                    icon: Icons.auto_awesome_rounded,
-                    tooltip: 'Classifier',
-                    color: AppTheme.accentPrimary,
-                    onTap: _classifyAllTracks,
-                  ),
                   const HeaderActions(),
                   AppHeaderButton(
                     icon: Icons.more_horiz_rounded,
@@ -136,6 +130,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ),
                 ],
               ),
+              const PageTitle(title: 'Bibliothèque'),
               Expanded(
                 child: Stack(
                   children: [

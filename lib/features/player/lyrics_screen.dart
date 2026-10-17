@@ -262,8 +262,22 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
         (lyricsAsync.valueOrNull!.hasSynced ||
             (lyricsAsync.valueOrNull!.plain?.isNotEmpty ?? false));
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundPrimary,
+    return Container(
+      decoration: BoxDecoration(gradient: AppTheme.screenGradient),
+      // Lueur aurora : la couleur du mood éclaire le haut de l'écran.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(0, -0.25),
+            radius: 1.0,
+            colors: [
+              moodColors.primary.withValues(alpha: 0.22),
+              Colors.transparent,
+            ],
+          ),
+        ),
+        child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -387,6 +401,8 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
           ),
         ),
       ),
+        ),
+      ),
     );
   }
 
@@ -424,6 +440,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                         text: lines[i].text,
                         isActive: i == activeIndex,
                         isPast: i < activeIndex,
+                        distance: (i - activeIndex).abs(),
                         color: color,
                         style: _lyricStyle,
                         textAlign: _textAlign,
@@ -502,6 +519,10 @@ class _KaraokeLine extends StatelessWidget {
   final String text;
   final bool isActive;
   final bool isPast;
+
+  /// Éloignement par rapport à la ligne active (0 = active) : plus la ligne
+  /// est loin, plus elle s'estompe.
+  final int distance;
   final Color color;
   final TextStyle style;
   final TextAlign textAlign;
@@ -511,6 +532,7 @@ class _KaraokeLine extends StatelessWidget {
     required this.text,
     required this.isActive,
     required this.isPast,
+    this.distance = 1,
     required this.color,
     required this.style,
     required this.textAlign,
@@ -518,17 +540,42 @@ class _KaraokeLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lineColor = isActive
-        ? color
-        : AppTheme.textPrimary.withValues(alpha: isPast ? 0.35 : 0.6);
+    // Ligne active : blanche, grasse, avec une lueur de la couleur du mood.
+    // Les autres s'estompent progressivement (mais restent lisibles : on
+    // ne descend pas sous ~45 % d'opacité pour le contraste).
+    final fade = distance <= 1 ? 0.75 : (distance == 2 ? 0.6 : 0.45);
+    final lineColor =
+        isActive ? Colors.white : AppTheme.textPrimary.withValues(alpha: fade);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: AnimatedDefaultTextStyle(
+      // Agrandissement par transformation (et non par taille de police) :
+      // la mise en page ne bouge pas, donc le défilement automatique vers
+      // la ligne active reste exact.
+      child: AnimatedScale(
         duration: const Duration(milliseconds: 250),
-        style: style.copyWith(color: lineColor),
-        textAlign: textAlign,
-        child: Text(text, textAlign: textAlign),
+        curve: Curves.easeOut,
+        scale: isActive ? 1.05 : 1.0,
+        alignment: textAlign == TextAlign.start
+            ? Alignment.centerLeft
+            : Alignment.center,
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 250),
+          style: style.copyWith(
+            color: lineColor,
+            fontWeight: isActive ? FontWeight.w800 : style.fontWeight,
+            shadows: isActive
+                ? [
+                    Shadow(
+                      color: color.withValues(alpha: 0.7),
+                      blurRadius: 18,
+                    ),
+                  ]
+                : const [],
+          ),
+          textAlign: textAlign,
+          child: Text(text, textAlign: textAlign),
+        ),
       ),
     );
   }
