@@ -326,9 +326,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     audioHandlerAsync.when(
       data: (handler) async {
         try {
+          final activeItem = handler.mediaItem.value;
+          final alreadyCurrent = activeItem != null &&
+              activeItem.id == _displayTrack.id.toString();
           if (widget.tracks != null && widget.initialIndex != null) {
-            // Play with queue context - replace queue
-            await handler.playTrackFromList(widget.tracks!, widget.initialIndex!);
+            if (alreadyCurrent) {
+              // Le morceau touché dans la liste est déjà celui en cours :
+              // on ouvre simplement le lecteur, sans rien relancer.
+              // (Remplacer la file avec playTrackFromList() le rejouerait
+              // depuis le début.) On ne fait que reprendre s'il était en
+              // pause.
+              if (!handler.playbackState.value.playing) {
+                await handler.play();
+              }
+            } else {
+              // Play with queue context - replace queue
+              await handler.playTrackFromList(widget.tracks!, widget.initialIndex!);
+            }
           } else {
             // If this is already the track that's currently loaded (e.g.
             // tapping the mini player to open the full player while a

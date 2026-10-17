@@ -433,6 +433,52 @@ class AppTheme {
         trackHeight: 4,
         overlayColor: accentPrimary.withValues(alpha: 0.2),
       ),
+      // Contrôles Material « par défaut » (cases à cocher, interrupteurs,
+      // boutons texte/pleins, barres de chargement, curseur de saisie) :
+      // sans ces entrées, certains gardaient la teinte du thème de base au
+      // lieu de la couleur principale choisie par l'utilisateur.
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? accentPrimary : null,
+        ),
+        checkColor: const WidgetStatePropertyAll(textInverse),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? accentPrimary : null,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? accentPrimary.withValues(alpha: 0.35)
+              : null,
+        ),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? accentPrimary : null,
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: accentPrimary,
+        linearTrackColor: accentPrimary.withValues(alpha: 0.2),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: accentPrimary),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: accentPrimary,
+          foregroundColor: textInverse,
+        ),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: accentPrimary,
+        selectionHandleColor: accentPrimary,
+        selectionColor: accentPrimary.withValues(alpha: 0.35),
+      ),
       iconTheme: const IconThemeData(color: textPrimary, size: 24),
       dividerTheme: const DividerThemeData(color: divider, thickness: 1),
     );

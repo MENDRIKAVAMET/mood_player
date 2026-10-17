@@ -68,7 +68,9 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final moodColors = MoodColors.forMood(_selectedMood);
+    // Couleur principale choisie par l'utilisateur (et non celle de
+    // l'ambiance : une piste non classée donnait toujours du violet).
+    final accent = AppTheme.accentPrimary;
     final customMoods = ref.watch(customMoodProvider).moods;
 
     return Container(
@@ -154,7 +156,7 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
                   Text(
                     '${(_confidence * 100).toStringAsFixed(0)}%',
                     style: AppTheme.bodyMedium.copyWith(
-                      color: moodColors.primary,
+                      color: accent,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -162,10 +164,10 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
               ),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: moodColors.primary,
-                  thumbColor: moodColors.primary,
-                  inactiveTrackColor: moodColors.primary.withValues(alpha: 0.2),
-                  overlayColor: moodColors.primary.withValues(alpha: 0.2),
+                  activeTrackColor: accent,
+                  thumbColor: accent,
+                  inactiveTrackColor: accent.withValues(alpha: 0.2),
+                  overlayColor: accent.withValues(alpha: 0.2),
                 ),
                 child: Slider(
                   value: _confidence,
@@ -180,7 +182,8 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
                 width: double.infinity,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: moodColors.primary,
+                    backgroundColor: accent,
+                    foregroundColor: AppTheme.textInverse,
                     padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingM),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppTheme.radiusM),
@@ -191,7 +194,7 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textInverse),
                         )
                       : const Text('Enregistrer'),
                 ),
