@@ -93,9 +93,10 @@ class HeaderActions extends StatelessWidget {
 }
 
 
-/// Bouton « Classer » compact, identique dans l'en-tête de tous les onglets.
-/// Pastille dégradée de marque ; la zone tactile fait 44 px de haut même si
-/// la pastille visible n'en fait que 34. Désactivé pendant une classification.
+/// Bouton « Classer » de l'en-tête, identique dans tous les onglets :
+/// icône seule (palette de couleurs) dans un cercle aux couleurs de la
+/// marque. Le cercle visible fait 38 px, la zone tactile 44 px. Désactivé
+/// (grisé) pendant une classification en cours.
 class ClassifyHeaderButton extends ConsumerWidget {
   const ClassifyHeaderButton({super.key});
 
@@ -108,32 +109,28 @@ class ClassifyHeaderButton extends ConsumerWidget {
         behavior: HitTestBehavior.opaque,
         onTap: isClassifying ? null : () => _confirm(context, ref),
         child: SizedBox(
+          width: 44,
           height: 44,
           child: Center(
             child: Opacity(
               opacity: isClassifying ? 0.5 : 1,
               child: Container(
-                height: 34,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   gradient: AppTheme.brandGradient,
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.auto_awesome_rounded,
-                        size: 16, color: Colors.white),
-                    SizedBox(width: 6),
-                    Text(
-                      'Classer',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.accentPrimary.withValues(alpha: 0.4),
+                      blurRadius: 10,
                     ),
                   ],
+                ),
+                child: const Icon(
+                  Icons.color_lens_rounded,
+                  size: 21,
+                  color: Colors.white,
                 ),
               ),
             ),

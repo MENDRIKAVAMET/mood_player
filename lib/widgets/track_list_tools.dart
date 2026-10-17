@@ -248,7 +248,7 @@ class _LocateTrackButtonState extends ConsumerState<LocateTrackButton> {
                 ],
               ),
               child: Icon(
-                Icons.anchor_rounded,
+                Icons.gps_fixed_rounded,
                 color: AppTheme.accentPrimary,
                 size: 20,
               ),

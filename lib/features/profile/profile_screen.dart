@@ -44,11 +44,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               widget.embedded
                   ? const AppHeader.tab(title: 'Profil')
                   : const AppHeader(title: 'Profil', showBack: true),
-              if (widget.embedded)
-                const PageTitle(
-                  title: 'Profil',
-                  subtitle: 'Réglages et préférences',
-                ),
               Expanded(
                 child: ListView(
             padding: const EdgeInsets.all(AppTheme.spacingXL),

@@ -33,8 +33,8 @@ class AppHeader extends StatelessWidget {
 
   /// En-tête d'onglet, IDENTIQUE sur tous les onglets : logo + nom de l'app
   /// à gauche, puis [actions] (Classer + recherche par défaut). Le titre de
-  /// la page s'affiche juste dessous avec [PageTitle]. [title] ne sert plus
-  /// qu'à identifier l'onglet côté code.
+  /// [title] ne sert plus qu'à identifier l'onglet côté code (aucun titre
+  /// de page n'est affiché sous l'en-tête).
   const AppHeader.tab({
     super.key,
     required String this.title,
@@ -111,34 +111,6 @@ class _BrandTitle extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Grand titre de page (+ sous-titre optionnel), posé sous l'en-tête fixe.
-class PageTitle extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-
-  const PageTitle({super.key, required this.title, this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingL,
-        AppTheme.spacingXS,
-        AppTheme.spacingL,
-        AppTheme.spacingS,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: AppTheme.headlineLarge),
-          if (subtitle != null)
-            Text(subtitle!, style: AppTheme.bodyMedium),
-        ],
-      ),
     );
   }
 }

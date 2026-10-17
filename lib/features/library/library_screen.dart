@@ -130,7 +130,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ),
                 ],
               ),
-              const PageTitle(title: 'Bibliothèque'),
               Expanded(
                 child: Stack(
                   children: [

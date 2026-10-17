@@ -45,18 +45,50 @@ class ForYouListRow extends ConsumerWidget {
     );
     final accent = MoodColors.forMood(track.mood).primary;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusM),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isPlaying ? accent.withValues(alpha: 0.12) : null,
-          borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        ),
-        child: Padding(
+    final audioPlaying = ref.watch(isPlayingProvider);
+    final mood = track.mood;
+
+    // Carte en verre ; le morceau en cours s'allume : bordure et halo de
+    // la couleur de son mood, fond teinté, égaliseur animé sur la pochette.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spacingL,
-            vertical: AppTheme.spacingXS,
+            horizontal: AppTheme.spacingS + 2,
+            vertical: AppTheme.spacingS,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                isPlaying
+                    ? accent.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.10),
+                isPlaying
+                    ? accent.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.03),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            border: Border.all(
+              color: isPlaying
+                  ? accent.withValues(alpha: 0.9)
+                  : Colors.white.withValues(alpha: 0.12),
+              width: isPlaying ? 1.5 : 1,
+            ),
+            boxShadow: isPlaying
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.35),
+                      blurRadius: 18,
+                      spreadRadius: -2,
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
@@ -64,16 +96,16 @@ class ForYouListRow extends ConsumerWidget {
                 children: [
                   TrackArtwork(
                     track: track,
-                    size: 52,
-                    radius: AppTheme.radiusS,
-                    placeholderFontSize: 22,
+                    size: 48,
+                    radius: 12,
+                    placeholderFontSize: 20,
                   ),
                   if (isPlaying)
                     Positioned.fill(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(AppTheme.radiusS),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(child: EqualizerIndicator(color: accent)),
                       ),
@@ -83,7 +115,8 @@ class ForYouListRow extends ConsumerWidget {
                       left: 2,
                       bottom: 2,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.65),
                           borderRadius: BorderRadius.circular(4),
@@ -112,22 +145,44 @@ class ForYouListRow extends ConsumerWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       track.title,
                       style: AppTheme.bodyLarge.copyWith(
-                        color: isPlaying ? accent : AppTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w700,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      track.artist,
-                      style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        // Point de couleur du mood (le nom du mood reste
+                        // accessible dans l'onglet Ambiances et le lecteur).
+                        if (mood != null) ...[
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: accent,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Expanded(
+                          child: Text(
+                            track.artist,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -136,26 +191,27 @@ class ForYouListRow extends ConsumerWidget {
               GestureDetector(
                 onTap: onPlay ?? onTap,
                 behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        gradient: isPlaying ? AppTheme.brandGradient : null,
                         color: isPlaying
-                            ? accent
-                            : AppTheme.textTertiary.withValues(alpha: 0.4),
-                        width: 1,
+                            ? null
+                            : Colors.white.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
                       ),
-                    ),
-                    child: Icon(
-                      isPlaying && ref.watch(isPlayingProvider)
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                      color: isPlaying ? accent : AppTheme.textSecondary,
-                      size: 18,
+                      child: Icon(
+                        isPlaying && audioPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),

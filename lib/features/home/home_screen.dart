@@ -413,7 +413,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ],
                           ),
                           child: Icon(
-                            Icons.anchor_rounded,
+                            Icons.gps_fixed_rounded,
                             color: AppTheme.accentPrimary,
                             size: 20,
                           ),

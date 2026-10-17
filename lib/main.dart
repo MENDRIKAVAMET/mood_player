@@ -11,6 +11,7 @@ import 'services/profile_service.dart';
 import 'services/storage_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/update_gate.dart';
 
 /// Every startup step wrapped in a timeout so a hung native call (e.g.
 /// Isar.open() on a database left in a bad state by a mid-write crash)
@@ -166,7 +167,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     } else if (widget.needsOnboarding) {
       home = const OnboardingScreen();
     } else {
-      home = const MainShell();
+      home = const UpdateGate(child: MainShell());
     }
 
     return MaterialApp(

@@ -20,6 +20,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.provider.Settings
+import androidx.core.content.FileProvider
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -31,6 +33,7 @@ class MainActivity : AudioServiceFragmentActivity() {
     private val crashLogChannelName = "com.example.mood_player/crash_log"
     private val navigationChannelName = "com.example.mood_player/navigation"
     private val filesChannelName = "com.example.mood_player/files"
+    private val updaterChannelName = "com.example.mood_player/updater"
 
     // Renommage en attente de l'autorisation de l'utilisateur (Android 10+).
     private val requestWriteAccess = 4711
@@ -82,6 +85,53 @@ class MainActivity : AudioServiceFragmentActivity() {
                     "moveTaskToBack" -> {
                         moveTaskToBack(true)
                         result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        // Mise à jour de l'app : l'APK est téléchargé côté Dart, ici on
+        // vérifie l'autorisation d'installer et on lance l'installateur.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, updaterChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "canInstall" -> result.success(
+                        Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                            packageManager.canRequestPackageInstalls()
+                    )
+                    "openInstallSettings" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startActivity(
+                                Intent(
+                                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    Uri.parse("package:$packageName")
+                                )
+                            )
+                        }
+                        result.success(null)
+                    }
+                    "installApk" -> {
+                        val path = call.argument<String>("path")
+                        if (path == null) {
+                            result.error("ARGS", "Chemin manquant", null)
+                        } else {
+                            try {
+                                val uri = FileProvider.getUriForFile(
+                                    this, "$packageName.updater", File(path)
+                                )
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, "application/vnd.android.package-archive")
+                                    addFlags(
+                                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                            Intent.FLAG_ACTIVITY_NEW_TASK
+                                    )
+                                }
+                                startActivity(intent)
+                                result.success(null)
+                            } catch (e: Exception) {
+                                result.error("INSTALL", e.message ?: "Installation impossible", null)
+                            }
+                        }
                     }
                     else -> result.notImplemented()
                 }

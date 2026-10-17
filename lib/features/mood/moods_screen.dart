@@ -42,7 +42,6 @@ class MoodsScreen extends ConsumerWidget {
           child: Column(
             children: [
               const AppHeader.tab(title: 'Ambiances'),
-              const PageTitle(title: 'Ambiances', subtitle: 'Classées par IA'),
               Expanded(
                 child: ListView(
             physics: const BouncingScrollPhysics(),

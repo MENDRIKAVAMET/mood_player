@@ -41,7 +41,6 @@ class ForYouScreen extends ConsumerWidget {
           child: Column(
             children: [
               const AppHeader.tab(title: 'Pour vous'),
-              const PageTitle(title: 'Pour vous', subtitle: 'Basé sur tes écoutes'),
               Expanded(
                 child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -70,11 +69,13 @@ class ForYouScreen extends ConsumerWidget {
                   context: context,
                   title: 'Ajoutés récemment',
                   tracks: recentlyAdded,
+                  glow: AppTheme.accentPrimary,
                 ),
                 _listSection(
                   context: context,
                   title: 'Les plus écoutés',
                   tracks: mostPlayed,
+                  glow: const Color(0xFF22D3EE),
                   badgeBuilder: (track) => '${playCounts[track.id] ?? 0}',
                   emptyMessage:
                       'Rien encore. Un morceau apparaît ici une fois écouté '
@@ -84,6 +85,7 @@ class ForYouScreen extends ConsumerWidget {
                   context: context,
                   title: 'Tes morceaux aimés',
                   tracks: liked,
+                  glow: const Color(0xFFEC4899),
                   emptyMessage:
                       'Aucun favori pour le moment. Touche le cœur dans le '
                       'lecteur pour en ajouter.',
@@ -109,70 +111,88 @@ class ForYouScreen extends ConsumerWidget {
     String title,
     List<Track> tracks, {
     VoidCallback? onSeeAll,
+    Color glow = const Color(0xFFA855F7),
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppTheme.spacingL,
         AppTheme.spacingXL,
         AppTheme.spacingL,
-        AppTheme.spacingM,
+        AppTheme.spacingS,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: AppTheme.headlineLarge,
-            ),
+      // Lueur de couleur propre à chaque section, derrière le titre.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          gradient: LinearGradient(
+            colors: [
+              glow.withValues(alpha: 0.28),
+              glow.withValues(alpha: 0.0),
+            ],
           ),
-          if (tracks.isNotEmpty) ...[
-            GestureDetector(
-              onTap: () => playAll(context, tracks),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTheme.spacingM,
-                  vertical: AppTheme.spacingXS,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                  border: Border.all(color: AppTheme.border, width: 1),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.play_arrow_rounded,
-                        color: AppTheme.textPrimary, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Jouer',
-                      style: AppTheme.labelMedium.copyWith(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(left: AppTheme.spacingS),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTheme.headlineLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
-            const SizedBox(width: AppTheme.spacingS),
-            AppIconButton(
-              icon: Icons.shuffle_rounded,
-              onTap: () => playShuffled(context, tracks),
-            ),
-          ],
-          // Bouton "voir tout" - icône seule, sans libellé, affiché
-          // uniquement quand l'aperçu (9 morceaux max) ne montre pas
-          // déjà la liste complète.
-          if (onSeeAll != null) ...[
-            const SizedBox(width: AppTheme.spacingS),
-            AppIconButton(
-              icon: Icons.chevron_right_rounded,
-              iconSize: 18,
-              onTap: onSeeAll,
-            ),
-          ],
-        ],
+              if (tracks.isNotEmpty) ...[
+                // Lecture : icône seule, pastille de marque (zone 44 px)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => playAll(context, tracks),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          gradient: AppTheme.brandGradient,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  AppTheme.accentPrimary.withValues(alpha: 0.45),
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                AppIconButton(
+                  icon: Icons.shuffle_rounded,
+                  onTap: () => playShuffled(context, tracks),
+                ),
+              ],
+              // Bouton « voir tout » : icône seule, affiché uniquement quand
+              // l'aperçu (9 morceaux max) ne montre pas déjà toute la liste.
+              if (onSeeAll != null) ...[
+                const SizedBox(width: AppTheme.spacingXS),
+                AppIconButton(
+                  icon: Icons.chevron_right_rounded,
+                  iconSize: 18,
+                  onTap: onSeeAll,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -253,7 +273,7 @@ class ForYouScreen extends ConsumerWidget {
   /// accessible via le bouton « voir tout » de l'en-tête.
   static const int _rowsPerColumn = 3;
   static const int _maxColumns = 3;
-  static const double _rowHeight = 68;
+  static const double _rowHeight = 72;
 
   Widget _listSection({
     required BuildContext context,
@@ -261,6 +281,7 @@ class ForYouScreen extends ConsumerWidget {
     required List<Track> tracks,
     String Function(Track track)? badgeBuilder,
     String? emptyMessage,
+    Color glow = const Color(0xFFA855F7),
   }) {
     if (tracks.isEmpty && emptyMessage == null) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
@@ -272,7 +293,9 @@ class ForYouScreen extends ConsumerWidget {
       for (var i = 0; i < shown.length; i += _rowsPerColumn)
         shown.sublist(i, (i + _rowsPerColumn).clamp(0, shown.length)),
     ];
-    final columnWidth = MediaQuery.sizeOf(context).width - AppTheme.spacingL * 2;
+    // 84 % de la largeur : la colonne suivante dépasse à droite, ce qui
+    // montre qu'on peut faire défiler.
+    final columnWidth = MediaQuery.sizeOf(context).width * 0.84;
 
     return SliverToBoxAdapter(
       child: Column(
@@ -282,6 +305,7 @@ class ForYouScreen extends ConsumerWidget {
             context,
             title,
             tracks,
+            glow: glow,
             onSeeAll: tracks.length > maxShown
                 ? () => Navigator.push(
                       context,
@@ -311,8 +335,10 @@ class ForYouScreen extends ConsumerWidget {
                 itemCount: columns.length,
                 itemBuilder: (context, colIndex) {
                   final column = columns[colIndex];
-                  return SizedBox(
-                    width: columnWidth,
+                  return Padding(
+                    padding: const EdgeInsets.only(right: AppTheme.spacingM),
+                    child: SizedBox(
+                    width: columnWidth - AppTheme.spacingM,
                     child: Column(
                       children: [
                         for (final track in column)
@@ -327,6 +353,7 @@ class ForYouScreen extends ConsumerWidget {
                             ),
                           ),
                       ],
+                    ),
                     ),
                   );
                 },

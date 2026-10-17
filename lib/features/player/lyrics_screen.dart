@@ -10,6 +10,8 @@ import '../../services/lyrics_service.dart';
 import '../../services/lyrics_text_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
+import '../../widgets/player_slider_shapes.dart';
+import '../../widgets/track_artwork.dart';
 import 'lyrics_search_screen.dart';
 
 /// How much one tap of the sync buttons shifts the lyrics. 300ms is small
@@ -56,6 +58,9 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
   /// Vrai tant que l'utilisateur touche/fait défiler les paroles : le
   /// défilement automatique se met alors en pause.
   bool _userInteracting = false;
+
+  /// Position (ms) pendant que le doigt glisse sur la barre de progression.
+  double? _dragMs;
   Timer? _resumeTimer;
 
   /// Offset the user has dialled in this session. Initialised from
@@ -262,6 +267,9 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
         (lyricsAsync.valueOrNull!.hasSynced ||
             (lyricsAsync.valueOrNull!.plain?.isNotEmpty ?? false));
 
+    final isPlaying = ref.watch(isPlayingProvider);
+    final synced = lyricsAsync.valueOrNull?.hasSynced == true;
+
     return Container(
       decoration: BoxDecoration(gradient: AppTheme.screenGradient),
       // Lueur aurora : la couleur du mood éclaire le haut de l'écran.
@@ -277,131 +285,459 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
           ),
         ),
         child: Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          children: [
-            Text(_track.title,
-                style: AppTheme.labelMedium.copyWith(fontWeight: FontWeight.w600),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-            Text(_track.artist,
-                style: AppTheme.labelSmall.copyWith(color: AppTheme.textTertiary)),
-          ],
-        ),
-        centerTitle: true,
-        actions: [
-          // Bouton « T » : alignement et taille du texte des paroles.
-          if (hasText)
-            IconButton(
-              tooltip: 'Style du texte',
-              onPressed: () => _openTextSettings(moodColors.primary),
-              icon: Container(
-                width: 24,
-                height: 24,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.textSecondary, width: 1.6),
-                  borderRadius: BorderRadius.circular(6),
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(hasText, synced, moodColors.primary),
+                _buildTrackHeader(moodColors),
+                Expanded(
+                  child: GestureDetector(
+                          // Horizontal only (not a full Pan) so it never competes with the
+                          // lyrics list's own vertical scroll - swiping up/down here keeps
+                          // scrolling through the lyrics as normal.
+                          behavior: HitTestBehavior.translucent,
+                          onHorizontalDragEnd: (details) {
+                            final velocity = details.primaryVelocity ?? 0;
+                            if (velocity > 200) {
+                              // Swipe right -> back to Now Playing
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          // Le Listener voit les doigts sans les consommer : il sert
+                          // uniquement à mettre le défilement automatique en pause.
+                          child: Listener(
+                            behavior: HitTestBehavior.translucent,
+                            onPointerDown: (_) => _onUserTouchStart(),
+                            onPointerUp: (_) => _onUserTouchEnd(),
+                            onPointerCancel: (_) => _onUserTouchEnd(),
+                            child: lyricsAsync.when(
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              error: (_, _) => const _EmptyState(
+                                icon: Icons.wifi_off_rounded,
+                                message: "Impossible de récupérer les paroles pour l'instant.",
+                              ),
+                              data: (result) {
+                                if (result.instrumental) {
+                                  return const _EmptyState(
+                                    icon: Icons.piano_off_outlined,
+                                    message: 'Ce morceau est instrumental.',
+                                  );
+                                }
+                  
+                                if (result.hasSynced) {
+                                  return _buildSynced(result, position, moodColors.primary);
+                                }
+                  
+                                if (result.plain != null && result.plain!.isNotEmpty) {
+                                  return _buildPlain(result.plain!, position, totalDuration);
+                                }
+                  
+                                return _EmptyState(
+                                  icon: Icons.lyrics_outlined,
+                                  message: 'Paroles introuvables pour ce morceau.',
+                                  action: _EmptyStateAction(
+                                    label: 'Rechercher les paroles',
+                                    onPressed: _openSearch,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                 ),
-                child: Text(
-                  'T',
-                  style: TextStyle(
+                _buildBottomPanel(
+                  position: position,
+                  total: totalDuration,
+                  isPlaying: isPlaying,
+                  hasText: hasText,
+                  synced: synced,
+                  color: moodColors.primary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Interface « Stitch » : barre du haut, en-tête compact, panneau du bas.
+  // ---------------------------------------------------------------------
+
+  /// Bouton rond en verre (44 px, zone tactile conforme).
+  Widget _glassCircle({
+    required Widget child,
+    double size = 44,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildTopBar(bool hasText, bool synced, Color color) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingM,
+        AppTheme.spacingS,
+        AppTheme.spacingM,
+        AppTheme.spacingS,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: _glassCircle(
+              child: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.28),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF22D3EE),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'PAROLES',
+                  style: AppTheme.labelMedium.copyWith(
+                    letterSpacing: 2.4,
+                    fontWeight: FontWeight.w700,
                     color: AppTheme.textSecondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Plus d\'options',
+            color: AppTheme.backgroundCardElevated,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusM),
+            ),
+            onSelected: (value) {
+              switch (value) {
+                case 'text':
+                  _openTextSettings(color);
+                case 'search':
+                  _openSearch();
+                case 'sync':
+                  setState(() => _showSyncControls = !_showSyncControls);
+              }
+            },
+            itemBuilder: (_) => [
+              if (hasText)
+                const PopupMenuItem(value: 'text', child: Text('Style du texte')),
+              const PopupMenuItem(
+                value: 'search',
+                child: Text('Rechercher les paroles'),
+              ),
+              if (synced)
+                const PopupMenuItem(
+                  value: 'sync',
+                  child: Text('Régler la synchronisation'),
+                ),
+            ],
+            child: _glassCircle(child: const Icon(Icons.more_vert_rounded)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackHeader(MoodColors moodColors) {
+    final mood = _track.mood;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingL,
+        AppTheme.spacingXS,
+        AppTheme.spacingL,
+        AppTheme.spacingS,
+      ),
+      child: Row(
+        children: [
+          TrackArtwork(track: _track, size: 56, radius: 12),
+          const SizedBox(width: AppTheme.spacingM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _track.title,
+                  style: AppTheme.titleMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  _track.artist,
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (mood != null) ...[
+            const SizedBox(width: AppTheme.spacingS),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: moodColors.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: moodColors.primary.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.bolt_rounded, size: 14, color: moodColors.primary),
+                  const SizedBox(width: 3),
+                  Text(
+                    mood.displayName.toUpperCase(),
+                    style: TextStyle(
+                      color: moodColors.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.toString().padLeft(2, '0');
+    final sec = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$sec';
+  }
+
+  void _withHandler(void Function(dynamic handler) action) {
+    ref.read(audioHandlerProvider).whenData(action);
+  }
+
+  Widget _buildBottomPanel({
+    required Duration position,
+    required Duration total,
+    required bool isPlaying,
+    required bool hasText,
+    required bool synced,
+    required Color color,
+  }) {
+    final totalMs = total.inMilliseconds <= 0 ? 1.0 : total.inMilliseconds.toDouble();
+    final posMs = (_dragMs ?? position.inMilliseconds.toDouble()).clamp(0.0, totalMs);
+
+    Widget roundAction({
+      required Widget child,
+      required VoidCallback? onTap,
+      required String tooltip,
+      bool active = false,
+    }) {
+      return Tooltip(
+        message: tooltip,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Opacity(
+            opacity: onTap == null ? 0.4 : 1,
+            child: Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: active
+                    ? color.withValues(alpha: 0.25)
+                    : Colors.white.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: active
+                      ? color.withValues(alpha: 0.7)
+                      : Colors.white.withValues(alpha: 0.14),
+                ),
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingL,
+        AppTheme.spacingS,
+        AppTheme.spacingL,
+        AppTheme.spacingM,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Barre de progression (dégradé + curseur lumineux)
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 6,
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.18),
+              activeTrackColor: AppTheme.accentPrimary,
+              thumbColor: Colors.white,
+              overlayColor: AppTheme.accentPrimary.withValues(alpha: 0.2),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+              thumbShape: GlowThumbShape(glow: AppTheme.accentPrimary),
+              trackShape: GradientTrackShape(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.accentPrimary,
+                    AppTheme.accentSecondary,
+                    const Color(0xFF22D3EE),
+                  ],
+                ),
+              ),
+            ),
+            child: Slider(
+              value: posMs,
+              min: 0,
+              max: totalMs,
+              onChanged: (v) => setState(() => _dragMs = v),
+              onChangeEnd: (v) {
+                _withHandler(
+                  (h) => h.seek(Duration(milliseconds: v.round())),
+                );
+                setState(() => _dragMs = null);
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingS),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _fmt(Duration(milliseconds: posMs.round())),
+                  style: AppTheme.labelSmall.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                Text(
+                  _fmt(total),
+                  style: AppTheme.labelSmall.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacingS),
+
+          // Contrôles de lecture
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              IconButton(
+                iconSize: 38,
+                tooltip: 'Précédent',
+                onPressed: () => _withHandler((h) => h.skipToPrevious()),
+                icon: const Icon(Icons.skip_previous_rounded),
+              ),
+              GestureDetector(
+                onTap: () => _withHandler(
+                  (h) => isPlaying ? h.pause() : h.play(),
+                ),
+                child: Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.brandGradient,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.accentPrimary.withValues(alpha: 0.5),
+                        blurRadius: 26,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    isPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    size: 40,
+                    color: Colors.white,
                   ),
                 ),
               ),
-            ),
-          // Toujours disponible : les paroles trouvées automatiquement
-          // peuvent être fausses (mauvaise version, mauvais artiste...),
-          // l'utilisateur doit pouvoir corriger à la main à tout moment,
-          // pas seulement quand rien n'a été trouvé.
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            tooltip: 'Rechercher les paroles',
-            onPressed: () => _openSearch(),
-          ),
-          // Only meaningful for synced lyrics, so it's enabled below once
-          // we know we actually have some.
-          if (lyricsAsync.valueOrNull?.hasSynced == true)
-            IconButton(
-              icon: Icon(
-                Icons.tune_rounded,
-                color: _showSyncControls
-                    ? moodColors.primary
-                    : AppTheme.textSecondary,
+              IconButton(
+                iconSize: 38,
+                tooltip: 'Suivant',
+                onPressed: () => _withHandler((h) => h.skipToNext()),
+                icon: const Icon(Icons.skip_next_rounded),
               ),
-              tooltip: 'Régler la synchronisation',
-              onPressed: () =>
-                  setState(() => _showSyncControls = !_showSyncControls),
-            ),
-        ],
-      ),
-      body: GestureDetector(
-        // Horizontal only (not a full Pan) so it never competes with the
-        // lyrics list's own vertical scroll - swiping up/down here keeps
-        // scrolling through the lyrics as normal.
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0;
-          if (velocity > 200) {
-            // Swipe right -> back to Now Playing
-            Navigator.of(context).pop();
-          }
-        },
-        // Le Listener voit les doigts sans les consommer : il sert
-        // uniquement à mettre le défilement automatique en pause.
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (_) => _onUserTouchStart(),
-          onPointerUp: (_) => _onUserTouchEnd(),
-          onPointerCancel: (_) => _onUserTouchEnd(),
-          child: lyricsAsync.when(
-            loading: () => const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            error: (_, _) => const _EmptyState(
-              icon: Icons.wifi_off_rounded,
-              message: "Impossible de récupérer les paroles pour l'instant.",
-            ),
-            data: (result) {
-              if (result.instrumental) {
-                return const _EmptyState(
-                  icon: Icons.piano_off_outlined,
-                  message: 'Ce morceau est instrumental.',
-                );
-              }
-
-              if (result.hasSynced) {
-                return _buildSynced(result, position, moodColors.primary);
-              }
-
-              if (result.plain != null && result.plain!.isNotEmpty) {
-                return _buildPlain(result.plain!, position, totalDuration);
-              }
-
-              return _EmptyState(
-                icon: Icons.lyrics_outlined,
-                message: 'Paroles introuvables pour ce morceau.',
-                action: _EmptyStateAction(
-                  label: 'Rechercher les paroles',
-                  onPressed: _openSearch,
-                ),
-              );
-            },
+            ],
           ),
-        ),
-      ),
-        ),
+          const SizedBox(height: AppTheme.spacingM),
+
+          // Trois actions : style du texte, recherche, synchronisation
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              roundAction(
+                tooltip: 'Style du texte',
+                onTap: hasText ? () => _openTextSettings(color) : null,
+                child: Text(
+                  'Aa',
+                  style: AppTheme.titleMedium.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              roundAction(
+                tooltip: 'Rechercher les paroles',
+                onTap: _openSearch,
+                child: const Icon(Icons.search_rounded),
+              ),
+              roundAction(
+                tooltip: 'Régler la synchronisation',
+                active: _showSyncControls,
+                onTap: synced
+                    ? () => setState(() => _showSyncControls = !_showSyncControls)
+                    : null,
+                child: const Icon(Icons.swap_horiz_rounded),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
