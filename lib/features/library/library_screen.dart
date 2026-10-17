@@ -244,7 +244,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               style: AppTheme.labelSmall.copyWith(color: AppTheme.accentPrimary),
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: AppTheme.spacingS),
+          // Les boutons défilent horizontalement : sur un écran étroit ils
+          // ne tiennent pas tous (« Trier » était coupé). Aligné à droite et
+          // positionné sur « Trier » au départ ; un glissement révèle le reste.
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
           IconButton(
             tooltip: 'Tout lire',
             visualDensity: VisualDensity.compact,
@@ -284,6 +295,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             visualDensity: VisualDensity.compact,
             icon: Icon(Icons.sort_rounded, color: AppTheme.textSecondary, size: 22),
             onPressed: () => _showSortMenu(trackState.sortOption),
+          ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

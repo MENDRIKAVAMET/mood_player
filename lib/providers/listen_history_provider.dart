@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/listen_event.dart';
@@ -13,8 +15,8 @@ class ListenHistoryState {
 }
 
 /// Mémorise LA première écoute réelle (≥ 80 %) de chaque ouverture de
-/// l'app, pour la reproposer le lendemain puis une semaine plus tard à la
-/// même heure. Une seule écoute par ouverture, volontairement : proposer
+/// l'app, pour la reproposer une heure, un jour, une semaine et un mois plus tard
+/// (les trois derniers à la même heure). Une seule écoute par ouverture, volontairement : proposer
 /// tous les morceaux écoutés reviendrait à bombarder l'utilisateur.
 ///
 /// « Ouverture » = vie du processus de l'app : le drapeau
@@ -25,9 +27,9 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   late final Future<void> _ready;
   bool _recordedThisSession = false;
 
-  /// Au-delà de 8 jours, ni le rappel du lendemain ni celui de la semaine
-  /// suivante ne peuvent plus arriver : on jette l'écoute.
-  static const Duration _retention = Duration(days: 8);
+  /// Au-delà de 31 jours, plus aucun rappel (le plus lointain est à un mois)
+  /// ne peut arriver : on jette l'écoute.
+  static const Duration _retention = Duration(days: 31);
 
   /// Fenêtre pendant laquelle un rappel reste proposé après son heure.
   static const Duration _window = Duration(minutes: 60);
@@ -45,7 +47,27 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
         ListenHistoryState(events: data.events, shown: data.shown),
         DateTime.now(),
       );
+      unawaited(_rescheduleAll());
     }
+  }
+
+  /// À chaque ouverture de l'app, reprogramme les rappels à venir : une
+  /// programmation qui avait échoué (ou été supprimée par le système) est
+  /// ainsi rattrapée. Reprogrammer un rappel existant le remplace, sans
+  /// doublon.
+  Future<void> _rescheduleAll() async {
+    try {
+      final now = DateTime.now();
+      for (final event in state.events) {
+        for (final kind in ReminderKind.values) {
+          final reminder = ListenReminder(event, kind);
+          if (state.shown.contains(reminder.key)) continue;
+          if (reminder.scheduledAt.isAfter(now)) {
+            await ReminderNotificationService.schedule(reminder);
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   ListenHistoryState _pruned(ListenHistoryState s, DateTime now) {
@@ -90,6 +112,7 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
       for (final kind in ReminderKind.values) {
         await ReminderNotificationService.schedule(ListenReminder(event, kind));
       }
+      await ReminderNotificationService.askBatteryExemptionOnce();
     } catch (_) {
       // Les notifications sont un bonus : ne jamais faire échouer le suivi
       // d'écoute pour ça.

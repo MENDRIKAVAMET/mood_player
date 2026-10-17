@@ -271,6 +271,34 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _likeChangedController.add((trackId, newLiked));
   }
 
+  /// Reflète dans la notification un « j'aime » fait DANS l'app (lecteur,
+  /// mini-lecteur, menu du morceau) : sans ça, le cœur de la notification
+  /// resterait sur l'ancien état jusqu'au prochain changement de morceau.
+  /// Ne diffuse rien sur [likeChangedStream] (c'est l'app qui est à l'origine
+  /// du changement), donc pas de boucle.
+  void syncLikedFromApp(int trackId, bool liked) {
+    final id = trackId.toString();
+
+    MediaItem withLiked(MediaItem item) =>
+        item.copyWith(extras: {...?item.extras, 'isLiked': liked});
+
+    final queueIndex = _queue.indexWhere((item) => item.id == id);
+    if (queueIndex >= 0) {
+      _queue[queueIndex] = withLiked(_queue[queueIndex]);
+      queue.add(List.unmodifiable(_queue));
+    }
+    final originalIndex = _originalQueue.indexWhere((item) => item.id == id);
+    if (originalIndex >= 0) {
+      _originalQueue[originalIndex] = withLiked(_originalQueue[originalIndex]);
+    }
+
+    final current = mediaItem.value;
+    if (current != null && current.id == id) {
+      mediaItem.add(withLiked(current));
+      _pushControls();
+    }
+  }
+
   void _init() {
     // Listen to player state changes
     _player.playerStateStream.listen((playerState) {

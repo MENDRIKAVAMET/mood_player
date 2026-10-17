@@ -9,6 +9,8 @@ import '../services/storage_service.dart';
 import '../services/groq_service.dart';
 import '../services/library_scan_service.dart';
 import '../services/artwork_service.dart';
+import 'audio_provider.dart' show audioHandlerProvider;
+import '../services/library_filter_service.dart';
 import '../services/track_file_service.dart';
 import '../utils/app_error.dart';
 
@@ -126,12 +128,33 @@ class TrackNotifier extends StateNotifier<TrackState> {
   final LibraryScanService _libraryScanService;
   final ArtworkService _artworkService;
 
+  /// Prévenu quand un « j'aime » change dans l'app, pour mettre à jour le
+  /// cœur de la notification de lecture.
+  final void Function(int trackId, bool liked)? onLikedChanged;
+
   TrackNotifier(
     this._storageService,
     this._groqService,
     this._libraryScanService,
-    this._artworkService,
-  ) : super(const TrackState());
+    this._artworkService, {
+    this.onLikedChanged,
+  }) : super(const TrackState());
+
+  final LibraryFilterService _filterService = LibraryFilterService();
+  bool _filterLoaded = false;
+
+  /// Recharge le filtre de durée enregistré, une seule fois. Appelé avant le
+  /// premier chargement de la liste : sans ça, le filtre saisi la fois
+  /// d'avant était perdu au redémarrage et les morceaux courts revenaient.
+  Future<void> _ensureFilterLoaded() async {
+    if (_filterLoaded) return;
+    _filterLoaded = true;
+    final saved = await _filterService.loadMinDurationSeconds();
+    // Si l'utilisateur a déjà réglé un filtre pendant ce temps, il prime.
+    if (saved != null && state.minDurationSeconds == null) {
+      state = state.copyWith(minDurationSeconds: saved);
+    }
+  }
 
   /// Extrait les pochettes encore absentes du cache, puis met à jour les
   /// morceaux concernés par petits lots.
@@ -180,6 +203,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
   /// Load all tracks from storage
   Future<void> loadTracks() async {
+    await _ensureFilterLoaded();
     state = state.copyWith(isLoading: true, error: null);
     
     try {
@@ -203,6 +227,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// with fresh metadata/duration while preserving their mood
   /// classification), then reload. Runs on every app open.
   Future<void> scanAndLoadTracks() async {
+    await _ensureFilterLoaded();
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -425,6 +450,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
       ];
       state = state.copyWith(tracks: updatedTracks);
       _applyFilters();
+      onLikedChanged?.call(track.id, newValue);
     } catch (e) {
       track.isLiked = !newValue;
       state = state.copyWith(error: 'Erreur lors de la mise à jour du favori. ${friendlyError(e)}');
@@ -642,6 +668,9 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
   /// Hide tracks shorter than [seconds]. Pass null to remove the filter.
   void setMinDurationFilter(int? seconds) {
+    _filterLoaded = true; // le choix explicite prime sur le fichier
+    _filterService.saveMinDurationSeconds(
+        seconds != null && seconds > 0 ? seconds : null);
     if (seconds == null) {
       state = state.copyWith(clearMinDurationSeconds: true);
     } else {
@@ -740,7 +769,21 @@ final trackProvider = StateNotifierProvider<TrackNotifier, TrackState>((ref) {
   final libraryScanService = ref.watch(libraryScanServiceProvider);
   final artworkService = ref.watch(artworkServiceProvider);
   return TrackNotifier(
-      storageService, groqService, libraryScanService, artworkService);
+    storageService,
+    groqService,
+    libraryScanService,
+    artworkService,
+    onLikedChanged: (trackId, liked) {
+      try {
+        ref
+            .read(audioHandlerProvider)
+            .valueOrNull
+            ?.syncLikedFromApp(trackId, liked);
+      } catch (_) {
+        // Pas de lecteur audio (tests, échec d'init) : rien à synchroniser.
+      }
+    },
+  );
 });
 
 // Filtered tracks provider

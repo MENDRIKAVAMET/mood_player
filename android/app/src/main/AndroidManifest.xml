@@ -23,6 +23,15 @@
     <!-- Rappels d'écoute programmés : reprogrammés après un redémarrage. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
+    <!-- Rappels à l'heure exacte, même téléphone en veille (mode Doze). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+
+    <!-- Demander d'exclure l'app de l'optimisation de batterie, qui supprime
+         sinon les rappels quand l'app est retirée des applications récentes. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
     <!-- Lecture des fichiers .lrc rangés à côté de la musique.
 
          READ_MEDIA_AUDIO ne donne accès qu'aux fichiers que MediaStore

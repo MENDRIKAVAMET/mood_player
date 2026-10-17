@@ -49,8 +49,10 @@ class ListenEvent {
       );
 }
 
-/// Rappel demandé le lendemain ou une semaine plus tard, à la même heure.
-enum ReminderKind { nextDay, nextWeek }
+/// Moment du rappel : une heure, un jour, une semaine ou un mois après
+/// l'écoute (les trois derniers à la même heure). Les nouvelles valeurs
+/// sont ajoutées à la fin pour ne pas décaler les existantes.
+enum ReminderKind { nextDay, nextWeek, oneHour, nextMonth }
 
 class ListenReminder {
   final ListenEvent event;
@@ -58,14 +60,28 @@ class ListenReminder {
 
   const ListenReminder(this.event, this.kind);
 
-  int get _daysLater => kind == ReminderKind.nextDay ? 1 : 7;
+  int get _daysLater {
+    switch (kind) {
+      case ReminderKind.nextDay:
+        return 1;
+      case ReminderKind.nextWeek:
+        return 7;
+      case ReminderKind.nextMonth:
+        return 30;
+      case ReminderKind.oneHour:
+        return 0;
+    }
+  }
+
+  int get _hoursLater => kind == ReminderKind.oneHour ? 1 : 0;
 
   /// Même heure et même minute, [_daysLater] jours plus tard. Construit
   /// champ par champ (et non avec `+ Duration(days:)`) pour rester à la
   /// même heure locale malgré un changement d'heure été/hiver.
   DateTime get scheduledAt {
     final a = event.at;
-    return DateTime(a.year, a.month, a.day + _daysLater, a.hour, a.minute);
+    return DateTime(
+        a.year, a.month, a.day + _daysLater, a.hour + _hoursLater, a.minute);
   }
 
   String get key => '${event.id}:${kind.name}';
@@ -81,8 +97,29 @@ class ListenReminder {
     final a = event.at;
     final hh = a.hour.toString().padLeft(2, '0');
     final mm = a.minute.toString().padLeft(2, '0');
-    return kind == ReminderKind.nextDay
-        ? 'Hier à $hh:$mm'
-        : 'Il y a une semaine à $hh:$mm';
+    switch (kind) {
+      case ReminderKind.oneHour:
+        return 'Il y a une heure';
+      case ReminderKind.nextDay:
+        return 'Hier à $hh:$mm';
+      case ReminderKind.nextWeek:
+        return 'Il y a une semaine à $hh:$mm';
+      case ReminderKind.nextMonth:
+        return 'Il y a un mois à $hh:$mm';
+    }
+  }
+
+  /// Début de phrase de la notification (« … , tu écoutais « titre » »).
+  String get notificationLead {
+    switch (kind) {
+      case ReminderKind.oneHour:
+        return 'Il y a une heure';
+      case ReminderKind.nextDay:
+        return 'Hier à cette heure';
+      case ReminderKind.nextWeek:
+        return 'Il y a une semaine à cette heure';
+      case ReminderKind.nextMonth:
+        return 'Il y a un mois à cette heure';
+    }
   }
 }
