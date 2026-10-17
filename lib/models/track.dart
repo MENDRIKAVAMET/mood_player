@@ -137,6 +137,49 @@ enum MoodType {
 }
 
 extension MoodTypeExtension on MoodType {
+  /// Photo d'illustration de l'ambiance (assets/moods/), ou null pour
+  /// « inconnu » (la carte garde alors son dégradé de couleur).
+  String? get imageAsset {
+    switch (this) {
+      case MoodType.energetic:
+        return 'assets/moods/energetic.jpg';
+      case MoodType.chill:
+        return 'assets/moods/chill.jpg';
+      case MoodType.melancholic:
+        return 'assets/moods/melancholic.jpg';
+      case MoodType.festive:
+        return 'assets/moods/festive.jpg';
+      case MoodType.romantic:
+        return 'assets/moods/romantic.jpg';
+      case MoodType.concentration:
+        return 'assets/moods/concentration.jpg';
+      case MoodType.motivating:
+        return 'assets/moods/motivating.jpg';
+      case MoodType.sad:
+        return 'assets/moods/sad.jpg';
+      case MoodType.evangelical:
+        return 'assets/moods/evangelical.jpg';
+      case MoodType.angry:
+        return 'assets/moods/angry.jpg';
+      case MoodType.nostalgic:
+        return 'assets/moods/nostalgic.jpg';
+      case MoodType.dark:
+        return 'assets/moods/dark.jpg';
+      case MoodType.sleep:
+        return 'assets/moods/sleep.jpg';
+      case MoodType.funny:
+        return 'assets/moods/funny.jpg';
+      case MoodType.roadtrip:
+        return 'assets/moods/roadtrip.jpg';
+      case MoodType.spiritual:
+        return 'assets/moods/spiritual.jpg';
+      case MoodType.classical:
+        return 'assets/moods/classical.jpg';
+      case MoodType.unknown:
+        return null;
+    }
+  }
+
   String get displayName {
     switch (this) {
       case MoodType.energetic:

@@ -271,6 +271,15 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _likeChangedController.add((trackId, newLiked));
   }
 
+  /// Vrai si [trackId] est le morceau en cours ET que le lecteur a bien un
+  /// fichier chargé. Un morceau dont le chargement a échoué (ou un état
+  /// remis à zéro après erreur) reste le `mediaItem` courant alors que le
+  /// lecteur est à l'arrêt, durée 0 : se contenter de `play()` dessus ne
+  /// fait alors rien. Dans ce cas il faut le recharger.
+  bool isLoadedTrack(int trackId) =>
+      mediaItem.value?.id == trackId.toString() &&
+      playbackState.value.processingState != AudioProcessingState.idle;
+
   /// Reflète dans la notification un « j'aime » fait DANS l'app (lecteur,
   /// mini-lecteur, menu du morceau) : sans ça, le cœur de la notification
   /// resterait sur l'ancien état jusqu'au prochain changement de morceau.

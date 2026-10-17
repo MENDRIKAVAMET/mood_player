@@ -28,9 +28,12 @@ class MoodCard extends StatelessWidget {
             ? Colors.black87
             : Colors.white;
 
+    final image = mood.imageAsset;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -57,7 +60,38 @@ class MoodCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
+            // Photo de l'ambiance : plein cadre, avec un voile sombre (plus
+            // marqué en bas, sous le nom) teinté de la couleur du mood pour
+            // garder le texte lisible et l'identité de chaque ambiance.
+            if (image != null) ...[
+              Positioned.fill(
+                child: Image.asset(
+                  image,
+                  fit: BoxFit.cover,
+                  cacheWidth: 600,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        moodColors.primary.withValues(alpha: 0.18),
+                        Colors.black.withValues(alpha: 0.25),
+                        Colors.black.withValues(alpha: 0.78),
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
             // Glow effect
+            if (image == null)
             Positioned(
               top: -20,
               right: -20,

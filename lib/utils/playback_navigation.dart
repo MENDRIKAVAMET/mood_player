@@ -71,7 +71,7 @@ Future<void> togglePlayTrack(
 ) async {
   try {
     final handler = await ref.read(audioHandlerProvider.future);
-    final isCurrent = handler.mediaItem.value?.id == track.id.toString();
+    final isCurrent = handler.isLoadedTrack(track.id);
     if (isCurrent) {
       if (handler.playbackState.value.playing) {
         await handler.pause();

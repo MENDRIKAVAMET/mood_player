@@ -326,9 +326,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     audioHandlerAsync.when(
       data: (handler) async {
         try {
-          final activeItem = handler.mediaItem.value;
-          final alreadyCurrent = activeItem != null &&
-              activeItem.id == _displayTrack.id.toString();
+          final alreadyCurrent = handler.isLoadedTrack(_displayTrack.id);
           if (widget.tracks != null && widget.initialIndex != null) {
             if (alreadyCurrent) {
               // Le morceau touché dans la liste est déjà celui en cours :
@@ -350,9 +348,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             // all - skipToQueueItem() seeks back to 0, which is exactly
             // the "restarts from the beginning" bug. Just make sure it's
             // playing (in case it was paused) and leave position alone.
-            final activeItem = handler.mediaItem.value;
-            if (activeItem != null &&
-                activeItem.id == _displayTrack.id.toString()) {
+            if (handler.isLoadedTrack(_displayTrack.id)) {
               if (!handler.playbackState.value.playing) {
                 await handler.play();
               }
