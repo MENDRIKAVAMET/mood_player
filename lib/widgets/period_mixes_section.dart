@@ -8,7 +8,7 @@ import '../theme/app_theme.dart';
 import 'period_moods_sheet.dart';
 import 'suggestion_mix_card.dart';
 
-/// Section « Pour vous » du moment de la journée en cours : titre, ambiances
+/// Section « Découvertes » du moment de la journée en cours : titre, ambiances
 /// actives (modifiables) et carrousel horizontal de 5 mixes de 20 morceaux.
 class PeriodMixesSection extends ConsumerWidget {
   final DayPeriod period;

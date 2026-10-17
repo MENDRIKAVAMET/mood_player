@@ -86,7 +86,7 @@ class _MoodSplashState extends State<MoodSplash>
                 ),
             const SizedBox(height: AppTheme.spacingXL),
             Text(
-              'Mood Player',
+              'Aura',
               style: AppTheme.headlineLarge,
               textAlign: TextAlign.center,
             ).animate().fadeIn(

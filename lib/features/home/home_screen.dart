@@ -451,7 +451,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ).animate().fadeIn(duration: AppTheme.animSlow),
               const SizedBox(height: AppTheme.spacingXS),
               Text(
-                'Mood Player',
+                'Aura',
                 style: AppTheme.displayLarge,
               ).animate().fadeIn(
                     duration: AppTheme.animSlow,
@@ -557,7 +557,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(width: AppTheme.spacingM),
           _buildActionButton(
-            icon: Icons.auto_awesome_rounded,
+            icon: Icons.mood_rounded,
             label: 'Classifier',
             onTap: () => _classifyAllTracks(),
           ),
@@ -1087,7 +1087,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 },
               ),
               _buildMenuOption(
-                icon: Icons.auto_awesome_rounded,
+                icon: Icons.mood_rounded,
                 title: 'Classifier tous les morceaux',
                 onTap: () {
                   Navigator.pop(context);

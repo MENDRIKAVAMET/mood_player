@@ -16,7 +16,7 @@ import '../library/library_screen.dart';
 import '../profile/profile_screen.dart';
 import '../mood/moods_screen.dart';
 
-/// Coquille principale de l'app : quatre onglets (Bibliothèque, Pour vous,
+/// Coquille principale de l'app : quatre onglets (Bibliothèque, Découvertes,
 /// Ambiances, Profil) plus le mini-lecteur, partagé entre les trois.
 ///
 /// Les onglets sont gardés vivants par un [IndexedStack] : changer
@@ -214,9 +214,9 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
               label: 'Bibliothèque',
             ),
             NavigationDestination(
-              icon: Icon(Icons.auto_awesome_outlined),
-              selectedIcon: Icon(Icons.auto_awesome_rounded, color: AppTheme.accentPrimary),
-              label: 'Pour vous',
+              icon: Icon(Icons.explore_outlined),
+              selectedIcon: Icon(Icons.explore_rounded, color: AppTheme.accentPrimary),
+              label: 'Découvertes',
             ),
             NavigationDestination(
               icon: Icon(Icons.graphic_eq_outlined),

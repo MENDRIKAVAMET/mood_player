@@ -5,4 +5,4 @@
 storePassword=motdepasse_du_keystore
 keyPassword=motdepasse_de_la_cle
 keyAlias=upload
-storeFile=/chemin/absolu/vers/mood-player-release.jks
+storeFile=/chemin/absolu/vers/aura-release.jks

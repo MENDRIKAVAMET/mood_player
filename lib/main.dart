@@ -171,7 +171,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     }
 
     return MaterialApp(
-      title: 'Mood Player',
+      title: 'Aura',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,

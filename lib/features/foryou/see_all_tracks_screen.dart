@@ -10,7 +10,7 @@ import '../../widgets/app_header.dart';
 import '../../widgets/track_list_tools.dart';
 import '../../widgets/track_tile.dart';
 
-/// Liste complète pour une section de « Pour vous » (Récemment écouté,
+/// Liste complète pour une section de « Découvertes » (Récemment écouté,
 /// Les plus écoutés, Tes morceaux aimés...) dont l'aperçu sur la page
 /// d'accueil est plafonné à 9 morceaux. Ouvert depuis le bouton « voir
 /// tout » (chevron) de chaque section.

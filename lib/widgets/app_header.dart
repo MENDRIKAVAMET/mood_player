@@ -104,7 +104,7 @@ class _BrandTitle extends StatelessWidget {
         const SizedBox(width: AppTheme.spacingS),
         Flexible(
           child: Text(
-            'Mood Player',
+            'Aura',
             style: AppTheme.headlineMedium,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

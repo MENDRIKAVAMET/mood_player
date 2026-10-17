@@ -11,7 +11,7 @@ import '../theme/app_theme.dart';
 
 /// Ouvre le lecteur sur [track], avec [tracks] comme file de lecture.
 ///
-/// Factorisé ici parce que quatre écrans (bibliothèque, pour vous, mood,
+/// Factorisé ici parce que quatre écrans (bibliothèque, découvertes, mood,
 /// recherche) ont besoin exactement de la même transition et de la même
 /// logique d'index — le dupliquer à chaque fois était la meilleure façon
 /// de finir avec des files de lecture incohérentes selon l'écran.

@@ -406,7 +406,7 @@ class LyricsService {
 
   /// Écrit le résultat trouvé en ligne dans un vrai fichier `.lrc`, pour
   /// qu'il soit réellement "sur le téléphone" (visible par n'importe
-  /// quelle autre appli, survit à un vidage du cache de Mood Player) et
+  /// quelle autre appli, survit à un vidage du cache de Aura) et
   /// pas seulement gardé dans le stockage interne de l'app.
   ///
   /// Renvoie [result] tel quel si l'écriture échoue ou s'il n'y a rien à

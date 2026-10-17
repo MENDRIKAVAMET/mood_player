@@ -13,7 +13,7 @@ import '../../widgets/suggestion_mix_card.dart';
 import 'see_all_tracks_screen.dart';
 import 'suggestion_mix_screen.dart';
 
-/// Page « Pour vous » : ajouts récents, morceaux réellement les plus
+/// Page « Découvertes » : ajouts récents, morceaux réellement les plus
 /// écoutés, favoris, et suggestions déduites des deux derniers.
 ///
 /// « Le plus écouté » ne veut pas dire « le plus lancé » : un morceau
@@ -40,7 +40,7 @@ class ForYouScreen extends ConsumerWidget {
           bottom: false,
           child: Column(
             children: [
-              const AppHeader.tab(title: 'Pour vous'),
+              const AppHeader.tab(title: 'Découvertes'),
               Expanded(
                 child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -371,7 +371,7 @@ class ForYouScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.auto_awesome_rounded, size: 48, color: AppTheme.accentPrimary),
+            Icon(Icons.explore_rounded, size: 48, color: AppTheme.accentPrimary),
             const SizedBox(height: AppTheme.spacingL),
             Text(
               'Rien à te proposer pour l\'instant',

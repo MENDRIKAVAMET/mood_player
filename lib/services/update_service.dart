@@ -119,7 +119,7 @@ class UpdateService {
     final dir = Directory('${cache.path}/updates');
     if (await dir.exists()) await dir.delete(recursive: true);
     await dir.create(recursive: true);
-    final file = File('${dir.path}/mood_player-${update.version}.apk');
+    final file = File('${dir.path}/aura-${update.version}.apk');
 
     await _dio.download(
       update.apkUrl.toString(),

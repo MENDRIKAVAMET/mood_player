@@ -9,7 +9,7 @@ import '../theme/app_theme.dart';
 import 'track_artwork.dart';
 import 'track_tile.dart' show EqualizerIndicator;
 
-/// Ligne compacte pour les sections « en liste » de Pour vous
+/// Ligne compacte pour les sections « en liste » de Découvertes
 /// (Les plus écoutés / Tes morceaux aimés) : petite pochette carrée,
 /// titre + artiste, bouton lecture circulaire à droite.
 ///

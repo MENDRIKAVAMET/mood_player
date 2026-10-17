@@ -7,7 +7,7 @@ import '../models/track.dart';
 import '../models/user_profile.dart';
 import 'storage_service.dart';
 
-/// Fichier de transfert illisible ou qui ne vient pas de Mood Player.
+/// Fichier de transfert illisible ou qui ne vient pas de Aura.
 class BackupFormatException implements Exception {
   final String message;
   const BackupFormatException(this.message);
@@ -475,7 +475,7 @@ class BackupService {
     final d = data.exportedAt;
     String two(int n) => n.toString().padLeft(2, '0');
     final stamp = '${d.year}${two(d.month)}${two(d.day)}_${two(d.hour)}${two(d.minute)}';
-    final file = File('${dir.path}/mood_player_transfert_$stamp.json');
+    final file = File('${dir.path}/aura_transfert_$stamp.json');
     await file.writeAsString(jsonEncode(data.toJson()));
     return file;
   }
@@ -490,16 +490,16 @@ class BackupService {
       decoded = jsonDecode(content);
     } catch (_) {
       throw const BackupFormatException(
-          'Ce fichier n\'est pas un fichier de transfert Mood Player.');
+          'Ce fichier n\'est pas un fichier de transfert Aura.');
     }
     if (decoded is! Map || decoded['app'] != appId) {
       throw const BackupFormatException(
-          'Ce fichier n\'est pas un fichier de transfert Mood Player.');
+          'Ce fichier n\'est pas un fichier de transfert Aura.');
     }
     final version = decoded['version'];
     if (version is! int || version > formatVersion) {
       throw const BackupFormatException(
-          'Ce fichier vient d\'une version plus récente de Mood Player. '
+          'Ce fichier vient d\'une version plus récente de Aura. '
           'Mettez l\'application à jour pour l\'importer.');
     }
     try {

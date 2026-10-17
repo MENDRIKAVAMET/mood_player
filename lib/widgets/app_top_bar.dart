@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'header_actions.dart';
 
-/// Barre du haut commune aux trois onglets (Bibliothèque, Pour vous,
+/// Barre du haut commune aux trois onglets (Bibliothèque, Découvertes,
 /// Ambiances) : le titre de l'onglet à gauche, puis recherche, profil et
 /// menu à droite. Posée une seule fois dans la coquille principale, elle
 /// reste identique et à la même place quel que soit l'onglet.

@@ -22,7 +22,7 @@ class TrackRenameException implements Exception {
 /// fichier sur le disque et garde le même identifiant (donc le même `uri`
 /// pour le lecteur). Le côté natif est dans `MainActivity.kt` ; sur
 /// Android 11+ il peut afficher la demande d'autorisation du système
-/// « Autoriser Mood Player à modifier ce fichier ? ».
+/// « Autoriser Aura à modifier ce fichier ? ».
 class TrackFileService {
   static const MethodChannel _channel =
       MethodChannel('com.example.mood_player/files');

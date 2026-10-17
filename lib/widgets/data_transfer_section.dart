@@ -78,7 +78,7 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
           );
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/json')],
-        text: 'Mes données Mood Player',
+        text: 'Mes données Aura',
       );
     } catch (e) {
       _snack('Export impossible. ${friendlyError(e)}', error: true);

@@ -68,7 +68,7 @@ class _ClassifyProgressBannerState extends State<ClassifyProgressBanner>
                     ],
                   ),
                   child: Icon(
-                    Icons.auto_awesome,
+                    Icons.mood_rounded,
                     color: AppTheme.accentPrimary.withValues(alpha: 0.7 + glow * 0.3),
                     size: 20,
                   ),

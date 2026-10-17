@@ -917,7 +917,7 @@ Future<MoodAudioHandler> initAudioService() async {
     builder: () => MoodAudioHandler(),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.example.mood_player.audio',
-      androidNotificationChannelName: 'Mood Player',
+      androidNotificationChannelName: 'Aura',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,
       // A white-silhouette icon dedicated to the notification (Android
@@ -928,7 +928,7 @@ Future<MoodAudioHandler> initAudioService() async {
       // resource resolving to a null/0 id that caused
       // "Invalid notification (no valid small icon)" here before.
       androidNotificationIcon: 'mipmap/ic_notification',
-      notificationColor: Color(0xFF8A00FF),
+      notificationColor: Color(0xFF1ABF8A),
       // Les pochettes extraites font 512 px ; les redescendre à 256 évite
       // qu'Android recharge et redimensionne une grosse bitmap à chaque
       // mise à jour de la notification.

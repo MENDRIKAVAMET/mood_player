@@ -1,4 +1,4 @@
-# 🎵 Mood Player
+# 🎵 Aura
 
 Une application mobile Flutter qui organise vos playlists musicales par "mood" (ambiance) en utilisant l'API Groq pour classifier automatiquement chaque morceau.
 

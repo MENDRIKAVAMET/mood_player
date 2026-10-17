@@ -161,7 +161,7 @@ class MoodsScreen extends ConsumerWidget {
 
   /// Remplace l'ancien simple texte gris par un vrai état vide (icône,
   /// titre, description et un bouton qui agit - pas juste "va voir
-  /// ailleurs"), cohérent avec celui de « Pour vous ». Le message change
+  /// ailleurs"), cohérent avec celui de « Découvertes ». Le message change
   /// selon qu'il n'y a tout simplement aucun morceau, ou qu'il y en a mais
   /// qu'aucun n'est encore classifié.
   Widget _emptyAmbianceState(
@@ -196,7 +196,7 @@ class MoodsScreen extends ConsumerWidget {
               ),
               child: Icon(
                 libraryHasTracks
-                    ? Icons.auto_awesome_rounded
+                    ? Icons.mood_rounded
                     : Icons.library_music_rounded,
                 size: 30,
                 color: AppTheme.accentPrimary,
@@ -237,7 +237,7 @@ class MoodsScreen extends ConsumerWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.auto_awesome_rounded,
+                      const Icon(Icons.mood_rounded,
                           color: Colors.white, size: 18),
                       const SizedBox(width: AppTheme.spacingS),
                       Text(

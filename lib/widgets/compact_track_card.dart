@@ -4,7 +4,7 @@ import '../models/track.dart';
 import '../theme/app_theme.dart';
 import 'track_artwork.dart';
 
-/// Carte compacte utilisée dans les carrousels horizontaux de « Pour vous ».
+/// Carte compacte utilisée dans les carrousels horizontaux de « Découvertes ».
 ///
 /// Format volontairement plus petit que [TrackTile] : ces sections sont là
 /// pour donner un aperçu en un coup d'œil, pas pour remplacer la liste

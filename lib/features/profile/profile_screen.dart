@@ -222,7 +222,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               if (profile.favoriteArtists.isEmpty)
                 Text(
                   'Aucun artiste choisi pour l\'instant. Ça aide les '
-                  'suggestions de "Pour vous" à démarrer plus vite.',
+                  'suggestions de "Découvertes" à démarrer plus vite.',
                   style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
                 )
               else

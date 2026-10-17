@@ -94,7 +94,7 @@ class HeaderActions extends StatelessWidget {
 
 
 /// Bouton « Classer » de l'en-tête, identique dans tous les onglets :
-/// icône seule (palette de couleurs) dans un cercle aux couleurs de la
+/// icône seule (smiley) dans un cercle aux couleurs de la
 /// marque. Le cercle visible fait 38 px, la zone tactile 44 px. Désactivé
 /// (grisé) pendant une classification en cours.
 class ClassifyHeaderButton extends ConsumerWidget {
@@ -128,7 +128,7 @@ class ClassifyHeaderButton extends ConsumerWidget {
                   ],
                 ),
                 child: const Icon(
-                  Icons.color_lens_rounded,
+                  Icons.mood_rounded,
                   size: 21,
                   color: Colors.white,
                 ),

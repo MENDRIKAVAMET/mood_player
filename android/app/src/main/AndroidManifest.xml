@@ -48,7 +48,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
     <application
-        android:label="Mood Player"
+        android:label="Aura"
         android:name=".CrashHandlerApplication"
         android:icon="@mipmap/ic_launcher">
         <activity

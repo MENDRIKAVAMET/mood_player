@@ -43,7 +43,7 @@ class _UpdateGateState extends State<UpdateGate> {
 
 enum _Step {
   offer, // « Télécharger » / « Pas maintenant »
-  needPermission, // autoriser l'installation d'applis depuis Mood Player
+  needPermission, // autoriser l'installation d'applis depuis Aura
   downloading,
   installing,
   installCancelled,
@@ -179,13 +179,13 @@ class _UpdateDialogState extends State<_UpdateDialog>
       case _Step.offer:
         final size = widget.update.size;
         return Text(
-          'La version ${widget.update.version} de Mood Player est disponible'
+          'La version ${widget.update.version} de Aura est disponible'
           '${size != null ? ' (${_formatSize(size)})' : ''}.',
           style: AppTheme.bodyMedium,
         );
       case _Step.needPermission:
         return Text(
-          'Pour installer la mise à jour, autorise Mood Player à installer '
+          'Pour installer la mise à jour, autorise Aura à installer '
           'des applications dans les réglages, puis reviens ici.',
           style: AppTheme.bodyMedium,
         );

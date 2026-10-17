@@ -6,7 +6,7 @@ import 'package:mood_player/main.dart';
 import 'package:mood_player/providers/providers.dart';
 
 void main() {
-  testWidgets('Mood Player smoke test', (WidgetTester tester) async {
+  testWidgets('Aura smoke test', (WidgetTester tester) async {
     // Override the audio handler provider so the test does not depend on
     // platform channels (audio_service) that are unavailable in tests.
     // The first tab only needs the provider to resolve (or fail) gracefully.
@@ -37,7 +37,7 @@ void main() {
     }
 
     // The app title should be visible.
-    expect(find.text('Mood Player'), findsOneWidget);
+    expect(find.text('Aura'), findsOneWidget);
 
     // La recherche et le profil sont des icônes dans l'en-tête fixe.
     expect(find.byIcon(Icons.search_rounded), findsOneWidget);

@@ -55,7 +55,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       ref.read(customMoodProvider.notifier).loadMoods();
 
       // Démarre le suivi des écoutes réelles dès l'ouverture de l'app,
-      // sans attendre que l'utilisateur visite « Pour vous ».
+      // sans attendre que l'utilisateur visite « Découvertes ».
       ref.read(playbackStatsProvider);
 
       _requestNotificationPermission();
@@ -120,7 +120,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           child: Column(
             children: [
               AppHeader.tab(
-                title: 'Mood Player',
+                title: 'Aura',
                 actions: [
                   const HeaderActions(),
                   AppHeaderButton(
@@ -487,7 +487,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 },
               ),
               _buildMenuOption(
-                icon: Icons.auto_awesome_rounded,
+                icon: Icons.mood_rounded,
                 title: 'Classifier tous les morceaux',
                 onTap: () {
                   Navigator.pop(context);

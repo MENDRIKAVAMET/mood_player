@@ -41,5 +41,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mood-player-apk
+          name: aura-apk
           path: build/app/outputs/flutter-apk/app-release.apk
