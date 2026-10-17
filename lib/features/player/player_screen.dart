@@ -1073,9 +1073,9 @@ class _GradientTrackShape extends SliderTrackShape with BaseSliderTrackShape {
 /// Curseur : pastille blanche avec un halo lumineux de la couleur de marque.
 class _GlowThumbShape extends SliderComponentShape {
   final Color glow;
-  final double radius;
+  static const double radius = 8;
 
-  const _GlowThumbShape({required this.glow, this.radius = 8});
+  const _GlowThumbShape({required this.glow});
 
   @override
   Size getPreferredSize(bool isEnabled, bool isDiscrete) =>

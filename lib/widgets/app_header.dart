@@ -94,7 +94,7 @@ class _BrandTitle extends StatelessWidget {
             width: 32,
             height: 32,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Icon(
+            errorBuilder: (_, _, _) => Icon(
               Icons.graphic_eq_rounded,
               size: 28,
               color: AppTheme.accentPrimary,

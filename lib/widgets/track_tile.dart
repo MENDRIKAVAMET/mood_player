@@ -367,7 +367,7 @@ class _AlbumArt extends StatelessWidget {
 class EqualizerIndicator extends StatefulWidget {
   final Color color;
 
-  const EqualizerIndicator({required this.color});
+  const EqualizerIndicator({super.key, required this.color});
 
   @override
   State<EqualizerIndicator> createState() => EqualizerIndicatorState();

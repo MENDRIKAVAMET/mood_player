@@ -139,7 +139,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// Scrolls the track list so the currently playing track lands near the
   /// top, then dims the locate button for a moment as visual confirmation.
-  void _locateCurrentTrack() {
+  Future<void> _locateCurrentTrack() async {
     final trackState = ref.read(trackProvider);
     final currentTrack = ref.read(currentTrackProvider).valueOrNull;
     if (currentTrack == null) return;
@@ -157,26 +157,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final target = (aboveList + index * itemExtent - AppTheme.spacingS)
         .clamp(0.0, _scrollController.position.maxScrollExtent);
 
-    _scrollController
-        .animateTo(
+    await _scrollController.animateTo(
       target,
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
-    )
-        .then((_) {
-      if (!mounted) return;
-      // Fine-tune once the tile is actually laid out, then confirm/fade.
-      final key = _tileKeys[currentTrack.id];
-      final tileContext = key?.currentContext;
-      if (tileContext != null) {
-        Scrollable.ensureVisible(
-          tileContext,
-          duration: const Duration(milliseconds: 200),
-          alignment: 0.1,
-        );
-      }
-      _flashLocateButton();
-    });
+    );
+    if (!mounted) return;
+    // Fine-tune once the tile is actually laid out, then confirm/fade.
+    final tileContext = _tileKeys[currentTrack.id]?.currentContext;
+    if (tileContext != null && tileContext.mounted) {
+      await Scrollable.ensureVisible(
+        tileContext,
+        duration: const Duration(milliseconds: 200),
+        alignment: 0.1,
+      );
+    }
+    if (!mounted) return;
+    _flashLocateButton();
   }
 
   void _flashLocateButton() {
