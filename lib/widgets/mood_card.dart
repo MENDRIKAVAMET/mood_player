@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../theme/mood_colors.dart';
 import '../models/track.dart';
+import 'mood_image.dart';
 
 /// Premium mood card for the home screen
-class MoodCard extends StatelessWidget {
+class MoodCard extends ConsumerWidget {
   final MoodType mood;
   final int trackCount;
   final VoidCallback onTap;
+
+  /// Appui long : utilisé pour changer l'image de l'ambiance.
+  final VoidCallback? onLongPress;
 
   const MoodCard({
     super.key,
     required this.mood,
     required this.trackCount,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final moodColors = MoodColors.forMood(mood);
     // Icône noire sur les teintes claires (jaune, orange...), blanche sur
     // les autres : contraste lisible quelle que soit l'ambiance.
@@ -28,10 +34,12 @@ class MoodCard extends StatelessWidget {
             ? Colors.black87
             : Colors.white;
 
-    final image = mood.imageAsset;
+    // Image personnalisée par l'utilisateur, sinon celle d'origine.
+    final hasImage = MoodImage.hasImage(ref, mood);
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -63,14 +71,9 @@ class MoodCard extends StatelessWidget {
             // Photo de l'ambiance : plein cadre, avec un voile sombre (plus
             // marqué en bas, sous le nom) teinté de la couleur du mood pour
             // garder le texte lisible et l'identité de chaque ambiance.
-            if (image != null) ...[
+            if (hasImage) ...[
               Positioned.fill(
-                child: Image.asset(
-                  image,
-                  fit: BoxFit.cover,
-                  cacheWidth: 600,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
+                child: MoodImage(mood: mood),
               ),
               Positioned.fill(
                 child: DecoratedBox(
@@ -91,7 +94,7 @@ class MoodCard extends StatelessWidget {
             ],
 
             // Glow effect
-            if (image == null)
+            if (!hasImage)
             Positioned(
               top: -20,
               right: -20,

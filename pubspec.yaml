@@ -116,6 +116,7 @@ flutter:
   assets:
     - assets/icon/
     - assets/moods/
+    - assets/moods/anime/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

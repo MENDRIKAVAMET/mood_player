@@ -86,6 +86,14 @@ class ListenReminder {
 
   String get key => '${event.id}:${kind.name}';
 
+  /// Les rappels « il y a une heure » et « hier » ne doivent pas être
+  /// envoyés pendant que l'utilisateur écoute de la musique : il est déjà
+  /// en train d'écouter, et ce sont des écoutes trop récentes pour qu'un
+  /// rappel ait du sens. Ceux de la semaine et du mois dernier, plus
+  /// nostalgiques, restent envoyés.
+  bool get skipsWhilePlaying =>
+      kind == ReminderKind.oneHour || kind == ReminderKind.nextDay;
+
   /// Un seul identifiant de notification par créneau horaire : plusieurs
   /// écoutes dans la même heure n'envoient jamais plusieurs notifications.
   int get notificationId {

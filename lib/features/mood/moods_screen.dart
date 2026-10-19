@@ -9,6 +9,8 @@ import '../../widgets/custom_mood_card.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/mood_card.dart';
 import '../../widgets/mood_editor_dialog.dart';
+import '../../widgets/custom_mood_image_sheet.dart';
+import '../../widgets/mood_image_sheet.dart';
 import 'custom_mood_detail_screen.dart';
 import 'mood_detail_screen.dart';
 
@@ -72,6 +74,7 @@ class MoodsScreen extends ConsumerWidget {
                     final mood = customMoods[index];
                     return CustomMoodCard(
                       mood: mood,
+                      onLongPress: () => showCustomMoodImageSheet(context, mood),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -102,6 +105,7 @@ class MoodsScreen extends ConsumerWidget {
                         mood: mood,
                         trackCount: trackCountByMood[mood] ?? 0,
                         onTap: () => _openMoodDetail(context, ref, mood),
+                        onLongPress: () => showMoodImageSheet(context, mood),
                       );
                     },
                   ),
@@ -230,9 +234,9 @@ class MoodsScreen extends ConsumerWidget {
                     horizontal: AppTheme.spacingXL,
                     vertical: AppTheme.spacingM,
                   ),
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.brandGradient,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+                  decoration: AppTheme.primaryButton(
+                    pill: true,
+                    glowAlpha: 0,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

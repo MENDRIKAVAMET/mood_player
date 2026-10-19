@@ -16,6 +16,8 @@ import '../../widgets/mini_player.dart';
 import '../../widgets/classify_progress_banner.dart';
 import '../../widgets/custom_mood_card.dart';
 import '../../widgets/mood_editor_dialog.dart';
+import '../../widgets/custom_mood_image_sheet.dart';
+import '../../widgets/mood_image_sheet.dart';
 import '../mood/custom_mood_detail_screen.dart';
 import '../player/player_screen.dart';
 import '../../utils/playback_navigation.dart';
@@ -626,6 +628,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             final mood = customMoods[index];
             return CustomMoodCard(
               mood: mood,
+              onLongPress: () => showCustomMoodImageSheet(context, mood),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -701,6 +704,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               mood: mood,
               trackCount: count,
               onTap: () => _openMoodDetail(mood),
+              onLongPress: () => showMoodImageSheet(context, mood),
             );
           },
         ),

@@ -6,6 +6,7 @@ import '../models/listen_event.dart';
 import '../models/track.dart';
 import '../services/listen_history_service.dart';
 import '../services/reminder_notification_service.dart';
+import 'audio_provider.dart';
 
 class ListenHistoryState {
   final List<ListenEvent> events;
@@ -22,10 +23,22 @@ class ListenHistoryState {
 /// « Ouverture » = vie du processus de l'app : le drapeau
 /// [_recordedThisSession] est remis à zéro quand l'app est fermée puis
 /// relancée, pas quand elle passe simplement en arrière-plan.
+///
+/// Les rappels « il y a une heure » et « hier » (voir
+/// [ListenReminder.skipsWhilePlaying]) sont suspendus tant qu'une musique
+/// est en lecture : leur notification est annulée au démarrage de la
+/// lecture, reprogrammée à la pause, et un rappel dont l'heure tombe en
+/// pleine lecture est abandonné.
 class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   final ListenHistoryService _service;
+  final Ref _ref;
   late final Future<void> _ready;
   bool _recordedThisSession = false;
+
+  /// Une musique est-elle en lecture (et depuis quand) ?
+  bool _isPlaying = false;
+  DateTime? _playingSince;
+  StreamSubscription<bool>? _playingSub;
 
   /// Au-delà de 31 jours, plus aucun rappel (le plus lointain est à un mois)
   /// ne peut arriver : on jette l'écoute.
@@ -34,8 +47,75 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   /// Fenêtre pendant laquelle un rappel reste proposé après son heure.
   static const Duration _window = Duration(minutes: 60);
 
-  ListenHistoryNotifier(this._service) : super(const ListenHistoryState()) {
+  ListenHistoryNotifier(this._service, this._ref)
+      : super(const ListenHistoryState()) {
     _ready = _load();
+    _listenPlayback();
+  }
+
+  /// Suit l'état de lecture du service audio (même approche que
+  /// `PlaybackStatsNotifier`).
+  Future<void> _listenPlayback() async {
+    try {
+      final handler = await _ref.read(audioHandlerProvider.future);
+      if (!mounted) return;
+      _playingSub = handler.playbackState
+          .map((s) => s.playing)
+          .distinct()
+          .listen(_onPlayingChanged);
+    } catch (_) {
+      // Le service audio n'a pas pu démarrer : il n'y a donc pas de
+      // lecture à attendre, les rappels restent comme avant.
+    }
+  }
+
+  void _onPlayingChanged(bool playing) {
+    if (playing == _isPlaying) return;
+    final since = _playingSince;
+    _isPlaying = playing;
+    _playingSince = playing ? DateTime.now() : null;
+    unawaited(_syncWhilePlaying(playing, since).catchError((_) {}));
+  }
+
+  /// Applique le changement d'état de lecture aux rappels concernés.
+  Future<void> _syncWhilePlaying(bool playing, DateTime? since) async {
+    await _ready;
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    final skipped = <ListenReminder>[];
+    for (final event in state.events) {
+      for (final kind in ReminderKind.values) {
+        // L'état a changé entre-temps : une autre synchro prend le relais.
+        if (_isPlaying != playing || !mounted) return;
+
+        final reminder = ListenReminder(event, kind);
+        if (!reminder.skipsWhilePlaying || state.shown.contains(reminder.key)) {
+          continue;
+        }
+        final upcoming = reminder.scheduledAt.isAfter(now);
+        if (playing) {
+          // La lecture démarre : plus de notification pour ceux-là.
+          if (upcoming) {
+            await ReminderNotificationService.cancel(reminder.notificationId);
+          }
+        } else if (upcoming) {
+          // La lecture s'arrête : on reprogramme ceux qui sont à venir.
+          await ReminderNotificationService.schedule(reminder);
+        } else if (since != null && !reminder.scheduledAt.isBefore(since)) {
+          // L'heure est tombée PENDANT la lecture : on l'abandonne plutôt
+          // que de l'envoyer en retard à la pause.
+          skipped.add(reminder);
+        }
+      }
+    }
+    if (skipped.isNotEmpty && mounted) await markShown(skipped);
+  }
+
+  @override
+  void dispose() {
+    _playingSub?.cancel();
+    super.dispose();
   }
 
   Future<void> ensureLoaded() => _ready;
@@ -62,6 +142,8 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
         for (final kind in ReminderKind.values) {
           final reminder = ListenReminder(event, kind);
           if (state.shown.contains(reminder.key)) continue;
+          // Pendant une lecture, ceux-là sont reprogrammés à la pause.
+          if (_isPlaying && reminder.skipsWhilePlaying) continue;
           if (reminder.scheduledAt.isAfter(now)) {
             await ReminderNotificationService.schedule(reminder);
           }
@@ -110,7 +192,11 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
     try {
       await ReminderNotificationService.requestPermission();
       for (final kind in ReminderKind.values) {
-        await ReminderNotificationService.schedule(ListenReminder(event, kind));
+        final reminder = ListenReminder(event, kind);
+        // On est en pleine lecture : « il y a une heure » et « hier » sont
+        // programmés à la pause (voir _syncWhilePlaying).
+        if (_isPlaying && reminder.skipsWhilePlaying) continue;
+        await ReminderNotificationService.schedule(reminder);
       }
       await ReminderNotificationService.askBatteryExemptionOnce();
     } catch (_) {
@@ -128,6 +214,8 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
       for (final kind in ReminderKind.values) {
         final reminder = ListenReminder(event, kind);
         if (state.shown.contains(reminder.key)) continue;
+        // Pas de pop-up « il y a une heure » / « hier » pendant la lecture.
+        if (_isPlaying && reminder.skipsWhilePlaying) continue;
         final elapsed = now.difference(reminder.scheduledAt);
         if (elapsed >= const Duration(seconds: -45) && elapsed < _window) {
           result.add(reminder);
@@ -153,5 +241,5 @@ final listenHistoryServiceProvider =
 /// vivre aussi longtemps que l'app.
 final listenHistoryProvider =
     StateNotifierProvider<ListenHistoryNotifier, ListenHistoryState>((ref) {
-  return ListenHistoryNotifier(ref.watch(listenHistoryServiceProvider));
+  return ListenHistoryNotifier(ref.watch(listenHistoryServiceProvider), ref);
 });

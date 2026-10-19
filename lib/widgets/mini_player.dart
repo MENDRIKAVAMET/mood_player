@@ -183,23 +183,16 @@ class MiniPlayer extends ConsumerWidget {
                         });
                       },
                       child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: AppTheme.brandGradient,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.accentPrimary.withValues(alpha: 0.45),
-                              blurRadius: 12,
-                              spreadRadius: -1,
-                            ),
-                          ],
+                        width: AppTheme.btn(44),
+                        height: AppTheme.btn(44),
+                        decoration: AppTheme.primaryButton(
+                          size: AppTheme.btn(44),
+                          glowSpread: -1,
                         ),
                         child: Icon(
                           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                           color: Colors.white,
-                          size: 24,
+                          size: AppTheme.btn(24),
                         ),
                       ),
                     ),

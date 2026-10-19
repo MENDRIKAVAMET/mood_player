@@ -206,7 +206,14 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           height: 64,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          labelBehavior: switch (AppTheme.navLabels) {
+            NavLabelsKind.always =>
+              NavigationDestinationLabelBehavior.alwaysShow,
+            NavLabelsKind.selected =>
+              NavigationDestinationLabelBehavior.onlyShowSelected,
+            NavLabelsKind.none =>
+              NavigationDestinationLabelBehavior.alwaysHide,
+          },
           destinations: [
             NavigationDestination(
               icon: Icon(Icons.library_music_outlined),

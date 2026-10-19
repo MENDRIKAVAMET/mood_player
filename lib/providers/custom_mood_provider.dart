@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/custom_mood.dart';
 import '../models/track.dart';
+import 'custom_mood_image_provider.dart';
 import 'track_provider.dart' show storageServiceProvider;
 import '../utils/app_error.dart';
 
@@ -78,6 +79,9 @@ class CustomMoodNotifier extends StateNotifier<CustomMoodState> {
     try {
       final storage = _ref.read(storageServiceProvider);
       await storage.deleteCustomMood(moodId);
+      // Son image importée (copie dans le dossier de l'app) n'a plus lieu
+      // d'être gardée.
+      await _ref.read(customMoodImageProvider.notifier).forget(moodId);
       await loadMoods();
     } catch (e) {
       state = state.copyWith(error: 'Erreur lors de la suppression du mood. ${friendlyError(e)}');

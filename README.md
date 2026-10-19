@@ -8,6 +8,8 @@ Une application mobile Flutter qui organise vos playlists musicales par "mood" (
 - **Moods supportés** : Énergique, Chill, Mélancolique, Festif, Romantique, Concentration, Motivant, Triste
 - **Cache local** : Stockage des classifications pour éviter les appels API répétés
 - **Lecteur audio** : Lecture avec contrôles depuis la notification/lock screen Android
+- **Images d'ambiance personnalisables** : appui long sur une ambiance (ou bouton photo dans son écran) pour choisir, ambiance par ambiance, entre l'image d'origine (défaut), une illustration d'animé, l'icône seule ou une image importée depuis la galerie ; un style peut aussi être appliqué à toutes les ambiances d'un coup
+- **Images pour les moods créés par l'utilisateur** : appui long sur un mood perso (ou bouton photo dans son écran) pour lui donner une image, au choix parmi toutes les images de l'app (photos et animé) ou importée depuis l'appareil ; l'image sert aussi de fond à l'écran du mood
 - **Transfert de données** : Profil → « Transfert de données » exporte classifications, favoris, ambiances perso, écoutes et réglages dans un fichier JSON ; l'import (autre téléphone, ou classifications d'une autre personne, hors ligne) retrouve les morceaux par titre + artiste + durée
 - **Égaliseur** : préréglages, curseurs par bande et renforcement du volume (Android), accessible depuis le lecteur et le profil
 - **Outils de listes** : sur les listes de morceaux, barre de défilement rapide, bouton ancre (retour au morceau en cours) et boutons Tout lire / Aléatoire / Trier

@@ -180,6 +180,19 @@ extension MoodTypeExtension on MoodType {
     }
   }
 
+  /// Illustration d'animé de l'ambiance (assets/moods/anime/), ou null si
+  /// elle n'en a pas (« sombre », « inconnu ») : l'image d'origine est
+  /// alors utilisée à la place.
+  String? get animeImageAsset {
+    switch (this) {
+      case MoodType.unknown:
+      case MoodType.dark:
+        return null;
+      default:
+        return 'assets/moods/anime/$name.jpg';
+    }
+  }
+
   String get displayName {
     switch (this) {
       case MoodType.energetic:

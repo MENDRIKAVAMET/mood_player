@@ -1,6 +1,95 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+
+/// Type de fond d'écran proposé à l'utilisateur.
+enum BackgroundStyle {
+  vertical('Origine'),
+  diagonal('Diagonale'),
+  halo('Halo'),
+  bottomGlow('Lueur bas'),
+  corner('Coin'),
+  solid('Uni');
+
+  final String label;
+  const BackgroundStyle(this.label);
+}
+
+/// Style des boutons principaux (lecture, classifier, etc.).
+enum ButtonStyleKind {
+  gradient('Dégradé'),
+  solid('Plein'),
+  outline('Contour'),
+  glass('Verre');
+
+  final String label;
+  const ButtonStyleKind(this.label);
+}
+
+/// Forme des boutons : ronds ou carrés arrondis.
+enum ButtonShapeKind {
+  round('Rond'),
+  squircle('Carré arrondi');
+
+  final String label;
+  const ButtonShapeKind(this.label);
+}
+
+/// Taille des boutons principaux (lecture, classifier...).
+enum ButtonSizeKind {
+  compact('Compact', 0.85),
+  normal('Normal', 1.0),
+  large('Grand', 1.18);
+
+  final String label;
+  final double scale;
+  const ButtonSizeKind(this.label, this.scale);
+}
+
+/// Disposition des contrôles du grand lecteur.
+enum ControlsLayout {
+  classic('Classique'),
+  grouped('Groupé'),
+  split('2 rangées');
+
+  final String label;
+  const ControlsLayout(this.label);
+}
+
+/// Affichage des libellés de la barre du bas.
+enum NavLabelsKind {
+  always('Toujours'),
+  selected('Actif seul'),
+  none('Icônes');
+
+  final String label;
+  const NavLabelsKind(this.label);
+}
+
+/// Taille du texte de toute l'app (appliquée via MediaQuery.textScaler).
+enum TextSizeKind {
+  small('Petit', 0.9),
+  normal('Normal', 1.0),
+  large('Grand', 1.15);
+
+  final String label;
+  final double scale;
+  const TextSizeKind(this.label, this.scale);
+}
+
+/// Densité de la liste des morceaux : [gap] = marge entre deux lignes,
+/// [pad] = marge verticale à l'intérieur d'une ligne.
+enum ListDensity {
+  compact('Serré', 1, 4),
+  normal('Normal', 4, 8),
+  airy('Aéré', 8, 12);
+
+  final String label;
+  final double gap;
+  final double pad;
+  const ListDensity(this.label, this.gap, this.pad);
+}
+
 /// Centralized app theme - all colors, text styles, spacing in one place
 class AppTheme {
   // ═══════════════════════════════════════════════════════════════
@@ -56,6 +145,51 @@ class AppTheme {
     _brandTop = shifted(12, sat, 0.50).toColor();
     _brandBottom = shifted(-12, sat, 0.50).toColor();
     _brandMid = shifted(0, sat, 0.50).toColor();
+  }
+
+  // Styles d'interface choisis par l'utilisateur (fond, boutons). Même
+  // principe que les couleurs : statiques appliquées AVANT de changer l'état
+  // Riverpod, MyApp reconstruit ensuite tout l'arbre.
+  static BackgroundStyle _backgroundStyle = BackgroundStyle.vertical;
+  static ButtonStyleKind _buttonStyle = ButtonStyleKind.gradient;
+  static ButtonShapeKind _buttonShape = ButtonShapeKind.round;
+  static ButtonSizeKind _buttonSize = ButtonSizeKind.normal;
+  static ControlsLayout _controlsLayout = ControlsLayout.classic;
+  static NavLabelsKind _navLabels = NavLabelsKind.always;
+  static TextSizeKind _textSize = TextSizeKind.normal;
+  static ListDensity _listDensity = ListDensity.normal;
+
+  static BackgroundStyle get backgroundStyle => _backgroundStyle;
+  static ButtonStyleKind get buttonStyle => _buttonStyle;
+  static ButtonShapeKind get buttonShape => _buttonShape;
+  static ButtonSizeKind get buttonSize => _buttonSize;
+  static ControlsLayout get controlsLayout => _controlsLayout;
+  static NavLabelsKind get navLabels => _navLabels;
+  static TextSizeKind get textSize => _textSize;
+  static ListDensity get listDensity => _listDensity;
+
+  /// Applique l'échelle de taille choisie à une dimension de bouton
+  /// (diamètre, taille d'icône).
+  static double btn(double value) => value * _buttonSize.scale;
+
+  static void applyUiStyle({
+    BackgroundStyle? background,
+    ButtonStyleKind? button,
+    ButtonShapeKind? shape,
+    ButtonSizeKind? size,
+    ControlsLayout? controls,
+    NavLabelsKind? nav,
+    TextSizeKind? text,
+    ListDensity? density,
+  }) {
+    if (text != null) _textSize = text;
+    if (density != null) _listDensity = density;
+    if (controls != null) _controlsLayout = controls;
+    if (nav != null) _navLabels = nav;
+    if (size != null) _buttonSize = size;
+    if (background != null) _backgroundStyle = background;
+    if (button != null) _buttonStyle = button;
+    if (shape != null) _buttonShape = shape;
   }
 
   static Color get brandTop => _brandTop;
@@ -134,7 +268,11 @@ class AppTheme {
 
   /// Fond d'écran : la marque en très faible opacité en haut, qui se fond
   /// dans le noir. Remplace l'ancien bloc bleu-gris plaqué en haut.
-  static LinearGradient get screenGradient {
+  static Gradient get screenGradient => screenGradientFor(_backgroundStyle);
+
+  /// Dégradé de base (vertical) : couleurs et arrêts réutilisés par tous les
+  /// styles de fond.
+  static LinearGradient get _baseScreen {
     // Fond d'origine + couleur principale choisie : le halo du haut prend
     // la couleur choisie (sinon il resterait violet).
     if (_customBackground == null && _customAccent != null) {
@@ -150,6 +288,118 @@ class AppTheme {
       );
     }
     return _palette.screen;
+  }
+
+  /// Fond d'écran pour un style donné (sert aussi aux aperçus du Thème).
+  static Gradient screenGradientFor(BackgroundStyle style) {
+    final base = _baseScreen;
+    final c = base.colors;
+    switch (style) {
+      case BackgroundStyle.vertical:
+        return base;
+      case BackgroundStyle.diagonal:
+        return LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: c,
+          stops: const [0.0, 0.3, 0.7],
+        );
+      case BackgroundStyle.halo:
+        return RadialGradient(
+          center: const Alignment(0, -0.95),
+          radius: 0.95,
+          colors: c,
+          stops: const [0.0, 0.45, 1.0],
+        );
+      case BackgroundStyle.bottomGlow:
+        return LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: c,
+          stops: const [0.0, 0.22, 0.55],
+        );
+      case BackgroundStyle.corner:
+        return RadialGradient(
+          center: const Alignment(1.0, -1.0),
+          radius: 1.25,
+          colors: c,
+          stops: const [0.0, 0.4, 0.85],
+        );
+      case BackgroundStyle.solid:
+        return LinearGradient(colors: [c.last, c.last]);
+    }
+  }
+
+  /// Décoration d'un bouton principal (lecture, classifier...) selon le style
+  /// et la forme choisis. [size] sert au rayon du carré arrondi des boutons
+  /// ronds ; [pill] = bouton large avec texte.
+  static BoxDecoration primaryButton({
+    double size = 40,
+    bool pill = false,
+    double glowBlur = 12,
+    double glowAlpha = 0.45,
+    double glowSpread = 0,
+    Border? border,
+    ButtonStyleKind? style,
+    ButtonShapeKind? shapeKind,
+  }) {
+    final round = (shapeKind ?? _buttonShape) == ButtonShapeKind.round;
+    final BorderRadius? radius = pill
+        ? BorderRadius.circular(round ? radiusFull : radiusM)
+        : (round ? null : BorderRadius.circular(size * 0.32));
+    final shape =
+        (radius == null) ? BoxShape.circle : BoxShape.rectangle;
+
+    Color? color;
+    Gradient? gradient;
+    Border? b = border;
+    List<BoxShadow>? shadows;
+    switch (style ?? _buttonStyle) {
+      case ButtonStyleKind.gradient:
+        gradient = brandGradient;
+        shadows = [
+          BoxShadow(
+            color: _accentPrimary.withValues(alpha: glowAlpha),
+            blurRadius: glowBlur,
+            spreadRadius: glowSpread,
+          ),
+        ];
+      case ButtonStyleKind.solid:
+        color = _brandMid;
+        shadows = [
+          BoxShadow(
+            color: _accentPrimary.withValues(alpha: glowAlpha),
+            blurRadius: glowBlur,
+            spreadRadius: glowSpread,
+          ),
+        ];
+      case ButtonStyleKind.outline:
+        color = _accentPrimary.withValues(alpha: 0.14);
+        b = Border.all(color: _accentPrimary, width: 1.5);
+      case ButtonStyleKind.glass:
+        color = Colors.white.withValues(alpha: 0.14);
+        b = Border.all(color: Colors.white.withValues(alpha: 0.30), width: 1);
+    }
+
+    return BoxDecoration(
+      color: color,
+      gradient: gradient,
+      shape: shape,
+      borderRadius: radius,
+      border: b,
+      boxShadow: shadows,
+    );
+  }
+
+  /// Bouton secondaire discret (fond blanc translucide), même forme que les
+  /// boutons principaux.
+  static BoxDecoration subtleButton({double size = 40}) {
+    final round = _buttonShape == ButtonShapeKind.round;
+    return BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.1),
+      shape: round ? BoxShape.circle : BoxShape.rectangle,
+      borderRadius: round ? null : BorderRadius.circular(size * 0.32),
+    );
   }
 
   /// Surface de carte : un voile clair très léger, en diagonale.

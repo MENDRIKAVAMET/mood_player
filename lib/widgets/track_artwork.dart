@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/track.dart';
 import '../theme/app_theme.dart';
 import '../theme/mood_colors.dart';
+import 'mood_image.dart';
 
 /// Affiche la pochette d'un morceau.
 ///
@@ -72,20 +74,66 @@ class TrackArtwork extends StatelessWidget {
   Widget _placeholder() => _MoodPlaceholder(
         track: track,
         iconSize: placeholderFontSize ?? size * 0.4,
+        cacheWidth: (size * 3).round().clamp(64, 1024),
       );
 }
 
-/// Dégradé d'ambiance + icône, utilisé quand un morceau n'a pas de pochette
-/// (ou que son fichier est introuvable).
-class _MoodPlaceholder extends StatelessWidget {
+/// Placeholder d'un morceau sans pochette (ou dont le fichier est introuvable).
+///
+/// Affiche la photo de son ambiance (assets/moods/), la même que celle des
+/// cartes de l'écran Ambiances, avec un léger voile teinté de la couleur du
+/// mood. Si le morceau n'est pas classifié (pas de photo), on retombe sur
+/// l'ancien dégradé + icône.
+class _MoodPlaceholder extends ConsumerWidget {
   final Track track;
   final double iconSize;
 
-  const _MoodPlaceholder({required this.track, required this.iconSize});
+  /// Largeur de décodage de la photo, pour ne pas charger une image
+  /// pleine taille dans une vignette de 56 px.
+  final int cacheWidth;
+
+  const _MoodPlaceholder({
+    required this.track,
+    required this.iconSize,
+    this.cacheWidth = 600,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    final moodColors = MoodColors.forMood(track.mood);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mood = track.mood;
+    final moodColors = MoodColors.forMood(mood);
+
+    // Image personnalisée par l'utilisateur, sinon celle d'origine.
+    if (mood != null && MoodImage.hasImage(ref, mood)) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          MoodImage(
+            mood: mood,
+            cacheWidth: cacheWidth,
+            fallback: (_) => _gradientFallback(moodColors),
+          ),
+          // Voile léger teinté du mood : cohérence avec les cartes d'ambiance.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  moodColors.primary.withValues(alpha: 0.10),
+                  moodColors.primary.withValues(alpha: 0.30),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _gradientFallback(moodColors);
+  }
+
+  Widget _gradientFallback(MoodColors moodColors) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -150,19 +198,19 @@ class TrackArtworkFitBlur extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cover = track.coverUrl;
+    final pixelWidth = (MediaQuery.sizeOf(context).width *
+            MediaQuery.devicePixelRatioOf(context))
+        .round()
+        .clamp(64, 2048);
     final placeholder = _MoodPlaceholder(
       track: track,
       iconSize: MediaQuery.sizeOf(context).width * 0.3,
+      cacheWidth: pixelWidth,
     );
 
     if (cover == null || cover.isEmpty) {
       return SizedBox.expand(child: placeholder);
     }
-
-    final pixelWidth = (MediaQuery.sizeOf(context).width *
-            MediaQuery.devicePixelRatioOf(context))
-        .round()
-        .clamp(64, 2048);
 
     return Stack(
       fit: StackFit.expand,

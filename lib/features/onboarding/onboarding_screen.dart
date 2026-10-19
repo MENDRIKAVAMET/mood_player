@@ -159,10 +159,10 @@ class _PrimaryButton extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingM),
-        decoration: BoxDecoration(
-          gradient: AppTheme.brandGradient,
-          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-          boxShadow: AppTheme.coloredShadow(AppTheme.brandMid),
+        decoration: AppTheme.primaryButton(
+          pill: true,
+          glowBlur: 20,
+          glowAlpha: 0.4,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

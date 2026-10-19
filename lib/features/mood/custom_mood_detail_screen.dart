@@ -7,6 +7,9 @@ import '../../theme/app_theme.dart';
 import '../../theme/mood_icons.dart';
 import '../../widgets/add_tracks_to_mood_sheet.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/custom_mood_image_sheet.dart';
+import '../../widgets/custom_mood_image_view.dart';
+import '../../widgets/mood_backdrop.dart';
 import '../../widgets/mood_editor_dialog.dart';
 import '../../widgets/track_tile.dart' show EqualizerIndicator;
 import '../player/player_screen.dart';
@@ -39,12 +42,23 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
       orElse: () => widget.mood,
     );
     final color = Color(mood.colorValue);
+    // Image du mood en fond (suit le choix de l'utilisateur) ; sans image,
+    // on garde le fond uni d'origine.
+    final hasImage = CustomMoodImageView.hasImage(ref, mood.id);
 
     final entriesAsync = ref.watch(customMoodTracksProvider(mood.id));
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
-      body: SafeArea(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (hasImage)
+            MoodBackdrop(
+              image: CustomMoodImageView(moodId: mood.id, cacheWidth: 800),
+              tint: color,
+            ),
+          SafeArea(
         bottom: false,
         child: Column(
           children: [
@@ -113,6 +127,8 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
           ],
         ),
       ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: color,
         foregroundColor: Colors.black,
@@ -153,6 +169,11 @@ class _CustomMoodDetailScreenState extends ConsumerState<CustomMoodDetailScreen>
       showBack: true,
       backIcon: Icons.arrow_back_ios_new_rounded,
       actions: [
+        IconButton(
+          tooltip: 'Changer l\'image',
+          onPressed: () => showCustomMoodImageSheet(context, mood),
+          icon: Icon(Icons.add_photo_alternate_outlined, size: 24, color: color),
+        ),
         SizedBox(
           width: 44,
           height: 44,

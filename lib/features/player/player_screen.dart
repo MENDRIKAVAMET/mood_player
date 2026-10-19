@@ -711,43 +711,73 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Widget _buildControls(MoodColors moodColors, bool isPlaying) {
+    // Shuffle + répétition : un seul bouton qui fait défiler les états
+    // (désactivé -> aléatoire -> répéter tout -> répéter un -> désactivé).
+    final shuffle = _buildShuffleRepeatButton(moodColors);
+    // File d'attente.
+    final queue = _buildQueueButton(moodColors);
+    final transport = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Previous track
+        _buildControlButton(
+          icon: Icons.skip_previous_rounded,
+          size: 32,
+          onTap: () {
+            _slideToTrack(goingNext: false, size: MediaQuery.of(context).size);
+          },
+        ),
+        const SizedBox(width: AppTheme.spacingM),
+        // Play/Pause (main button)
+        _buildPlayButton(moodColors, isPlaying),
+        const SizedBox(width: AppTheme.spacingM),
+        // Next track
+        _buildControlButton(
+          icon: Icons.skip_next_rounded,
+          size: 32,
+          onTap: () {
+            _slideToTrack(goingNext: true, size: MediaQuery.of(context).size);
+          },
+        ),
+      ],
+    );
+
+    // Disposition choisie dans Profil > Thème.
+    final Widget content;
+    switch (AppTheme.controlsLayout) {
+      case ControlsLayout.classic:
+        content = Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [shuffle, transport, queue],
+        );
+      case ControlsLayout.grouped:
+        content = Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            shuffle,
+            const SizedBox(width: AppTheme.spacingS),
+            transport,
+            const SizedBox(width: AppTheme.spacingS),
+            queue,
+          ],
+        );
+      case ControlsLayout.split:
+        content = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            transport,
+            const SizedBox(height: AppTheme.spacingS),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [shuffle, queue],
+            ),
+          ],
+        );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXL),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Shuffle + répétition : un seul bouton qui fait défiler les
-          // états (désactivé -> aléatoire -> répéter tout -> répéter un ->
-          // désactivé) plutôt que deux boutons séparés.
-          _buildShuffleRepeatButton(moodColors),
-          Row(
-            children: [
-              // Previous track
-              _buildControlButton(
-                icon: Icons.skip_previous_rounded,
-                size: 32,
-                onTap: () {
-                  _slideToTrack(goingNext: false, size: MediaQuery.of(context).size);
-                },
-              ),
-              const SizedBox(width: AppTheme.spacingM),
-              // Play/Pause (main button)
-              _buildPlayButton(moodColors, isPlaying),
-              const SizedBox(width: AppTheme.spacingM),
-              // Next track
-              _buildControlButton(
-                icon: Icons.skip_next_rounded,
-                size: 32,
-                onTap: () {
-                  _slideToTrack(goingNext: true, size: MediaQuery.of(context).size);
-                },
-              ),
-            ],
-          ),
-          // File d'attente : tout à droite du groupe next/pause/prev.
-          _buildQueueButton(moodColors),
-        ],
-      ),
+      child: content,
     );
   }
 
@@ -786,27 +816,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       },
       child: AnimatedContainer(
         duration: AppTheme.animNormal,
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          gradient: AppTheme.brandGradient,
-          shape: BoxShape.circle,
+        width: AppTheme.btn(72),
+        height: AppTheme.btn(72),
+        decoration: AppTheme.primaryButton(
+          size: AppTheme.btn(72),
+          glowBlur: 28,
+          glowAlpha: 0.55,
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.25),
             width: 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.accentPrimary.withValues(alpha: 0.55),
-              blurRadius: 28,
-              spreadRadius: 0,
-            ),
-          ],
         ),
         child: Icon(
           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
           color: Colors.white,
-          size: 40,
+          size: AppTheme.btn(40),
         ),
       ),
     ).animate(onPlay: (controller) => isPlaying ? controller.repeat(reverse: true) : controller.stop())

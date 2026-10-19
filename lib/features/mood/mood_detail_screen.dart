@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,8 @@ import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../models/track.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/mood_image.dart';
+import '../../widgets/mood_image_sheet.dart';
 import '../../providers/audio_provider.dart' show currentTrackIdProvider;
 import '../../providers/track_provider.dart' show TrackSortOption;
 import '../../widgets/track_list_tools.dart';
@@ -50,6 +53,9 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
     final tracks = this.tracks;
     final moodColors = MoodColors.forMood(mood);
     final currentId = ref.watch(currentTrackIdProvider);
+    // Image de l'ambiance en fond (suit le choix de l'utilisateur) ; en mode
+    // « icône », on garde le simple dégradé de couleur.
+    final hasImage = MoodImage.hasImage(ref, mood);
 
     return Scaffold(
       body: Container(
@@ -63,7 +69,11 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
             ],
           ),
         ),
-        child: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (hasImage) ..._backgroundLayers(moodColors),
+            SafeArea(
           bottom: false,
           child: Column(
             children: [
@@ -150,10 +160,45 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
             ],
           ),
         ),
+          ],
+        ),
       ).animate().fadeIn(
             duration: AppTheme.animSlow,
           ),
     );
+  }
+
+  /// Image de l'ambiance en plein écran, floutée (les images sont en
+  /// paysage et peu larges : nettes, elles seraient très agrandies sur un
+  /// écran en portrait), sous un voile sombre teinté de la couleur du mood
+  /// pour que la liste reste lisible.
+  List<Widget> _backgroundLayers(MoodColors moodColors) {
+    return [
+      Positioned.fill(
+        child: ClipRect(
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: MoodImage(mood: mood, cacheWidth: 800),
+          ),
+        ),
+      ),
+      Positioned.fill(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                moodColors.primary.withValues(alpha: 0.25),
+                Colors.black.withValues(alpha: 0.55),
+                Colors.black.withValues(alpha: 0.88),
+              ],
+              stops: const [0.0, 0.35, 1.0],
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildHeader(BuildContext context, MoodColors moodColors) {
@@ -162,6 +207,15 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
       showBack: true,
       backIcon: Icons.arrow_back_ios_new_rounded,
       actions: [
+        IconButton(
+          tooltip: 'Changer l\'image',
+          onPressed: () => showMoodImageSheet(context, mood),
+          icon: Icon(
+            Icons.add_photo_alternate_outlined,
+            size: 24,
+            color: moodColors.primary,
+          ),
+        ),
         SizedBox(
           width: 44,
           height: 44,

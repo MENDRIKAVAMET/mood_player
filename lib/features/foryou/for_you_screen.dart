@@ -153,23 +153,13 @@ class ForYouScreen extends ConsumerWidget {
                     height: 44,
                     child: Center(
                       child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          gradient: AppTheme.brandGradient,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  AppTheme.accentPrimary.withValues(alpha: 0.45),
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
+                        width: AppTheme.btn(36),
+                        height: AppTheme.btn(36),
+                        decoration: AppTheme.primaryButton(size: AppTheme.btn(36)),
+                        child: Icon(
                           Icons.play_arrow_rounded,
                           color: Colors.white,
-                          size: 22,
+                          size: AppTheme.btn(22),
                         ),
                       ),
                     ),

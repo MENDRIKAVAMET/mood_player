@@ -196,21 +196,17 @@ class ForYouListRow extends ConsumerWidget {
                   height: 44,
                   child: Center(
                     child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        gradient: isPlaying ? AppTheme.brandGradient : null,
-                        color: isPlaying
-                            ? null
-                            : Colors.white.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
+                      width: AppTheme.btn(34),
+                      height: AppTheme.btn(34),
+                      decoration: isPlaying
+                          ? AppTheme.primaryButton(size: AppTheme.btn(34), glowAlpha: 0)
+                          : AppTheme.subtleButton(size: AppTheme.btn(34)),
                       child: Icon(
                         isPlaying && audioPlaying
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                         color: Colors.white,
-                        size: 20,
+                        size: AppTheme.btn(20),
                       ),
                     ),
                   ),

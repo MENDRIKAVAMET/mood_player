@@ -59,9 +59,9 @@ class _TrackTileState extends State<TrackTile> {
         child: AnimatedContainer(
           duration: AppTheme.animNormal,
           curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(
+          margin: EdgeInsets.symmetric(
             horizontal: AppTheme.spacingL,
-            vertical: AppTheme.spacingXS,
+            vertical: AppTheme.listDensity.gap,
           ),
           decoration: BoxDecoration(
             gradient: isPlaying
@@ -119,11 +119,11 @@ class _TrackTileState extends State<TrackTile> {
               ),
 
               Padding(
-                padding: const EdgeInsets.only(
+                padding: EdgeInsets.only(
                   left: AppTheme.spacingM,
                   right: AppTheme.spacingM,
-                  top: AppTheme.spacingS,
-                  bottom: AppTheme.spacingS,
+                  top: AppTheme.listDensity.pad,
+                  bottom: AppTheme.listDensity.pad,
                 ),
                 child: SizedBox(
                   width: 22,
@@ -144,7 +144,7 @@ class _TrackTileState extends State<TrackTile> {
 
               // Album art
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingS),
+                padding: EdgeInsets.symmetric(vertical: AppTheme.listDensity.pad),
                 child: _AlbumArt(track: track, moodColors: moodColors, isPlaying: isPlaying),
               ),
 
@@ -153,7 +153,7 @@ class _TrackTileState extends State<TrackTile> {
               // Track info
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingS),
+                  padding: EdgeInsets.symmetric(vertical: AppTheme.listDensity.pad),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,

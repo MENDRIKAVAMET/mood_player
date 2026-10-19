@@ -9,3 +9,5 @@ export 'smart_queue_provider.dart';
 export 'equalizer_provider.dart';
 export 'loudness_provider.dart';
 export 'theme_provider.dart';
+export 'mood_image_provider.dart';
+export 'custom_mood_image_provider.dart';

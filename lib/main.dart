@@ -59,6 +59,7 @@ void main() {
           await ThemeService.instance.load().timeout(_startupStepTimeout);
       AppTheme.applyBackground(background);
       AppTheme.applyAccent(ThemeService.instance.accent);
+      ThemeNotifier.applyLoaded(ThemeService.instance);
       _applySystemUi();
     } catch (e, st) {
       // ignore: avoid_print
@@ -154,7 +155,15 @@ class _MyAppState extends ConsumerState<MyApp> {
     ref.watch(themeProvider);
     ref.listen<ThemeSettings>(themeProvider, (previous, next) {
       if (previous?.background?.toARGB32() != next.background?.toARGB32() ||
-          previous?.accent?.toARGB32() != next.accent?.toARGB32()) {
+          previous?.accent?.toARGB32() != next.accent?.toARGB32() ||
+          previous?.backgroundStyle != next.backgroundStyle ||
+          previous?.buttonStyle != next.buttonStyle ||
+          previous?.buttonShape != next.buttonShape ||
+          previous?.buttonSize != next.buttonSize ||
+          previous?.controlsLayout != next.controlsLayout ||
+          previous?.navLabels != next.navLabels ||
+          previous?.textSize != next.textSize ||
+          previous?.density != next.density) {
         _repaintEverything();
       }
     });
@@ -175,6 +184,19 @@ class _MyAppState extends ConsumerState<MyApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
+      // Taille du texte choisie dans Profil > Thème, combinée à celle du
+      // système (on la multiplie, on ne l'écrase pas).
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: TextScaler.linear(
+              mq.textScaler.scale(1.0) * AppTheme.textSize.scale,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       // Pas d'effet d'étirement/lueur au bout des listes (Android 12+).
       scrollBehavior: const _NoOverscrollBehavior(),
       home: home,

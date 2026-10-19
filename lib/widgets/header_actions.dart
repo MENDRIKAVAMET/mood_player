@@ -115,21 +115,16 @@ class ClassifyHeaderButton extends ConsumerWidget {
             child: Opacity(
               opacity: isClassifying ? 0.5 : 1,
               child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  gradient: AppTheme.brandGradient,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.accentPrimary.withValues(alpha: 0.4),
-                      blurRadius: 10,
-                    ),
-                  ],
+                width: AppTheme.btn(38),
+                height: AppTheme.btn(38),
+                decoration: AppTheme.primaryButton(
+                  size: AppTheme.btn(38),
+                  glowBlur: 10,
+                  glowAlpha: 0.4,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.mood_rounded,
-                  size: 21,
+                  size: AppTheme.btn(21),
                   color: Colors.white,
                 ),
               ),

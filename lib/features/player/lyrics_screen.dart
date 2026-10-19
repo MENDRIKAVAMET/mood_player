@@ -677,23 +677,18 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                   (h) => isPlaying ? h.pause() : h.play(),
                 ),
                 child: Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.brandGradient,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.accentPrimary.withValues(alpha: 0.5),
-                        blurRadius: 26,
-                      ),
-                    ],
+                  width: AppTheme.btn(76),
+                  height: AppTheme.btn(76),
+                  decoration: AppTheme.primaryButton(
+                    size: AppTheme.btn(76),
+                    glowBlur: 26,
+                    glowAlpha: 0.5,
                   ),
                   child: Icon(
                     isPlaying
                         ? Icons.pause_rounded
                         : Icons.play_arrow_rounded,
-                    size: 40,
+                    size: AppTheme.btn(40),
                     color: Colors.white,
                   ),
                 ),
