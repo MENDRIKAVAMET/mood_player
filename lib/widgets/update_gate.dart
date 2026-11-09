@@ -33,8 +33,8 @@ class _UpdateGateState extends State<UpdateGate> {
     await Navigator.of(context).push<void>(
       PageRouteBuilder(
         opaque: true,
-        pageBuilder: (_, __, ___) => UpdateScreen(update: update),
-        transitionsBuilder: (_, a, __, child) => FadeTransition(
+        pageBuilder: (_, _, _) => UpdateScreen(update: update),
+        transitionsBuilder: (_, a, _, child) => FadeTransition(
           opacity: CurvedAnimation(parent: a, curve: Curves.easeOut),
           child: SlideTransition(
             position: Tween(begin: const Offset(0, 0.06), end: Offset.zero)

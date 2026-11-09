@@ -159,10 +159,10 @@ class ListenReminderScreen extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(mood!.iconData, size: 14, color: tint),
+                              Icon(mood.iconData, size: 14, color: tint),
                               const SizedBox(width: 6),
                               Text(
-                                mood!.displayName,
+                                mood.displayName,
                                 style: AppTheme.bodySmall.copyWith(
                                     color: tint, fontWeight: FontWeight.w600),
                               ),

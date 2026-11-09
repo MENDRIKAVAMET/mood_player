@@ -95,7 +95,7 @@ class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
     for (var i = 0; i < 24 && mounted; i++) {
       final state = ref.read(trackProvider);
       final track = state.tracks.where((t) => t.id == trackId).firstOrNull;
-      if (track != null) {
+      if (track != null && mounted) {
         openPlayer(context, track: track, tracks: state.tracks);
         return;
       }
@@ -144,9 +144,9 @@ class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
     try {
       final picked = await Navigator.of(context).push<Track>(
         PageRouteBuilder<Track>(
-          pageBuilder: (_, __, ___) =>
+          pageBuilder: (_, _, _) =>
               ListenReminderScreen(items: items.take(5).toList()),
-          transitionsBuilder: (_, a, __, child) => FadeTransition(
+          transitionsBuilder: (_, a, _, child) => FadeTransition(
             opacity: CurvedAnimation(parent: a, curve: Curves.easeOut),
             child: child,
           ),
