@@ -19,4 +19,19 @@ void main() {
     expect(ListenReminder(event, ReminderKind.nextWeek).skipsWhilePlaying, isFalse);
     expect(ListenReminder(event, ReminderKind.nextMonth).skipsWhilePlaying, isFalse);
   });
+
+  test('la pochette survit à la sérialisation, et son absence est tolérée', () {
+    final withCover = ListenEvent(
+      id: 2,
+      trackId: 2,
+      title: 'T',
+      artist: 'A',
+      at: DateTime(2026, 1, 10, 15, 30),
+      cover: '/cache/art_2.jpg',
+    );
+    expect(ListenEvent.fromJson(withCover.toJson()).cover, '/cache/art_2.jpg');
+
+    final old = Map<String, dynamic>.from(event.toJson())..remove('cover');
+    expect(ListenEvent.fromJson(old).cover, isNull);
+  });
 }

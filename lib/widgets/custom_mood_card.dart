@@ -83,6 +83,24 @@ class CustomMoodCard extends ConsumerWidget {
                 ),
               ),
             ],
+            // Reflet « verre » discret en haut de la carte.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.10),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.4],
+                    ),
+                  ),
+                ),
+              ),
+            ),
             if (!hasImage)
             Positioned(
               top: -20,
@@ -128,7 +146,17 @@ class CustomMoodCard extends ConsumerWidget {
                   const Spacer(),
                   Text(
                     mood.name,
-                    style: AppTheme.titleLarge.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTheme.titleLarge.copyWith(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -145,10 +173,21 @@ class CustomMoodCard extends ConsumerWidget {
             Positioned(
               bottom: AppTheme.spacingL,
               right: AppTheme.spacingL,
-              child: Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: color.withValues(alpha: 0.6),
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.arrow_outward_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -170,10 +209,17 @@ class CreateMoodCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.backgroundCard,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppTheme.accentPrimary.withValues(alpha: 0.16),
+              AppTheme.backgroundCard,
+            ],
+          ),
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
-            color: AppTheme.textTertiary.withValues(alpha: 0.25),
+            color: AppTheme.accentPrimary.withValues(alpha: 0.35),
             width: 1,
           ),
         ),
@@ -181,19 +227,30 @@ class CreateMoodCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withValues(alpha: 0.15),
+                gradient: AppTheme.brandGradient,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.accentPrimary.withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                  ),
+                ],
               ),
-              child: Icon(Icons.add_rounded, color: AppTheme.accentPrimary),
+              child: const Icon(Icons.add_rounded,
+                  color: Colors.white, size: 28),
             ),
-            const SizedBox(height: AppTheme.spacingS),
+            const SizedBox(height: AppTheme.spacingM),
             Text(
               'Créer\nun mood',
               textAlign: TextAlign.center,
-              style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+              style: AppTheme.bodySmall.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),

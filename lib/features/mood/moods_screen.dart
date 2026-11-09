@@ -9,6 +9,7 @@ import '../../widgets/custom_mood_card.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/mood_card.dart';
 import '../../widgets/mood_editor_dialog.dart';
+import '../../widgets/mood_palette_card.dart';
 import '../../widgets/custom_mood_image_sheet.dart';
 import '../../widgets/mood_image_sheet.dart';
 import 'custom_mood_detail_screen.dart';
@@ -60,7 +61,20 @@ class MoodsScreen extends ConsumerWidget {
                   ),
                 ),
 
-              _sectionHeader('Mes moods', customMoods.isEmpty ? null : customMoods.length),
+              // Synthèse : répartition des ambiances + accès à la
+              // classification des morceaux restants.
+              MoodPaletteCard(
+                counts: trackCountByMood,
+                totalTracks: trackState.tracks.length,
+                isClassifying: trackState.isClassifying,
+                onClassifyRest: () => _confirmClassify(context, ref),
+              ),
+
+              _sectionHeader(
+                'Mes moods',
+                customMoods.isEmpty ? null : customMoods.length,
+                subtitle: 'Tes propres ambiances',
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
                 child: _MoodGrid(
@@ -86,7 +100,11 @@ class MoodsScreen extends ConsumerWidget {
                 ),
               ),
 
-              _sectionHeader('Par ambiance', null),
+              _sectionHeader(
+                'Par ambiance',
+                moodsWithTracks.isEmpty ? null : moodsWithTracks.length,
+                subtitle: 'Détectées automatiquement',
+              ),
               if (moodsWithTracks.isEmpty)
                 _emptyAmbianceState(
                   context,
@@ -120,34 +138,78 @@ class MoodsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _sectionHeader(String title, int? count) {
+  Widget _sectionHeader(String title, int? count, {String? subtitle}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppTheme.spacingXL,
         AppTheme.spacingXL,
         AppTheme.spacingXL,
-        AppTheme.spacingS,
+        AppTheme.spacingM,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(title, style: AppTheme.headlineMedium),
-          if (count != null) ...[
-            const SizedBox(width: AppTheme.spacingS),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacingS,
-                vertical: AppTheme.spacingXXS,
+          Container(
+            width: 4,
+            height: subtitle == null ? 22 : 36,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppTheme.brandTop, AppTheme.brandBottom],
               ),
-              decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppTheme.radiusS),
-              ),
-              child: Text(
-                '$count',
-                style: AppTheme.labelSmall.copyWith(color: AppTheme.accentPrimary),
-              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
             ),
-          ],
+          ),
+          const SizedBox(width: AppTheme.spacingM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.headlineMedium.copyWith(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ),
+                    if (count != null) ...[
+                      const SizedBox(width: AppTheme.spacingS),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.spacingM,
+                          vertical: AppTheme.spacingXXS,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentPrimary.withValues(alpha: 0.16),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusFull),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: AppTheme.labelSmall
+                              .copyWith(color: AppTheme.accentPrimary),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: AppTheme.bodySmall
+                        .copyWith(color: AppTheme.textSecondary),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -192,17 +254,22 @@ class MoodsScreen extends ConsumerWidget {
         child: Column(
           children: [
             Container(
-              width: 64,
-              height: 64,
+              width: 84,
+              height: 84,
               decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppTheme.accentPrimary.withValues(alpha: 0.30),
+                    AppTheme.accentPrimary.withValues(alpha: 0.0),
+                  ],
+                ),
               ),
               child: Icon(
                 libraryHasTracks
                     ? Icons.mood_rounded
                     : Icons.library_music_rounded,
-                size: 30,
+                size: 36,
                 color: AppTheme.accentPrimary,
               ),
             ),

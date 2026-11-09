@@ -15,7 +15,16 @@ class AppUpdate {
   /// vérifier que le téléchargement est complet).
   final int? size;
 
-  const AppUpdate({required this.version, required this.apkUrl, this.size});
+  /// Notes de la release GitHub (corps du texte), affichées comme
+  /// « Nouveautés » dans l'écran de mise à jour. Peut être vide.
+  final String notes;
+
+  const AppUpdate({
+    required this.version,
+    required this.apkUrl,
+    this.size,
+    this.notes = '',
+  });
 }
 
 /// Vérifie les releases GitHub du dépôt, télécharge l'APK et lance
@@ -96,6 +105,7 @@ class UpdateService {
             version: tag.startsWith('v') ? tag.substring(1) : tag,
             apkUrl: uri,
             size: size is int ? size : null,
+            notes: data['body'] is String ? (data['body'] as String).trim() : '',
           );
         }
       }

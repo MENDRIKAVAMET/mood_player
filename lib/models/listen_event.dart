@@ -13,6 +13,11 @@ class ListenEvent {
   final String? mood;
   final DateTime at;
 
+  /// Chemin LOCAL de la pochette (cache d'artwork), pour l'afficher dans la
+  /// notification système. Null si le morceau n'en a pas (ou si la pochette
+  /// est une URL distante, qu'Android ne peut pas charger à l'heure du rappel).
+  final String? cover;
+
   const ListenEvent({
     required this.id,
     required this.trackId,
@@ -20,6 +25,7 @@ class ListenEvent {
     required this.artist,
     required this.at,
     this.mood,
+    this.cover,
   });
 
   MoodType? get moodType {
@@ -36,6 +42,7 @@ class ListenEvent {
         'title': title,
         'artist': artist,
         'mood': mood,
+        'cover': cover,
         'at': at.toIso8601String(),
       };
 
@@ -45,6 +52,7 @@ class ListenEvent {
         title: json['title'] as String? ?? '',
         artist: json['artist'] as String? ?? '',
         mood: json['mood'] as String?,
+        cover: json['cover'] as String?,
         at: DateTime.parse(json['at'] as String).toLocal(),
       );
 }

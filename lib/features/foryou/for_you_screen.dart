@@ -8,6 +8,7 @@ import '../../utils/playback_navigation.dart';
 import '../../widgets/app_icon_button.dart';
 import '../../widgets/foryou_list_row.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/discover_section_title.dart';
 import '../../widgets/period_mixes_section.dart';
 import '../../widgets/suggestion_mix_card.dart';
 import 'see_all_tracks_screen.dart';
@@ -68,12 +69,14 @@ class ForYouScreen extends ConsumerWidget {
                 _listSection(
                   context: context,
                   title: 'Ajoutés récemment',
+                  icon: Icons.new_releases_rounded,
                   tracks: recentlyAdded,
                   glow: AppTheme.accentPrimary,
                 ),
                 _listSection(
                   context: context,
                   title: 'Les plus écoutés',
+                  icon: Icons.local_fire_department_rounded,
                   tracks: mostPlayed,
                   glow: const Color(0xFF22D3EE),
                   badgeBuilder: (track) => '${playCounts[track.id] ?? 0}',
@@ -84,6 +87,7 @@ class ForYouScreen extends ConsumerWidget {
                 _listSection(
                   context: context,
                   title: 'Tes morceaux aimés',
+                  icon: Icons.favorite_rounded,
                   tracks: liked,
                   glow: const Color(0xFFEC4899),
                   emptyMessage:
@@ -110,78 +114,62 @@ class ForYouScreen extends ConsumerWidget {
     BuildContext context,
     String title,
     List<Track> tracks, {
+    required IconData icon,
     VoidCallback? onSeeAll,
     Color glow = const Color(0xFFA855F7),
   }) {
+    final count = tracks.length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppTheme.spacingL,
         AppTheme.spacingXL,
-        AppTheme.spacingL,
         AppTheme.spacingS,
+        AppTheme.spacingM,
       ),
-      // Lueur de couleur propre à chaque section, derrière le titre.
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusL),
-          gradient: LinearGradient(
-            colors: [
-              glow.withValues(alpha: 0.28),
-              glow.withValues(alpha: 0.0),
-            ],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(left: AppTheme.spacingS),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTheme.headlineLarge,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (tracks.isNotEmpty) ...[
-                // Lecture : icône seule, pastille de marque (zone 44 px)
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => playAll(context, tracks),
-                  child: SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        width: AppTheme.btn(36),
-                        height: AppTheme.btn(36),
-                        decoration: AppTheme.primaryButton(size: AppTheme.btn(36)),
-                        child: Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: AppTheme.btn(22),
-                        ),
+      child: DiscoverSectionTitle(
+        icon: icon,
+        color: glow,
+        title: title,
+        subtitle: count == 0 ? null : '$count morceau${count > 1 ? 'x' : ''}',
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (tracks.isNotEmpty) ...[
+              // Lecture : pastille de marque (zone tactile de 44 px)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => playAll(context, tracks),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: Container(
+                      width: AppTheme.btn(36),
+                      height: AppTheme.btn(36),
+                      decoration: AppTheme.primaryButton(size: AppTheme.btn(36)),
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: AppTheme.btn(22),
                       ),
                     ),
                   ),
                 ),
-                AppIconButton(
-                  icon: Icons.shuffle_rounded,
-                  onTap: () => playShuffled(context, tracks),
-                ),
-              ],
-              // Bouton « voir tout » : icône seule, affiché uniquement quand
-              // l'aperçu (9 morceaux max) ne montre pas déjà toute la liste.
-              if (onSeeAll != null) ...[
-                const SizedBox(width: AppTheme.spacingXS),
-                AppIconButton(
-                  icon: Icons.chevron_right_rounded,
-                  iconSize: 18,
-                  onTap: onSeeAll,
-                ),
-              ],
+              ),
+              AppIconButton(
+                icon: Icons.shuffle_rounded,
+                onTap: () => playShuffled(context, tracks),
+              ),
             ],
-          ),
+            // « Voir tout » : seulement quand l'aperçu (9 morceaux max) ne
+            // montre pas déjà toute la liste.
+            if (onSeeAll != null)
+              AppIconButton(
+                icon: Icons.chevron_right_rounded,
+                iconSize: 18,
+                onTap: onSeeAll,
+              ),
+          ],
         ),
       ),
     );
@@ -204,14 +192,17 @@ class ForYouScreen extends ConsumerWidget {
                 AppTheme.spacingL,
                 AppTheme.spacingM,
               ),
-              child: Text('Suggestions pour toi', style: AppTheme.headlineLarge),
+              child: DiscoverSectionTitle(
+                icon: Icons.auto_awesome_rounded,
+                color: AppTheme.accentPrimary,
+                title: 'Suggestions pour toi',
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-              child: Text(
+              child: _emptyNote(
                 'Les suggestions arrivent dès que tu as écouté ou aimé '
                 'quelques morceaux.',
-                style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
               ),
             ),
           ],
@@ -230,7 +221,12 @@ class ForYouScreen extends ConsumerWidget {
               AppTheme.spacingL,
               AppTheme.spacingM,
             ),
-            child: Text('Suggestions pour toi', style: AppTheme.headlineLarge),
+            child: DiscoverSectionTitle(
+              icon: Icons.auto_awesome_rounded,
+              color: AppTheme.accentPrimary,
+              title: 'Suggestions pour toi',
+              subtitle: 'Selon tes écoutes et tes favoris',
+            ),
           ),
           SizedBox(
             height: 220,
@@ -268,6 +264,7 @@ class ForYouScreen extends ConsumerWidget {
   Widget _listSection({
     required BuildContext context,
     required String title,
+    required IconData icon,
     required List<Track> tracks,
     String Function(Track track)? badgeBuilder,
     String? emptyMessage,
@@ -295,6 +292,7 @@ class ForYouScreen extends ConsumerWidget {
             context,
             title,
             tracks,
+            icon: icon,
             glow: glow,
             onSeeAll: tracks.length > maxShown
                 ? () => Navigator.push(
@@ -311,10 +309,7 @@ class ForYouScreen extends ConsumerWidget {
           if (columns.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-              child: Text(
-                emptyMessage!,
-                style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
-              ),
+              child: _emptyNote(emptyMessage!),
             )
           else
             SizedBox(
@@ -354,6 +349,33 @@ class ForYouScreen extends ConsumerWidget {
     );
   }
 
+  /// Message « rien ici pour l'instant » : petite carte discrète plutôt
+  /// qu'une ligne de texte perdue sous un titre.
+  Widget _emptyNote(String message) {
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.spacingM),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded,
+              size: 18, color: AppTheme.textTertiary),
+          const SizedBox(width: AppTheme.spacingS),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -361,7 +383,23 @@ class ForYouScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.explore_rounded, size: 48, color: AppTheme.accentPrimary),
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppTheme.accentPrimary.withValues(alpha: 0.32),
+                    AppTheme.accentPrimary.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Icon(Icons.explore_rounded,
+                    size: 48, color: AppTheme.accentPrimary),
+              ),
+            ),
             const SizedBox(height: AppTheme.spacingL),
             Text(
               'Rien à te proposer pour l\'instant',

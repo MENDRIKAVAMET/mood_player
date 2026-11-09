@@ -6,6 +6,7 @@ import '../models/track.dart';
 import '../providers/mood_suggestions_provider.dart';
 import '../theme/app_theme.dart';
 import 'period_moods_sheet.dart';
+import 'discover_section_title.dart';
 import 'suggestion_mix_card.dart';
 
 /// Section « Découvertes » du moment de la journée en cours : titre, ambiances
@@ -14,6 +15,28 @@ class PeriodMixesSection extends ConsumerWidget {
   final DayPeriod period;
 
   const PeriodMixesSection({super.key, required this.period});
+
+  static IconData _iconFor(DayPeriod p) {
+    switch (p) {
+      case DayPeriod.morning:
+        return Icons.wb_twilight_rounded;
+      case DayPeriod.midday:
+        return Icons.wb_sunny_rounded;
+      case DayPeriod.evening:
+        return Icons.nights_stay_rounded;
+    }
+  }
+
+  static Color _colorFor(DayPeriod p) {
+    switch (p) {
+      case DayPeriod.morning:
+        return const Color(0xFFFFB84D);
+      case DayPeriod.midday:
+        return const Color(0xFFFF7A45);
+      case DayPeriod.evening:
+        return const Color(0xFF8B7CFF);
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,34 +54,18 @@ class PeriodMixesSection extends ConsumerWidget {
             AppTheme.spacingS,
             AppTheme.spacingM,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      labelForPeriod(period),
-                      style: AppTheme.labelMedium
-                          .copyWith(color: AppTheme.accentSecondary),
-                    ),
-                    Text(titleForPeriod(period), style: AppTheme.headlineLarge),
-                    const SizedBox(height: 2),
-                    Text(
-                      moodsLabel,
-                      style: AppTheme.bodySmall
-                          .copyWith(color: AppTheme.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Modifier les ambiances',
-                icon: const Icon(Icons.tune_rounded,
-                    color: AppTheme.textSecondary),
-                onPressed: () => showPeriodMoodsSheet(context, period),
-              ),
-            ],
+          child: DiscoverSectionTitle(
+            icon: _iconFor(period),
+            color: _colorFor(period),
+            eyebrow: labelForPeriod(period),
+            title: titleForPeriod(period),
+            subtitle: moodsLabel,
+            trailing: IconButton(
+              tooltip: 'Modifier les ambiances',
+              icon: const Icon(Icons.tune_rounded,
+                  color: AppTheme.textSecondary),
+              onPressed: () => showPeriodMoodsSheet(context, period),
+            ),
           ),
         ),
         if (mixes.isEmpty)

@@ -8,14 +8,16 @@ import '../models/track.dart';
 import '../providers/listen_history_provider.dart';
 import '../providers/providers.dart';
 import '../services/reminder_notification_service.dart';
-import '../theme/app_theme.dart';
+import '../features/reminder/listen_reminder_screen.dart';
 import '../utils/playback_navigation.dart';
-import 'track_artwork.dart';
 
-/// Widget invisible qui affiche le pop-up « tu écoutais ça à cette heure »
+/// Widget invisible qui affiche le rappel « tu écoutais ça à cette heure »
 /// quand l'app est ouverte. Quand elle ne l'est pas, c'est la notification
 /// programmée qui s'en charge ; ici on annule cette notification juste
 /// avant l'heure pour ne pas avoir les deux en même temps.
+///
+/// Gère aussi le tap sur une notification (ou son bouton « Écouter ») :
+/// ouvre directement le lecteur sur le morceau concerné.
 class ListenReminderHost extends ConsumerStatefulWidget {
   const ListenReminderHost({super.key});
 
@@ -26,6 +28,7 @@ class ListenReminderHost extends ConsumerStatefulWidget {
 class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
     with WidgetsBindingObserver {
   Timer? _timer;
+  StreamSubscription<int>? _tapSub;
   bool _showing = false;
   AppLifecycleState _lifecycle = AppLifecycleState.resumed;
 
@@ -34,12 +37,27 @@ class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => _check());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
+  }
+
+  /// Récupère d'abord un éventuel tap de notification (démarrage à froid),
+  /// puis écoute les suivants, puis fait le premier contrôle : ainsi une
+  /// notification touchée n'est jamais suivie du même rappel en pop-up.
+  Future<void> _bootstrap() async {
+    try {
+      await ReminderNotificationService.init();
+    } catch (_) {}
+    if (!mounted) return;
+    final pending = ReminderNotificationService.takePendingTap();
+    _tapSub = ReminderNotificationService.taps.listen(_openFromNotification);
+    if (pending != null) await _openFromNotification(pending);
+    await _check();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _tapSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -47,7 +65,43 @@ class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycle = state;
-    if (state == AppLifecycleState.resumed) _check();
+    if (state == AppLifecycleState.resumed) {
+      _check();
+    } else if (state == AppLifecycleState.paused) {
+      // On quitte l'app : les notifications annulées pour laisser la place
+      // au pop-up doivent revenir (sinon un rappel serait perdu).
+      unawaited(ref
+          .read(listenHistoryProvider.notifier)
+          .rescheduleUpcoming()
+          .catchError((_) {}));
+    }
+  }
+
+  Future<void> _openFromNotification(int trackId) async {
+    if (!mounted) return;
+    final notifier = ref.read(listenHistoryProvider.notifier);
+    await notifier.ensureLoaded();
+    if (!mounted) return;
+
+    // La notification a été vue : pas de pop-up en double pour ce morceau.
+    final now = DateTime.now();
+    final seen = notifier
+        .pendingReminders(now)
+        .where((r) => r.event.trackId == trackId && !now.isBefore(r.scheduledAt))
+        .toList();
+    if (seen.isNotEmpty) await notifier.markShown(seen);
+
+    // Au démarrage à froid, la bibliothèque peut ne pas être chargée.
+    for (var i = 0; i < 24 && mounted; i++) {
+      final state = ref.read(trackProvider);
+      final track = state.tracks.where((t) => t.id == trackId).firstOrNull;
+      if (track != null) {
+        openPlayer(context, track: track, tracks: state.tracks);
+        return;
+      }
+      if (!state.isLoading && state.tracks.isNotEmpty) return;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
   }
 
   Future<void> _check() async {
@@ -59,6 +113,8 @@ class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
     await notifier.ensureLoaded();
     if (!mounted) return;
 
+    // `pendingReminders` écarte déjà « il y a une heure » et « hier »
+    // tant qu'une musique est en lecture : aucun pop-up pendant l'écoute.
     final now = DateTime.now();
     final pending = notifier.pendingReminders(now);
     if (pending.isEmpty) return;
@@ -86,20 +142,24 @@ class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
 
     _showing = true;
     try {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => _ReminderDialog(
-          items: items.take(3).toList(),
-          onPlay: (track) {
-            Navigator.pop(dialogContext);
-            openPlayer(
-              context,
-              track: track,
-              tracks: items.map((i) => i.$2).toList(),
-            );
-          },
+      final picked = await Navigator.of(context).push<Track>(
+        PageRouteBuilder<Track>(
+          pageBuilder: (_, __, ___) =>
+              ListenReminderScreen(items: items.take(5).toList()),
+          transitionsBuilder: (_, a, __, child) => FadeTransition(
+            opacity: CurvedAnimation(parent: a, curve: Curves.easeOut),
+            child: child,
+          ),
+          transitionDuration: const Duration(milliseconds: 420),
         ),
       );
+      if (picked != null && mounted) {
+        openPlayer(
+          context,
+          track: picked,
+          tracks: items.map((i) => i.$2).toList(),
+        );
+      }
     } finally {
       _showing = false;
     }
@@ -107,78 +167,4 @@ class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
-}
-
-class _ReminderDialog extends StatelessWidget {
-  final List<(ListenReminder, Track)> items;
-  final void Function(Track track) onPlay;
-
-  const _ReminderDialog({required this.items, required this.onPlay});
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppTheme.backgroundCard,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-      ),
-      title: Text('Ça te dit de réécouter ?', style: AppTheme.headlineMedium),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final (reminder, track) in items)
-            InkWell(
-              onTap: () => onPlay(track),
-              borderRadius: BorderRadius.circular(AppTheme.radiusM),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingXS),
-                child: Row(
-                  children: [
-                    TrackArtwork(
-                      track: track,
-                      size: 48,
-                      radius: AppTheme.radiusS,
-                      placeholderFontSize: 18,
-                    ),
-                    const SizedBox(width: AppTheme.spacingM),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            track.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTheme.bodyMedium.copyWith(
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            '${track.artist} · ${reminder.whenLabel}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTheme.bodySmall
-                                .copyWith(color: AppTheme.textTertiary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.play_circle_fill_rounded,
-                        color: AppTheme.accentPrimary, size: 30),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Plus tard',
-              style: TextStyle(color: AppTheme.textSecondary)),
-        ),
-      ],
-    );
-  }
 }

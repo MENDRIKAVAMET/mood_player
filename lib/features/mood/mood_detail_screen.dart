@@ -226,38 +226,87 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
   }
 
   Widget _buildMoodInfo(MoodColors moodColors) {
+    final tint = moodColors.primary;
+    // Icône sombre sur les teintes claires (jaune, orange...), blanche sinon.
+    final onTint = ThemeData.estimateBrightnessForColor(tint) == Brightness.light
+        ? Colors.black87
+        : Colors.white;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacingXL,
-      ),
-      child: Row(
-        children: [
-          // Color indicator
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: moodColors.primary,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: AppTheme.spacingM),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Ambiance ${mood.displayName}',
-                style: AppTheme.titleLarge.copyWith(
-                  color: moodColors.primary,
-                ),
-              ),
-              Text(
-                _getMoodDescription(mood),
-                style: AppTheme.bodySmall,
-              ),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXL),
+      child: Container(
+        padding: const EdgeInsets.all(AppTheme.spacingM),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              tint.withValues(alpha: 0.30),
+              tint.withValues(alpha: 0.06),
             ],
           ),
-        ],
+          border: Border.all(color: tint.withValues(alpha: 0.32)),
+          boxShadow: [
+            BoxShadow(
+              color: tint.withValues(alpha: 0.22),
+              blurRadius: 24,
+              spreadRadius: -6,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [tint, moodColors.secondary],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: tint.withValues(alpha: 0.5),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: Icon(mood.iconData, size: 30, color: onTint),
+            ),
+            const SizedBox(width: AppTheme.spacingM),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AMBIANCE',
+                    style: AppTheme.bodySmall.copyWith(
+                      fontSize: 11,
+                      color: tint,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _getMoodDescription(mood),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.titleMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -268,10 +317,15 @@ class _MoodDetailScreenState extends ConsumerState<MoodDetailScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 80,
-            height: 80,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
-              color: moodColors.primary.withValues(alpha: 0.1),
+              gradient: RadialGradient(
+                colors: [
+                  moodColors.primary.withValues(alpha: 0.30),
+                  moodColors.primary.withValues(alpha: 0.0),
+                ],
+              ),
               shape: BoxShape.circle,
             ),
             child: Center(

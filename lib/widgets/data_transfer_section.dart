@@ -176,8 +176,32 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Transfert de données', style: AppTheme.titleLarge),
-        const SizedBox(height: AppTheme.spacingS),
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 20,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [AppTheme.brandTop, AppTheme.brandBottom],
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+              ),
+            ),
+            const SizedBox(width: AppTheme.spacingM),
+            Text(
+              'Transfert de données',
+              style: AppTheme.headlineMedium.copyWith(
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppTheme.spacingM),
         Text(
           'Changement de téléphone, ou classifications d\'une autre '
           'personne : exportez vos données dans un fichier, importez-les sur '

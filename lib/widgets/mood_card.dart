@@ -93,6 +93,25 @@ class MoodCard extends ConsumerWidget {
               ),
             ],
 
+            // Reflet « verre » discret en haut de la carte.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.10),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.4],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
             // Glow effect
             if (!hasImage)
             Positioned(
@@ -178,12 +197,47 @@ class MoodCard extends ConsumerWidget {
                     ],
                   ),
                   const Spacer(),
-                  // Mood name
-                  Text(
-                    mood.displayName,
-                    style: AppTheme.titleLarge.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  // Nom de l'ambiance + pastille « ouvrir »
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          mood.displayName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.titleLarge.copyWith(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                            height: 1.15,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spacingS),
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.22),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_outward_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

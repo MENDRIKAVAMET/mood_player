@@ -62,20 +62,20 @@ class MiniPlayer extends ConsumerWidget {
           // défilant ne doit transparaître à travers le mini-lecteur.
           color: AppTheme.backgroundSecondary,
           gradient: AppTheme.auroraGradient(tint: moodColors.primary),
-          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
           border: Border.all(
-            color: moodColors.primary.withValues(alpha: 0.28),
+            color: moodColors.primary.withValues(alpha: 0.38),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.38),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
             BoxShadow(
-              color: moodColors.primary.withValues(alpha: 0.18),
-              blurRadius: 24,
+              color: moodColors.primary.withValues(alpha: 0.26),
+              blurRadius: 30,
               spreadRadius: -6,
             ),
           ],

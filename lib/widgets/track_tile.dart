@@ -9,9 +9,13 @@ import '../models/track.dart';
 /// Premium track tile for lists.
 ///
 /// Signature "now playing" look: a soft mood-tinted wash with a slim
-/// colored accent rail on the active row, a live animated equalizer in
-/// place of the track number, and a glowing album cover — instead of a
-/// generic boxed card repeated for every row.
+/// colored accent rail on the active row, a live equalizer drawn on the
+/// cover itself, and a glowing album cover — instead of a generic boxed
+/// card repeated for every row.
+///
+/// Trois lignes de texte au plus : titre, artiste (+ durée), ambiance. Le
+/// numéro de ligne n'est plus affiché par défaut (il mangeait ~46 px de
+/// largeur sur un écran étroit) ; [showIndex] le rétablit.
 class TrackTile extends StatefulWidget {
   final Track track;
   final VoidCallback onTap;
@@ -19,6 +23,9 @@ class TrackTile extends StatefulWidget {
   final VoidCallback? onMore;
   final bool isPlaying;
   final int index;
+
+  /// Affiche le numéro de ligne à gauche de la pochette.
+  final bool showIndex;
 
   const TrackTile({
     super.key,
@@ -28,6 +35,7 @@ class TrackTile extends StatefulWidget {
     this.onMore,
     this.isPlaying = false,
     this.index = 0,
+    this.showIndex = false,
   });
 
   @override
@@ -46,6 +54,9 @@ class _TrackTileState extends State<TrackTile> {
     final track = widget.track;
     final isPlaying = widget.isPlaying;
     final moodColors = MoodColors.forMood(track.mood);
+    // Le texte d'ambiance est éclairci vers le blanc : la couleur pleine de
+    // certaines ambiances manque de contraste sur le fond sombre.
+    final moodText = Color.lerp(moodColors.primary, Colors.white, 0.3)!;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -67,8 +78,8 @@ class _TrackTileState extends State<TrackTile> {
             gradient: isPlaying
                 ? LinearGradient(
                     colors: [
-                      moodColors.primary.withValues(alpha: 0.18),
-                      moodColors.primary.withValues(alpha: 0.04),
+                      moodColors.primary.withValues(alpha: 0.24),
+                      moodColors.primary.withValues(alpha: 0.05),
                     ],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
@@ -118,34 +129,47 @@ class _TrackTileState extends State<TrackTile> {
                 ),
               ),
 
+              // Numéro de ligne (optionnel).
+              if (widget.showIndex)
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: AppTheme.spacingM,
+                    top: AppTheme.listDensity.pad,
+                    bottom: AppTheme.listDensity.pad,
+                  ),
+                  child: SizedBox(
+                    width: 22,
+                    child: Text(
+                      '${widget.index + 1}',
+                      style: AppTheme.labelMedium.copyWith(
+                        color: AppTheme.textTertiary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+
+              // Pochette ; l'égaliseur s'y dessine quand c'est le morceau
+              // en cours (les barres ne bougent que s'il est en lecture).
               Padding(
                 padding: EdgeInsets.only(
                   left: AppTheme.spacingM,
-                  right: AppTheme.spacingM,
                   top: AppTheme.listDensity.pad,
                   bottom: AppTheme.listDensity.pad,
                 ),
-                child: SizedBox(
-                  width: 22,
-                  child: Center(
-                    child: isPlaying
-                        ? EqualizerIndicator(color: moodColors.primary)
-                        : Text(
-                            '${widget.index + 1}',
-                            style: AppTheme.labelMedium.copyWith(
-                              color: AppTheme.textTertiary,
-                              fontFeatures: const [FontFeature.tabularFigures()],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                  ),
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final audioPlaying =
+                        isPlaying ? ref.watch(isPlayingProvider) : false;
+                    return _AlbumArt(
+                      track: track,
+                      moodColors: moodColors,
+                      isPlaying: isPlaying,
+                      equalizerAnimating: audioPlaying,
+                    );
+                  },
                 ),
-              ),
-
-              // Album art
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: AppTheme.listDensity.pad),
-                child: _AlbumArt(track: track, moodColors: moodColors, isPlaying: isPlaying),
               ),
 
               const SizedBox(width: AppTheme.spacingM),
@@ -167,39 +191,9 @@ class _TrackTileState extends State<TrackTile> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Row(
                         children: [
-                          if (track.isClassified) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppTheme.spacingS,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: moodColors.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(AppTheme.radiusS),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    track.mood?.iconData ?? Icons.music_note_rounded,
-                                    size: 11,
-                                    color: moodColors.primary,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    track.moodDisplayName,
-                                    style: AppTheme.labelSmall.copyWith(
-                                      color: moodColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: AppTheme.spacingS),
-                          ],
                           Expanded(
                             child: Text(
                               track.artist,
@@ -218,82 +212,129 @@ class _TrackTileState extends State<TrackTile> {
                           ),
                         ],
                       ),
+                      if (track.isClassified)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                track.mood?.iconData ?? Icons.music_note_rounded,
+                                size: 12,
+                                color: moodText,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  track.moodDisplayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTheme.labelSmall.copyWith(
+                                    color: moodText,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ),
 
-              // Play button
+              // Play button : pastille de 38 px, zone tactile de 48 px.
               if (widget.onPlay != null)
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: AppTheme.spacingS,
-                    right: AppTheme.spacingS,
-                  ),
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: widget.onPlay,
-                      behavior: HitTestBehavior.opaque,
-                      child: AnimatedContainer(
-                        duration: AppTheme.animFast,
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          gradient: isPlaying
-                              ? LinearGradient(
-                                  colors: [moodColors.primary, moodColors.secondary],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                )
-                              : null,
-                          color: isPlaying ? null : AppTheme.backgroundCardElevated,
-                          shape: BoxShape.circle,
-                          boxShadow: isPlaying
-                              ? [
-                                  BoxShadow(
-                                    color: moodColors.glow,
-                                    blurRadius: 14,
-                                    spreadRadius: -2,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        // `isPlaying` = c'est le morceau en cours ; le pictogramme
-                        // « pause » n'apparaît que s'il est réellement en
-                        // lecture (en pause, on propose de reprendre).
-                        child: Consumer(
-                          builder: (context, ref, _) {
-                            final audioPlaying = ref.watch(isPlayingProvider);
-                            return Icon(
-                              isPlaying && audioPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              color: isPlaying
-                                  ? AppTheme.backgroundPrimary
-                                  : AppTheme.textPrimary,
-                              size: 20,
-                            );
-                          },
+                Consumer(
+                  builder: (context, ref, _) {
+                    // `isPlaying` = c'est le morceau en cours ; le
+                    // pictogramme « pause » n'apparaît que s'il est
+                    // réellement en lecture (en pause, on propose de
+                    // reprendre). Les autres lignes n'écoutent pas l'état
+                    // audio : inutile de les reconstruire à chaque pause.
+                    final audioPlaying =
+                        isPlaying ? ref.watch(isPlayingProvider) : false;
+                    final showPause = isPlaying && audioPlaying;
+                    return Semantics(
+                      button: true,
+                      label: showPause
+                          ? 'Mettre en pause'
+                          : 'Lire ${track.title}',
+                      child: ExcludeSemantics(
+                        child: GestureDetector(
+                          onTap: widget.onPlay,
+                          behavior: HitTestBehavior.opaque,
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Center(
+                              child: AnimatedContainer(
+                                duration: AppTheme.animFast,
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  gradient: isPlaying
+                                      ? LinearGradient(
+                                          colors: [
+                                            moodColors.primary,
+                                            moodColors.secondary,
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        )
+                                      : null,
+                                  color: isPlaying
+                                      ? null
+                                      : AppTheme.backgroundCardElevated,
+                                  shape: BoxShape.circle,
+                                  boxShadow: isPlaying
+                                      ? [
+                                          BoxShadow(
+                                            color: moodColors.glow,
+                                            blurRadius: 14,
+                                            spreadRadius: -2,
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Icon(
+                                  showPause
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                  color: isPlaying
+                                      ? AppTheme.backgroundPrimary
+                                      : AppTheme.textPrimary,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
 
-              // Three-dot options button
+              // Three-dot options button : zone tactile de 44 x 48.
               if (widget.onMore != null)
-                GestureDetector(
-                  onTap: widget.onMore,
-                  behavior: HitTestBehavior.opaque,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppTheme.spacingXS,
-                      vertical: AppTheme.spacingS,
-                    ),
-                    child: Icon(
-                      Icons.more_vert_rounded,
-                      size: 20,
-                      color: AppTheme.textTertiary,
+                Semantics(
+                  button: true,
+                  label: "Plus d'options",
+                  child: ExcludeSemantics(
+                    child: GestureDetector(
+                      onTap: widget.onMore,
+                      behavior: HitTestBehavior.opaque,
+                      child: const SizedBox(
+                        width: 44,
+                        height: 48,
+                        child: Center(
+                          child: Icon(
+                            Icons.more_vert_rounded,
+                            size: 20,
+                            color: AppTheme.textTertiary,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -310,10 +351,14 @@ class _AlbumArt extends StatelessWidget {
   final MoodColors moodColors;
   final bool isPlaying;
 
+  /// Les barres de l'égaliseur ne bougent que si l'audio joue vraiment.
+  final bool equalizerAnimating;
+
   const _AlbumArt({
     required this.track,
     required this.moodColors,
     required this.isPlaying,
+    required this.equalizerAnimating,
   });
 
   @override
@@ -345,6 +390,17 @@ class _AlbumArt extends StatelessWidget {
               placeholderFontSize: 24,
             ),
 
+            // Voile + égaliseur sur la pochette du morceau en cours.
+            if (isPlaying)
+              Container(
+                color: Colors.black.withValues(alpha: 0.45),
+                alignment: Alignment.center,
+                child: EqualizerIndicator(
+                  color: Colors.white,
+                  animate: equalizerAnimating,
+                ),
+              ),
+
             // Subtle inner border for definition against dark backgrounds.
             Container(
               decoration: BoxDecoration(
@@ -364,10 +420,18 @@ class _AlbumArt extends StatelessWidget {
 
 /// Small live-looking equalizer made of three bars animating in a loop —
 /// replaces the static icon so the currently playing row visibly breathes.
+///
+/// [animate] à false (morceau en pause) ou « réduire les animations »
+/// activé : les barres se figent au lieu de boucler.
 class EqualizerIndicator extends StatefulWidget {
   final Color color;
+  final bool animate;
 
-  const EqualizerIndicator({super.key, required this.color});
+  const EqualizerIndicator({
+    super.key,
+    required this.color,
+    this.animate = true,
+  });
 
   @override
   State<EqualizerIndicator> createState() => EqualizerIndicatorState();
@@ -391,7 +455,29 @@ class EqualizerIndicatorState extends State<EqualizerIndicator>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant EqualizerIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncAnimation();
+  }
+
+  void _syncAnimation() {
+    final shouldAnimate =
+        widget.animate && !MediaQuery.of(context).disableAnimations;
+    if (shouldAnimate) {
+      if (!_controller.isAnimating) _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
+    }
   }
 
   @override

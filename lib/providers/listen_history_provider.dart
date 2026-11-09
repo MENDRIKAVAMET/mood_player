@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/listen_event.dart';
@@ -40,6 +41,20 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   DateTime? _playingSince;
   StreamSubscription<bool>? _playingSub;
 
+  /// Toutes les (re)programmations passent par cette file : une seule à la
+  /// fois, dans l'ordre. Sans ça, une pause suivie d'une reprise immédiate
+  /// pouvait laisser une notification « il y a une heure » programmée en
+  /// pleine lecture.
+  Future<void> _syncChain = Future.value();
+
+  /// Entre deux morceaux, `playing` peut retomber à false une fraction de
+  /// seconde : on attend un peu avant de considérer que la lecture s'est
+  /// vraiment arrêtée (sauf si l'app est en arrière-plan, voir
+  /// [_onPlayingChanged]).
+  Timer? _stopDebounce;
+  DateTime? _sinceBeforeBlip;
+  static const Duration _stopDelay = Duration(milliseconds: 1500);
+
   /// Au-delà de 31 jours, plus aucun rappel (le plus lointain est à un mois)
   /// ne peut arriver : on jette l'écoute.
   static const Duration _retention = Duration(days: 31);
@@ -69,42 +84,93 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
     }
   }
 
-  void _onPlayingChanged(bool playing) {
-    if (playing == _isPlaying) return;
-    final since = _playingSince;
-    _isPlaying = playing;
-    _playingSince = playing ? DateTime.now() : null;
-    unawaited(_syncWhilePlaying(playing, since).catchError((_) {}));
+  bool get _appInForeground {
+    try {
+      final s = WidgetsBinding.instance.lifecycleState;
+      return s == null || s == AppLifecycleState.resumed;
+    } catch (_) {
+      return true;
+    }
   }
 
-  /// Applique le changement d'état de lecture aux rappels concernés.
-  Future<void> _syncWhilePlaying(bool playing, DateTime? since) async {
+  void _onPlayingChanged(bool playing) {
+    if (playing == _isPlaying) return;
+    _isPlaying = playing;
+
+    if (playing) {
+      // Reprise rapide après un « clignotement » : c'est la même session
+      // d'écoute, on garde son vrai début.
+      final blipSince = _sinceBeforeBlip;
+      final wasPending = _stopDebounce?.isActive ?? false;
+      _stopDebounce?.cancel();
+      _sinceBeforeBlip = null;
+      _playingSince = (wasPending && blipSince != null)
+          ? blipSince
+          : DateTime.now();
+      // La lecture démarre : on retire tout de suite les notifications
+      // « il y a une heure » / « hier » encore programmées.
+      unawaited(_reconcile());
+      return;
+    }
+
+    final since = _playingSince;
+    _playingSince = null;
+    if (_appInForeground) {
+      // Évite de reprogrammer (puis annuler) à chaque changement de piste.
+      _sinceBeforeBlip = since;
+      _stopDebounce?.cancel();
+      _stopDebounce = Timer(_stopDelay, () {
+        _sinceBeforeBlip = null;
+        if (!_isPlaying) unawaited(_reconcile(since: since));
+      });
+    } else {
+      // App fermée / en arrière-plan (ex. retirée des applications
+      // récentes) : le processus peut disparaître d'un instant à l'autre,
+      // on reprogramme sans attendre.
+      unawaited(_reconcile(since: since));
+    }
+  }
+
+  Future<void> _reconcile({DateTime? since, bool all = false}) {
+    final next = _syncChain
+        .then((_) => _doReconcile(since: since, all: all))
+        .catchError((_) {});
+    _syncChain = next;
+    return next;
+  }
+
+  /// Remet les notifications programmées en accord avec l'état de lecture :
+  ///  - en lecture : « il y a une heure » et « hier » sont annulées ;
+  ///  - à l'arrêt : celles à venir sont (re)programmées ; celles dont
+  ///    l'heure est tombée PENDANT la lecture sont abandonnées plutôt
+  ///    qu'envoyées en retard.
+  /// Sans [all], seuls ces deux types de rappel sont concernés.
+  Future<void> _doReconcile({DateTime? since, bool all = false}) async {
     await _ready;
     if (!mounted) return;
 
     final now = DateTime.now();
     final skipped = <ListenReminder>[];
-    for (final event in state.events) {
+    for (final event in List<ListenEvent>.of(state.events)) {
       for (final kind in ReminderKind.values) {
-        // L'état a changé entre-temps : une autre synchro prend le relais.
-        if (_isPlaying != playing || !mounted) return;
-
+        if (!mounted) return;
         final reminder = ListenReminder(event, kind);
-        if (!reminder.skipsWhilePlaying || state.shown.contains(reminder.key)) {
-          continue;
-        }
+        if (state.shown.contains(reminder.key)) continue;
+        if (!all && !reminder.skipsWhilePlaying) continue;
+
         final upcoming = reminder.scheduledAt.isAfter(now);
-        if (playing) {
-          // La lecture démarre : plus de notification pour ceux-là.
+        // Lu à chaque tour : l'état peut changer pendant la boucle.
+        if (_isPlaying && reminder.skipsWhilePlaying) {
           if (upcoming) {
             await ReminderNotificationService.cancel(reminder.notificationId);
           }
-        } else if (upcoming) {
-          // La lecture s'arrête : on reprogramme ceux qui sont à venir.
+          continue;
+        }
+        if (upcoming) {
           await ReminderNotificationService.schedule(reminder);
-        } else if (since != null && !reminder.scheduledAt.isBefore(since)) {
-          // L'heure est tombée PENDANT la lecture : on l'abandonne plutôt
-          // que de l'envoyer en retard à la pause.
+        } else if (since != null &&
+            reminder.skipsWhilePlaying &&
+            !reminder.scheduledAt.isBefore(since)) {
           skipped.add(reminder);
         }
       }
@@ -112,8 +178,13 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
     if (skipped.isNotEmpty && mounted) await markShown(skipped);
   }
 
+  /// À appeler quand l'app passe en arrière-plan : les notifications
+  /// annulées pour laisser la place au pop-up sont reprogrammées.
+  Future<void> rescheduleUpcoming() => _reconcile(all: true);
+
   @override
   void dispose() {
+    _stopDebounce?.cancel();
     _playingSub?.cancel();
     super.dispose();
   }
@@ -134,23 +205,9 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   /// À chaque ouverture de l'app, reprogramme les rappels à venir : une
   /// programmation qui avait échoué (ou été supprimée par le système) est
   /// ainsi rattrapée. Reprogrammer un rappel existant le remplace, sans
-  /// doublon.
-  Future<void> _rescheduleAll() async {
-    try {
-      final now = DateTime.now();
-      for (final event in state.events) {
-        for (final kind in ReminderKind.values) {
-          final reminder = ListenReminder(event, kind);
-          if (state.shown.contains(reminder.key)) continue;
-          // Pendant une lecture, ceux-là sont reprogrammés à la pause.
-          if (_isPlaying && reminder.skipsWhilePlaying) continue;
-          if (reminder.scheduledAt.isAfter(now)) {
-            await ReminderNotificationService.schedule(reminder);
-          }
-        }
-      }
-    } catch (_) {}
-  }
+  /// doublon. Pendant une lecture, « il y a une heure » / « hier » restent
+  /// annulés (voir [_doReconcile]).
+  Future<void> _rescheduleAll() => _reconcile(all: true);
 
   ListenHistoryState _pruned(ListenHistoryState s, DateTime now) {
     final events =
@@ -162,6 +219,14 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
 
   Future<void> _persist() =>
       _service.save(ListenHistoryData(events: state.events, shown: state.shown));
+
+  /// Pochette utilisable par la notification : un fichier local seulement.
+  static String? _localCover(Track track) {
+    final c = track.coverUrl;
+    if (c == null || c.isEmpty) return null;
+    if (c.startsWith('http://') || c.startsWith('https://')) return null;
+    return c;
+  }
 
   /// À appeler à chaque écoute réelle ; ne retient que la première de la
   /// session.
@@ -180,6 +245,7 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
       title: track.title,
       artist: track.artist,
       mood: (mood == null || mood == MoodType.unknown) ? null : mood.name,
+      cover: _localCover(track),
       at: now,
     );
 
@@ -191,13 +257,9 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
 
     try {
       await ReminderNotificationService.requestPermission();
-      for (final kind in ReminderKind.values) {
-        final reminder = ListenReminder(event, kind);
-        // On est en pleine lecture : « il y a une heure » et « hier » sont
-        // programmés à la pause (voir _syncWhilePlaying).
-        if (_isPlaying && reminder.skipsWhilePlaying) continue;
-        await ReminderNotificationService.schedule(reminder);
-      }
+      // En pleine lecture, « il y a une heure » et « hier » ne sont pas
+      // programmés (voir _doReconcile) ; ils le seront à la pause.
+      await _reconcile(all: true);
       await ReminderNotificationService.askBatteryExemptionOnce();
     } catch (_) {
       // Les notifications sont un bonus : ne jamais faire échouer le suivi

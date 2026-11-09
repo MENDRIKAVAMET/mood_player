@@ -187,11 +187,15 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
       // Barre translucide posée sur un léger voile de marque plutôt qu'un
       // aplat opaque : le dégradé de l'écran continue derrière elle.
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
+          // Suit la couleur principale choisie (et plus un violet figé).
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0x005D00FF), Color(0x335D00FF)],
+            colors: [
+              AppTheme.brandBottom.withValues(alpha: 0.0),
+              AppTheme.brandBottom.withValues(alpha: 0.22),
+            ],
           ),
           border: Border(top: BorderSide(color: AppTheme.divider)),
         ),
@@ -202,7 +206,16 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
             setState(() => _index = i);
           },
           backgroundColor: Colors.transparent,
-          indicatorColor: AppTheme.accentPrimary.withValues(alpha: 0.22),
+          indicatorColor: AppTheme.accentPrimary.withValues(alpha: 0.26),
+          indicatorShape: const StadiumBorder(),
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return AppTheme.bodySmall.copyWith(
+              fontSize: 11.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? AppTheme.textPrimary : AppTheme.textTertiary,
+            );
+          }),
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           height: 64,

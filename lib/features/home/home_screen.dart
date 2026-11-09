@@ -715,6 +715,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
   }
 
+  /// Petit liseré vertical en dégradé de marque devant les titres de section.
+  Widget _sectionAccentBar() {
+    return Container(
+      width: 4,
+      height: 22,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppTheme.brandTop, AppTheme.brandBottom],
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title, int? count) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -725,17 +741,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       child: Row(
         children: [
-          Text(title, style: AppTheme.headlineMedium),
+          _sectionAccentBar(),
+          const SizedBox(width: AppTheme.spacingM),
+          Text(
+            title,
+            style: AppTheme.headlineMedium.copyWith(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
+          ),
           if (count != null) ...[
             const SizedBox(width: AppTheme.spacingS),
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacingS,
+                horizontal: AppTheme.spacingM,
                 vertical: AppTheme.spacingXXS,
               ),
               decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppTheme.radiusS),
+                color: AppTheme.accentPrimary.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
               ),
               child: Text(
                 '$count',
@@ -760,16 +785,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       child: Row(
         children: [
-          Text('Tous les morceaux', style: AppTheme.headlineMedium),
+          _sectionAccentBar(),
+          const SizedBox(width: AppTheme.spacingM),
+          Text(
+            'Tous les morceaux',
+            style: AppTheme.headlineMedium.copyWith(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
+          ),
           const SizedBox(width: AppTheme.spacingS),
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spacingS,
+              horizontal: AppTheme.spacingM,
               vertical: AppTheme.spacingXXS,
             ),
             decoration: BoxDecoration(
-              color: AppTheme.accentPrimary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(AppTheme.radiusS),
+              color: AppTheme.accentPrimary.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
             ),
             child: Text(
               '${trackState.filteredTracks.length}',

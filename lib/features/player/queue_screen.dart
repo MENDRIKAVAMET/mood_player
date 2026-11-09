@@ -2,6 +2,9 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/playlist.dart';
+import '../../models/track.dart';
+import '../../theme/mood_colors.dart';
+import '../../widgets/track_artwork.dart';
 import '../../providers/providers.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
@@ -82,10 +85,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
               // Header
               _buildHeader(context),
 
+              if (_localQueue.isNotEmpty)
+                _buildNowPlaying(currentTrack.valueOrNull),
+
               // Queue info with reorder button
               _buildQueueInfo(currentTrack.valueOrNull),
 
-              const SizedBox(height: AppTheme.spacingL),
+              const SizedBox(height: AppTheme.spacingS),
 
               // Queue list
               Expanded(
@@ -128,6 +134,111 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
     );
   }
 
+  Track? _trackFor(MediaItem item) {
+    final id = int.tryParse(item.id);
+    if (id == null) return null;
+    final tracks = ref.read(trackProvider).tracks;
+    for (final t in tracks) {
+      if (t.id == id) return t;
+    }
+    return null;
+  }
+
+  String _totalDuration() {
+    var ms = 0;
+    for (final i in _localQueue) {
+      ms += i.duration?.inMilliseconds ?? _trackFor(i)?.duration ?? 0;
+    }
+    final m = (ms / 60000).round();
+    if (m <= 0) return '';
+    return m >= 60 ? '${m ~/ 60} h ${(m % 60).toString().padLeft(2, '0')}' : '$m min';
+  }
+
+  /// Carte « En cours » : pochette, titre et couleurs de l'ambiance.
+  Widget _buildNowPlaying(MediaItem? current) {
+    if (current == null) return const SizedBox.shrink();
+    final track = _trackFor(current);
+    final tint = MoodColors.forMood(track?.mood).primary;
+    final index = _localQueue.indexWhere((i) => i.id == current.id);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppTheme.spacingL, AppTheme.spacingS, AppTheme.spacingL, AppTheme.spacingL),
+      child: Container(
+        padding: const EdgeInsets.all(AppTheme.spacingM),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+          border: Border.all(color: tint.withValues(alpha: 0.3)),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.alphaBlend(tint.withValues(alpha: 0.24), AppTheme.backgroundCard),
+              AppTheme.backgroundCard,
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: tint.withValues(alpha: 0.2),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            if (track != null)
+              TrackArtwork(track: track, size: 72, radius: 18, placeholderFontSize: 28)
+            else
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(Icons.music_note_rounded, color: tint, size: 32),
+              ),
+            const SizedBox(width: AppTheme.spacingM),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.equalizer_rounded, size: 15, color: tint),
+                      const SizedBox(width: 6),
+                      Text(
+                        'EN COURS${index >= 0 ? ' · ${index + 1}/${_localQueue.length}' : ''}',
+                        style: AppTheme.bodySmall.copyWith(
+                          color: tint,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    current.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.titleLarge.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    current.artist ?? 'Artiste inconnu',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildQueueInfo(MediaItem? currentTrack) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingXL),
@@ -143,8 +254,12 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           ),
           const SizedBox(width: AppTheme.spacingM),
           Text(
-            '${_localQueue.length} morceau${_localQueue.length > 1 ? 'x' : ''}',
-            style: AppTheme.bodyLarge.copyWith(color: AppTheme.textSecondary),
+            'À suivre · ${_localQueue.length} morceau${_localQueue.length > 1 ? 'x' : ''}'
+            '${_totalDuration().isEmpty ? '' : ' · ${_totalDuration()}'}',
+            style: AppTheme.bodyLarge.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           if (_isReordering) ...[
             const Spacer(),
@@ -155,7 +270,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
               ),
               decoration: BoxDecoration(
                 color: AppTheme.accentPrimary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppTheme.radiusS),
+                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
               ),
               child: Text(
                 'Mode réorganisation',
@@ -304,7 +419,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           color: isCurrentTrack
               ? AppTheme.accentPrimary.withValues(alpha: 0.15)
               : AppTheme.backgroundCard,
-          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
           border: Border.all(
             color: isCurrentTrack
                 ? AppTheme.accentPrimary.withValues(alpha: 0.3)
@@ -326,22 +441,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                     size: 24,
                   ),
                 )
-              : isCurrentTrack
-              ? Icon(
-                  Icons.equalizer_rounded,
-                  color: AppTheme.accentPrimary,
-                  size: 20,
-                )
-              : SizedBox(
-                  width: 24,
-                  child: Text(
-                    '${index + 1}',
-                    style: AppTheme.bodyMedium.copyWith(
-                      color: AppTheme.textTertiary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+              : _rowArtwork(item, index, isCurrentTrack),
           title: Text(
             item.title,
             style: AppTheme.bodyLarge.copyWith(
@@ -370,7 +470,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: AppTheme.accentPrimary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusS),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusFull),
                   ),
                   child: Text(
                     '${item.extras!['mood']}',
@@ -394,6 +494,39 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           onTap: _isReordering ? null : onTap,
         ),
       ),
+    );
+  }
+
+  Widget _rowArtwork(MediaItem item, int index, bool isCurrent) {
+    final track = _trackFor(item);
+    final art = track != null
+        ? TrackArtwork(track: track, size: 46, radius: 12, placeholderFontSize: 18)
+        : Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppTheme.accentPrimary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Text('${index + 1}',
+                style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary)),
+          );
+    if (!isCurrent) return art;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        art,
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(Icons.equalizer_rounded, color: Colors.white, size: 22),
+        ),
+      ],
     );
   }
 

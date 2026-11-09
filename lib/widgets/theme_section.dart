@@ -94,21 +94,33 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: AppTheme.accentPrimary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.accentPrimary.withValues(alpha: 0.30),
+                      AppTheme.accentPrimary.withValues(alpha: 0.10),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: AppTheme.accentPrimary.withValues(alpha: 0.30),
+                  ),
                 ),
                 child: Icon(Icons.palette_rounded,
-                    color: AppTheme.accentPrimary),
+                    color: AppTheme.accentPrimary, size: 23),
               ),
               const SizedBox(width: AppTheme.spacingM),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Thème', style: AppTheme.titleMedium),
+                    Text('Thème',
+                        style: AppTheme.titleMedium
+                            .copyWith(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
                     Text(
                       'Couleurs de l\'application',

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../providers/providers.dart';
@@ -165,7 +164,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ),
                 )
               else if (trackState.filteredTracks.isEmpty)
-                SliverToBoxAdapter(child: _buildEmptyState())
+                SliverToBoxAdapter(child: _buildEmptyState(trackState))
               else
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
@@ -215,90 +214,121 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  String _formatTotal(int ms) {
+    final totalMinutes = Duration(milliseconds: ms).inMinutes;
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    if (h == 0) return '$m min';
+    return '$h h ${m.toString().padLeft(2, '0')} min';
+  }
+
+  IconData _sortIcon(TrackSortOption option) {
+    switch (option) {
+      case TrackSortOption.nameAsc:
+      case TrackSortOption.nameDesc:
+        return Icons.sort_by_alpha_rounded;
+      case TrackSortOption.dateNewest:
+      case TrackSortOption.dateOldest:
+        return Icons.schedule_rounded;
+    }
+  }
+
+  /// Carte de résumé de la bibliothèque : titre, nombre de morceaux et durée
+  /// totale, les deux actions de lecture en grand, puis le tri et le filtre
+  /// de durée en pastilles lisibles (plutôt que des icônes sans libellé).
   Widget _buildAllTracksHeader(TrackState trackState) {
     final tracks = trackState.filteredTracks;
     final hasTracks = tracks.isNotEmpty;
+    final minSeconds = trackState.minDurationSeconds;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingXL,
-        AppTheme.spacingXL,
-        AppTheme.spacingS,
+    var totalMs = 0;
+    for (final t in tracks) {
+      totalMs += t.duration ?? 0;
+    }
+    final summary = hasTracks
+        ? '${tracks.length} morceau${tracks.length > 1 ? 'x' : ''}'
+            '${totalMs > 0 ? ', ${_formatTotal(totalMs)}' : ''}'
+        : 'Aucun morceau à afficher';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppTheme.spacingL,
+        AppTheme.spacingM,
+        AppTheme.spacingL,
         AppTheme.spacingS,
       ),
-      child: Row(
+      padding: const EdgeInsets.all(AppTheme.spacingL),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.brandTop.withValues(alpha: 0.22),
+            AppTheme.brandBottom.withValues(alpha: 0.08),
+            AppTheme.backgroundCard,
+          ],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tous les morceaux', style: AppTheme.headlineMedium),
-          const SizedBox(width: AppTheme.spacingS),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.spacingS,
-              vertical: AppTheme.spacingXXS,
-            ),
-            decoration: BoxDecoration(
-              color: AppTheme.accentPrimary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(AppTheme.radiusS),
-            ),
-            child: Text(
-              '${tracks.length}',
-              style: AppTheme.labelSmall.copyWith(color: AppTheme.accentPrimary),
+          Text(
+            'Tous les morceaux',
+            style: AppTheme.headlineMedium.copyWith(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(width: AppTheme.spacingS),
-          // Les boutons défilent horizontalement : sur un écran étroit ils
-          // ne tiennent pas tous (« Trier » était coupé). Aligné à droite et
-          // positionné sur « Trier » au départ ; un glissement révèle le reste.
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              reverse: true,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-          IconButton(
-            tooltip: 'Tout lire',
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              Icons.play_circle_fill_rounded,
-              color: hasTracks ? AppTheme.accentPrimary : AppTheme.textTertiary,
-              size: 26,
-            ),
-            onPressed: hasTracks ? () => playAll(context, tracks) : null,
+          const SizedBox(height: 2),
+          Text(
+            summary,
+            style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
           ),
-          IconButton(
-            tooltip: 'Lecture aléatoire',
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              Icons.shuffle_rounded,
-              color: hasTracks ? AppTheme.accentPrimary : AppTheme.textTertiary,
-              size: 22,
-            ),
-            onPressed: hasTracks ? () => playShuffled(context, tracks) : null,
-          ),
-          IconButton(
-            tooltip: trackState.minDurationSeconds != null
-                ? 'Filtre de durée actif (${trackState.minDurationSeconds}s min)'
-                : 'Masquer les morceaux courts',
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              Icons.timer_outlined,
-              color: trackState.minDurationSeconds != null
-                  ? AppTheme.accentPrimary
-                  : AppTheme.textSecondary,
-              size: 20,
-            ),
-            onPressed: _showMinDurationDialog,
-          ),
-          IconButton(
-            tooltip: 'Trier',
-            visualDensity: VisualDensity.compact,
-            icon: Icon(Icons.sort_rounded, color: AppTheme.textSecondary, size: 22),
-            onPressed: () => _showSortMenu(trackState.sortOption),
-          ),
-                ],
+          const SizedBox(height: AppTheme.spacingL),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _LibraryActionButton(
+                  label: 'Tout lire',
+                  icon: Icons.play_arrow_rounded,
+                  onTap: hasTracks ? () => playAll(context, tracks) : null,
+                ),
               ),
-            ),
+              const SizedBox(width: AppTheme.spacingM),
+              Expanded(
+                flex: 2,
+                child: _LibraryActionButton(
+                  label: 'Aléatoire',
+                  icon: Icons.shuffle_rounded,
+                  glass: true,
+                  onTap: hasTracks ? () => playShuffled(context, tracks) : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spacingM),
+          Wrap(
+            spacing: AppTheme.spacingS,
+            runSpacing: AppTheme.spacingS,
+            children: [
+              _ToolChip(
+                icon: _sortIcon(trackState.sortOption),
+                label: trackState.sortOption.label,
+                onTap: () => _showSortMenu(trackState.sortOption),
+              ),
+              _ToolChip(
+                icon: Icons.timer_outlined,
+                label: minSeconds != null
+                    ? 'Plus de $minSeconds s'
+                    : 'Masquer les courts',
+                active: minSeconds != null,
+                onTap: _showMinDurationDialog,
+              ),
+            ],
           ),
         ],
       ),
@@ -308,23 +338,63 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   void _showSortMenu(TrackSortOption current) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.backgroundSecondary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusL)),
-      ),
-      builder: (context) {
-        return SafeArea(
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: AppTheme.backgroundSecondary,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTheme.radiusXL),
+          ),
+        ),
+        child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: AppTheme.spacingM),
-              Text('Trier par', style: AppTheme.headlineMedium),
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: AppTheme.spacingM),
+                decoration: BoxDecoration(
+                  color: AppTheme.textTertiary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: AppTheme.spacingL),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spacingXL,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Trier par', style: AppTheme.headlineMedium),
+                ),
+              ),
               const SizedBox(height: AppTheme.spacingS),
               for (final option in TrackSortOption.values)
                 ListTile(
-                  title: Text(option.label, style: AppTheme.bodyMedium),
+                  selected: option == current,
+                  selectedColor: AppTheme.accentPrimary,
+                  selectedTileColor:
+                      AppTheme.accentPrimary.withValues(alpha: 0.10),
+                  leading: Icon(
+                    _sortIcon(option),
+                    color: option == current
+                        ? AppTheme.accentPrimary
+                        : AppTheme.textSecondary,
+                  ),
+                  title: Text(
+                    option.label,
+                    style: AppTheme.bodyLarge.copyWith(
+                      color: option == current
+                          ? AppTheme.accentPrimary
+                          : AppTheme.textPrimary,
+                      fontWeight: option == current
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                    ),
+                  ),
                   trailing: option == current
-                      ? Icon(Icons.check, color: AppTheme.accentPrimary)
+                      ? Icon(Icons.check_rounded, color: AppTheme.accentPrimary)
                       : null,
                   onTap: () {
                     ref.read(trackProvider.notifier).setSortOption(option);
@@ -334,8 +404,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               const SizedBox(height: AppTheme.spacingM),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -411,46 +481,91 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacingXXXL),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.music_note_rounded,
-                size: 48,
-                color: AppTheme.accentPrimary,
-              ),
-            ).animate().scale(duration: AppTheme.animSlow),
-            const SizedBox(height: AppTheme.spacingXL),
-            Text(
-              'Votre bibliothèque est vide',
-              style: AppTheme.headlineMedium.copyWith(color: AppTheme.textSecondary),
-              textAlign: TextAlign.center,
+  /// État vide. Deux cas bien distincts : la bibliothèque est réellement
+  /// vide (on propose un scan), ou des morceaux existent mais le filtre de
+  /// durée les cache tous (on propose de le retirer).
+  Widget _buildEmptyState(TrackState trackState) {
+    final filterHidesAll = trackState.tracks.isNotEmpty &&
+        trackState.filteredTracks.isEmpty &&
+        trackState.minDurationSeconds != null;
+
+    final title = filterHidesAll
+        ? 'Tous vos morceaux sont masqués'
+        : 'Rien à écouter pour l\'instant';
+    final body = filterHidesAll
+        ? 'Le filtre masque les morceaux de moins de '
+            '${trackState.minDurationSeconds} secondes, et aucun n\'est plus '
+            'long.'
+        : 'Aura n\'a trouvé aucun morceau. Lancez un scan pour parcourir la '
+            'musique de votre appareil.';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingXL,
+        AppTheme.spacingXXL,
+        AppTheme.spacingXL,
+        AppTheme.spacingXL,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: AppTheme.brandGradient,
+              boxShadow: AppTheme.coloredShadow(AppTheme.accentPrimary),
             ),
-            const SizedBox(height: AppTheme.spacingS),
-            Text(
-              'Importez des morceaux pour commencer\nà explorer vos ambiances musicales',
-              style: AppTheme.bodyMedium,
-              textAlign: TextAlign.center,
+            child: Icon(
+              filterHidesAll
+                  ? Icons.timer_off_rounded
+                  : Icons.library_music_rounded,
+              size: 44,
+              color: Colors.white,
             ),
-            const SizedBox(height: AppTheme.spacingS),
+          ),
+          const SizedBox(height: AppTheme.spacingXL),
+          Text(
+            title,
+            style: AppTheme.headlineMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppTheme.spacingS),
+          Text(
+            body,
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppTheme.spacingXL),
+          SizedBox(
+            width: 260,
+            child: _LibraryActionButton(
+              label:
+                  filterHidesAll ? 'Retirer le filtre' : 'Scanner mon appareil',
+              icon: filterHidesAll
+                  ? Icons.filter_alt_off_rounded
+                  : Icons.refresh_rounded,
+              onTap: () {
+                final notifier = ref.read(trackProvider.notifier);
+                if (filterHidesAll) {
+                  notifier.setMinDurationFilter(null);
+                } else {
+                  notifier.scanAndLoadTracks();
+                }
+              },
+            ),
+          ),
+          if (!filterHidesAll) ...[
+            const SizedBox(height: AppTheme.spacingM),
             Text(
-              'Rendez-vous dans votre profil pour importer votre musique.',
-              style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+              'Vous pouvez aussi importer des fichiers depuis votre profil.',
+              style:
+                  AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
               textAlign: TextAlign.center,
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -586,6 +701,131 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             child: Text('Supprimer', style: TextStyle(color: AppTheme.accentError)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Bouton d'action de la bibliothèque (Tout lire, Aléatoire, Scanner…).
+/// La version principale suit le style de bouton choisi par l'utilisateur ;
+/// la version [glass] reste un bouton secondaire en verre.
+class _LibraryActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool glass;
+  final VoidCallback? onTap;
+
+  const _LibraryActionButton({
+    required this.label,
+    required this.icon,
+    this.glass = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      child: ExcludeSemantics(
+        child: Opacity(
+          opacity: enabled ? 1 : 0.4,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 48),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spacingM,
+                vertical: AppTheme.spacingS,
+              ),
+              decoration: AppTheme.primaryButton(
+                pill: true,
+                glowBlur: 16,
+                glowAlpha: 0.35,
+                style: glass ? ButtonStyleKind.glass : null,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 20, color: AppTheme.textPrimary),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.labelLarge
+                          .copyWith(color: AppTheme.textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pastille de réglage (tri, filtre de durée) : l'état actuel est écrit en
+/// toutes lettres, et la pastille s'allume quand un filtre est actif.
+class _ToolChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _ToolChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppTheme.accentPrimary : AppTheme.textSecondary;
+    return Semantics(
+      button: true,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: active
+                  ? AppTheme.accentPrimary.withValues(alpha: 0.16)
+                  : Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+              border: Border.all(
+                color: active
+                    ? AppTheme.accentPrimary.withValues(alpha: 0.4)
+                    : Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: AppTheme.bodySmall.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

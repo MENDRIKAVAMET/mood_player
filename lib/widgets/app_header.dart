@@ -88,7 +88,7 @@ class _BrandTitle extends StatelessWidget {
     return Row(
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(11),
           child: Image.asset(
             'assets/icon/app_icon_square.png',
             width: 32,
@@ -105,7 +105,11 @@ class _BrandTitle extends StatelessWidget {
         Flexible(
           child: Text(
             'Aura',
-            style: AppTheme.headlineMedium,
+            style: AppTheme.headlineMedium.copyWith(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
