@@ -98,7 +98,7 @@ class DiscoverSectionTitle extends StatelessWidget {
             ],
           ),
         ),
-        ?trailing,
+        if (trailing != null) trailing!,
       ],
     );
   }

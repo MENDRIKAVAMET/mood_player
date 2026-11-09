@@ -760,7 +760,7 @@ class _SectionTitle extends StatelessWidget {
             ),
           ),
         ),
-        ?trailing,
+        if (trailing != null) trailing!,
       ],
     );
   }
@@ -841,7 +841,7 @@ class _SettingTile extends StatelessWidget {
                 ],
               ],
             ),
-            ?footer,
+            if (footer != null) footer!,
           ],
         ),
       ),
