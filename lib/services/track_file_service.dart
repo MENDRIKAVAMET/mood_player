@@ -196,3 +196,51 @@ class TrackNameOverrides {
     }
   }
 }
+
+/// Chemins des morceaux que l'utilisateur a retirés de la bibliothèque de
+/// l'app. Le fichier reste sur l'appareil, donc le scan de MediaStore (qui
+/// tourne à chaque ouverture) le retrouverait et le rajouterait : on
+/// mémorise ces chemins pour que le scan les ignore.
+class RemovedTracks {
+  static Set<String>? _cache;
+
+  static Future<File> _file() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/removed_tracks.json');
+  }
+
+  static Future<Set<String>> load() async {
+    if (_cache != null) return _cache!;
+    try {
+      final file = await _file();
+      if (await file.exists()) {
+        final decoded = jsonDecode(await file.readAsString()) as List;
+        _cache = decoded.whereType<String>().toSet();
+      } else {
+        _cache = {};
+      }
+    } catch (_) {
+      _cache = {};
+    }
+    return _cache!;
+  }
+
+  static Future<void> _save() async {
+    try {
+      final file = await _file();
+      await file.writeAsString(jsonEncode((_cache ?? {}).toList()));
+    } catch (_) {
+      // Le cache mémoire garde la valeur pour la session.
+    }
+  }
+
+  static Future<void> add(String path) async {
+    (await load()).add(path);
+    await _save();
+  }
+
+  static Future<void> clear() async {
+    (await load()).clear();
+    await _save();
+  }
+}

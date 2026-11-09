@@ -266,6 +266,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
       // Titres/artistes modifiés par l'utilisateur : le scan ne doit pas
       // les remplacer par ceux (anciens) des tags du fichier.
       final nameOverrides = await TrackNameOverrides.load();
+      final removedPaths = await RemovedTracks.load();
 
       final existingTracks = await _storageService.getAllTracks();
       final byFilePath = <String, Track>{
@@ -285,6 +286,8 @@ class TrackNotifier extends StateNotifier<TrackState> {
       for (final SongModel song in result.songs) {
         final filePath = song.data;
         if (filePath.isEmpty) continue;
+        // Morceau retiré par l'utilisateur : on ne le remet pas.
+        if (removedPaths.contains(filePath)) continue;
 
         mediaStoreIdByPath[filePath] = song.id;
 
@@ -736,6 +739,10 @@ class TrackNotifier extends StateNotifier<TrackState> {
     state = state.copyWith(isLoading: true, error: null);
     
     try {
+      // Retient le chemin pour que le prochain scan ne rajoute pas le
+      // morceau (son fichier est toujours sur l'appareil).
+      final path = state.tracks.firstWhereOrNull((t) => t.id == id)?.filePath;
+      if (path != null) await RemovedTracks.add(path);
       await _storageService.deleteTrack(id);
       await loadTracks();
     } catch (e) {
@@ -752,6 +759,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     
     try {
       await _storageService.clearAllTracks();
+      await RemovedTracks.clear();
       await loadTracks();
     } catch (e) {
       state = state.copyWith(

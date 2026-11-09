@@ -27,6 +27,20 @@ class AppUpdate {
   });
 }
 
+/// État local d'une mise à jour : APK complet, partiel ou rien.
+class LocalUpdateState {
+  /// APK complet, prêt à être installé (null sinon).
+  final File? apk;
+
+  /// Octets déjà écrits sur le disque (APK complet ou fichier partiel).
+  final int downloadedBytes;
+
+  const LocalUpdateState({this.apk, this.downloadedBytes = 0});
+
+  bool get isComplete => apk != null;
+  bool get isPartial => apk == null && downloadedBytes > 0;
+}
+
 /// Vérifie les releases GitHub du dépôt, télécharge l'APK et lance
 /// l'installation (côté Android, voir `MainActivity.kt`).
 ///
@@ -119,37 +133,128 @@ class UpdateService {
       host == 'github.com' || host.endsWith('.github.com') ||
       host.endsWith('.githubusercontent.com');
 
-  /// Télécharge l'APK dans le cache de l'app. [onProgress] reçoit une
-  /// valeur entre 0 et 1.
+  /// Dossier persistant où l'APK est écrit (`files/updates`). Contrairement
+  /// au cache, Android ne le vide pas tout seul : un téléchargement
+  /// interrompu peut donc être repris plus tard.
+  Future<Directory> updatesDir() async {
+    final base = await getApplicationSupportDirectory();
+    final dir = Directory('${base.path}/updates');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  File _apkFile(Directory dir, AppUpdate u) =>
+      File('${dir.path}/aura-${u.version}.apk');
+  File _partFile(Directory dir, AppUpdate u) =>
+      File('${dir.path}/aura-${u.version}.apk.part');
+
+  /// Ce qui est déjà sur le disque pour [update] : APK complet (prêt à
+  /// installer) ou téléchargement partiel (à reprendre). Supprime au
+  /// passage les fichiers des autres versions.
+  Future<LocalUpdateState> localState(AppUpdate update) async {
+    final dir = await updatesDir();
+    final apk = _apkFile(dir, update);
+    final part = _partFile(dir, update);
+
+    await for (final e in dir.list()) {
+      if (e is File && e.path != apk.path && e.path != part.path) {
+        try {
+          await e.delete();
+        } catch (_) {}
+      }
+    }
+
+    final expected = update.size;
+    if (await apk.exists()) {
+      final len = await apk.length();
+      if (expected == null || len == expected) {
+        return LocalUpdateState(apk: apk, downloadedBytes: len);
+      }
+      await apk.delete(); // Fichier corrompu / incomplet.
+    }
+    if (await part.exists()) {
+      final len = await part.length();
+      if (len > 0 && (expected == null || len < expected)) {
+        return LocalUpdateState(downloadedBytes: len);
+      }
+      await part.delete();
+    }
+    return const LocalUpdateState();
+  }
+
+  /// Télécharge l'APK dans [updatesDir]. Reprend là où le téléchargement
+  /// s'était arrêté si un fichier partiel existe, et renvoie directement
+  /// l'APK s'il est déjà complet. [onProgress] reçoit une valeur entre 0
+  /// et 1.
   Future<File> download(
     AppUpdate update, {
     required void Function(double progress) onProgress,
+    bool allowResume = true,
   }) async {
-    final cache = await getTemporaryDirectory();
-    final dir = Directory('${cache.path}/updates');
-    if (await dir.exists()) await dir.delete(recursive: true);
-    await dir.create(recursive: true);
-    final file = File('${dir.path}/aura-${update.version}.apk');
+    final dir = await updatesDir();
+    final apk = _apkFile(dir, update);
+    final part = _partFile(dir, update);
+    final expected = update.size;
 
-    await _dio.download(
+    final state = await localState(update);
+    if (state.isComplete) {
+      onProgress(1);
+      return state.apk!;
+    }
+
+    var existing = allowResume && await part.exists() ? await part.length() : 0;
+    if (existing == 0 && await part.exists()) await part.delete();
+
+    final res = await _dio.get<ResponseBody>(
       update.apkUrl.toString(),
-      file.path,
       options: Options(
+        responseType: ResponseType.stream,
         receiveTimeout: const Duration(minutes: 2),
         followRedirects: true,
+        headers: existing > 0 ? {'range': 'bytes=$existing-'} : null,
+        validateStatus: (c) => c == 200 || c == 206 || c == 416,
       ),
-      onReceiveProgress: (received, total) {
-        final t = total > 0 ? total : (update.size ?? 0);
-        if (t > 0) onProgress((received / t).clamp(0.0, 1.0));
-      },
     );
 
-    final expected = update.size;
-    if (expected != null && await file.length() != expected) {
-      await file.delete();
+    if (res.statusCode == 416) {
+      // Le fichier partiel ne correspond plus : on repart de zéro.
+      await part.delete();
+      if (!allowResume) throw const FileSystemException('Reprise impossible');
+      return download(update, onProgress: onProgress, allowResume: false);
+    }
+
+    // 206 = le serveur reprend à l'octet demandé ; 200 = il renvoie tout.
+    final resumed = res.statusCode == 206 && existing > 0;
+    if (!resumed) existing = 0;
+
+    final contentLength =
+        int.tryParse(res.headers.value(Headers.contentLengthHeader) ?? '');
+    final total = expected ??
+        (contentLength != null ? contentLength + existing : 0);
+
+    var received = existing;
+    final sink = part.openWrite(mode: resumed ? FileMode.append : FileMode.write);
+    try {
+      if (total > 0) onProgress((received / total).clamp(0.0, 1.0));
+      await for (final chunk in res.data!.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (total > 0) onProgress((received / total).clamp(0.0, 1.0));
+      }
+      await sink.flush();
+    } finally {
+      // Le fichier partiel est conservé en cas d'erreur pour la reprise.
+      await sink.close();
+    }
+
+    final len = await part.length();
+    if (expected != null && len != expected) {
+      if (len > expected) await part.delete();
       throw const FileSystemException('Téléchargement incomplet');
     }
-    return file;
+    if (await apk.exists()) await apk.delete();
+    await part.rename(apk.path);
+    return apk;
   }
 
   /// Android autorise-t-il cette app à installer des APK ?

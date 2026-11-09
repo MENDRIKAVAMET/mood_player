@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Dossier où l'app télécharge l'APK de mise à jour (cacheDir/updates),
-     exposé au installateur système via FileProvider. -->
+<!-- Dossier où l'app télécharge l'APK de mise à jour (filesDir/updates),
+     exposé à l'installateur système via FileProvider. -->
 <paths>
-    <cache-path name="updates" path="updates/" />
+    <files-path name="updates" path="updates/" />
+    <cache-path name="updates_legacy" path="updates/" />
 </paths>

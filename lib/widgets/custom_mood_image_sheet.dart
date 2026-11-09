@@ -47,6 +47,10 @@ class _CustomMoodImageSheetState extends ConsumerState<_CustomMoodImageSheet> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        // Désactive la compression native de file_picker (30 % par défaut) :
+        // elle crée un fichier temporaire qui échoue avec « Permission denied »
+        // sur certains appareils. L'app traite déjà l'image elle-même.
+        compressionQuality: 0,
       );
       final path = result?.files.firstOrNull?.path;
       if (path == null) return; // Annulé.

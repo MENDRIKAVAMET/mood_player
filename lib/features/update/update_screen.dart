@@ -31,12 +31,29 @@ class _UpdateScreenState extends State<UpdateScreen>
   String? _error;
   bool _leftApp = false;
 
+  /// Ce qui est déjà téléchargé (APK complet ou partiel).
+  LocalUpdateState _local = const LocalUpdateState();
+
   bool get _busy => _step == _Step.downloading || _step == _Step.installing;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _refreshLocal();
+  }
+
+  Future<void> _refreshLocal() async {
+    try {
+      final st = await _service.localState(widget.update);
+      if (mounted) setState(() => _local = st);
+    } catch (_) {}
+  }
+
+  double get _localFraction {
+    final size = widget.update.size;
+    if (size == null || size <= 0) return 0;
+    return (_local.downloadedBytes / size).clamp(0.0, 1.0);
   }
 
   @override
@@ -67,25 +84,30 @@ class _UpdateScreenState extends State<UpdateScreen>
         return;
       }
       if (!mounted) return;
-      setState(() {
-        _step = _Step.downloading;
-        _progress = 0;
-      });
-      final apk = await _service.download(
-        widget.update,
-        onProgress: (p) {
-          if (mounted) setState(() => _progress = p);
-        },
-      );
+      // APK déjà complet : on saute le téléchargement et on installe.
+      final apk = _local.apk ??
+          await (() async {
+            setState(() {
+              _step = _Step.downloading;
+              _progress = _localFraction; // Reprise là où on s'était arrêté.
+            });
+            return _service.download(
+              widget.update,
+              onProgress: (p) {
+                if (mounted) setState(() => _progress = p);
+              },
+            );
+          })();
       if (!mounted) return;
       setState(() => _step = _Step.installing);
       _leftApp = false;
       await _service.install(apk);
     } catch (e) {
+      await _refreshLocal(); // Le fichier partiel est conservé.
       if (!mounted) return;
       setState(() {
         _step = _Step.error;
-        _error = 'Le téléchargement a échoué. Vérifie ta connexion et réessaie.';
+        _error = 'Le téléchargement a été interrompu. Vérifie ta connexion : il reprendra là où il s\'est arrêté.';
       });
     }
   }
@@ -196,6 +218,12 @@ class _UpdateScreenState extends State<UpdateScreen>
   String get _subtitle {
     switch (_step) {
       case _Step.offer:
+        if (_local.isComplete) {
+          return 'La mise à jour est déjà téléchargée. Il ne reste qu\'à l\'installer.';
+        }
+        if (_local.isPartial) {
+          return 'Le téléchargement a été interrompu à ${(_localFraction * 100).round()} %. Il reprendra là où il s\'était arrêté.';
+        }
         return 'Reste à jour pour profiter des dernières améliorations.';
       case _Step.needPermission:
         return 'Autorise Aura à installer des applications dans les réglages, puis reviens ici : la mise à jour reprendra toute seule.';
@@ -439,7 +467,15 @@ class _UpdateScreenState extends State<UpdateScreen>
     switch (_step) {
       case _Step.offer:
         return Column(mainAxisSize: MainAxisSize.min, children: [
-          _primary('Mettre à jour', Icons.download_rounded, _start),
+          if (_local.isComplete)
+            _primary('Installer', Icons.install_mobile_rounded, _start)
+          else if (_local.isPartial)
+            _primary(
+                'Reprendre le téléchargement (${(_localFraction * 100).round()} %)',
+                Icons.download_rounded,
+                _start)
+          else
+            _primary('Mettre à jour', Icons.download_rounded, _start),
           _secondary('Pas maintenant'),
         ]);
       case _Step.needPermission:

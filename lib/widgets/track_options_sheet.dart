@@ -124,11 +124,16 @@ class _TrackOptionsSheet extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    // Tout ce qui dépend de la feuille (ref, contexte) est récupéré AVANT
+    // de la fermer : une fois fermée, `ref` ne peut plus être utilisé
+    // (erreur silencieuse, le morceau n'était alors jamais retiré).
+    final notifier = ref.read(trackProvider.notifier);
+    final rootContext = Navigator.of(context, rootNavigator: true).context;
     Navigator.pop(context);
-    if (!context.mounted) return;
+
     final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: rootContext,
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppTheme.backgroundSecondary,
         title: const Text('Retirer ce morceau ?'),
         content: Text(
@@ -138,18 +143,18 @@ class _TrackOptionsSheet extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Annuler'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Retirer', style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
     );
     if (confirmed == true) {
-      await ref.read(trackProvider.notifier).deleteTrack(track.id);
+      await notifier.deleteTrack(track.id);
     }
   }
 
