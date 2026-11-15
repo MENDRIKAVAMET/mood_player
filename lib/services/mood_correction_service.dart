@@ -209,7 +209,10 @@ class MoodCorrectionService {
   /// prompt : une ligne, sans guillemets, longueur bornée (évite qu'un titre
   /// ne casse la mise en forme ou n'injecte des consignes).
   static String sanitize(String s, {int max = 80}) {
-    final oneLine = s.replaceAll(RegExp(r'[\r\n\t"]+'), ' ').trim();
+    final oneLine = s
+        .replaceAll(RegExp(r'[\r\n\t"]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
     return oneLine.length > max ? '${oneLine.substring(0, max)}…' : oneLine;
   }
 
