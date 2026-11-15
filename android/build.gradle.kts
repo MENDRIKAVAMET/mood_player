@@ -29,10 +29,12 @@ subprojects {
 subprojects {
     if (project.name == "app") return@subprojects
     afterEvaluate {
-        val android = extensions.findByName("android") ?: return@afterEvaluate
+        // Interface publique AGP (fonctionne avec l'ancien et le nouveau DSL),
+        // au lieu de la réflexion sur setCompileSdkVersion().
+        val android = extensions.findByType(com.android.build.api.dsl.CommonExtension::class.java)
+            ?: return@afterEvaluate
         try {
-            val setCompileSdkVersion = android.javaClass.getMethod("setCompileSdkVersion", Int::class.java)
-            setCompileSdkVersion.invoke(android, 36)
+            android.compileSdk = 36
         } catch (e: Exception) {
             logger.lifecycle("Could not force compileSdk for '${project.name}': ${e.message}")
         }
@@ -48,7 +50,7 @@ subprojects {
 subprojects {
     if (project.name == "app") return@subprojects
     afterEvaluate {
-        extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.apply {
+        extensions.findByType(com.android.build.api.dsl.CommonExtension::class.java)?.apply {
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
