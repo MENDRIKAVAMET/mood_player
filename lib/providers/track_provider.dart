@@ -7,6 +7,9 @@ import 'package:on_audio_query/on_audio_query.dart';
 import '../models/track.dart';
 import '../services/storage_service.dart';
 import '../services/groq_service.dart';
+import '../services/mood_correction_service.dart';
+import '../services/genre_mood_classifier.dart';
+import '../services/track_genre_store.dart';
 import '../services/library_scan_service.dart';
 import '../services/artwork_service.dart';
 import 'audio_provider.dart' show audioHandlerProvider;
@@ -17,6 +20,10 @@ import '../utils/app_error.dart';
 // Service providers
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
+});
+
+final moodCorrectionServiceProvider = Provider<MoodCorrectionService>((ref) {
+  return MoodCorrectionService();
 });
 
 final groqServiceProvider = Provider<GroqService>((ref) {
@@ -125,6 +132,7 @@ class TrackState {
 class TrackNotifier extends StateNotifier<TrackState> {
   final StorageService _storageService;
   final GroqService _groqService;
+  final MoodCorrectionService? _correctionService;
   final LibraryScanService _libraryScanService;
   final ArtworkService _artworkService;
 
@@ -138,7 +146,9 @@ class TrackNotifier extends StateNotifier<TrackState> {
     this._libraryScanService,
     this._artworkService, {
     this.onLikedChanged,
-  }) : super(const TrackState());
+    MoodCorrectionService? correctionService,
+  })  : _correctionService = correctionService,
+        super(const TrackState());
 
   final LibraryFilterService _filterService = LibraryFilterService();
   bool _filterLoaded = false;
@@ -157,21 +167,41 @@ class TrackNotifier extends StateNotifier<TrackState> {
   }
 
   /// Extrait les pochettes encore absentes du cache, puis met à jour les
-  /// morceaux concernés par petits lots.
+  /// morceaux concernés par lots.
   ///
   /// Les mises à jour partent par paquets plutôt qu'une par une : un
   /// `state = ...` par pochette sur 300 titres, c'est 300 reconstructions
   /// de la liste, et l'écran devient inutilisable pendant la passe.
-  Future<void> _backfillArtwork(Map<String, int> mediaStoreIdByPath) async {
+  ///
+  /// Les morceaux modifiés sont déjà les objets de `state.tracks` (mutés sur
+  /// place) : on les sauvegarde puis on ré-émet la liste, sans relire toute
+  /// la base à chaque lot.
+  Future<void> _backfillArtwork(
+    Map<String, int> mediaStoreIdByPath,
+    ArtworkCacheIndex artCache,
+  ) async {
     if (mediaStoreIdByPath.isEmpty) return;
 
+    // Un seul passage en mémoire grâce à l'index du cache (pas de test de
+    // fichier par morceau).
     final missing = <String, int>{};
     for (final entry in mediaStoreIdByPath.entries) {
-      if (await _artworkService.cachedPath(entry.value) == null) {
+      if (artCache.needsExtraction(entry.value)) {
         missing[entry.key] = entry.value;
       }
     }
     if (missing.isEmpty) return;
+
+    Map<String, Track> indexByPath(List<Track> tracks) => {
+          for (final t in tracks)
+            if (t.filePath != null) t.filePath!: t,
+        };
+
+    // Table chemin -> morceau construite une fois (au lieu d'un
+    // firstWhere O(N) par pochette) ; reconstruite seulement si la liste de
+    // l'état a été remplacée entre-temps (ex. rechargement par l'utilisateur).
+    var snapshot = state.tracks;
+    var byPath = indexByPath(snapshot);
 
     final pending = <Track>[];
 
@@ -181,7 +211,9 @@ class TrackNotifier extends StateNotifier<TrackState> {
       pending.clear();
       await _storageService.saveTracks(batch);
       if (!mounted) return;
-      await loadTracks();
+      state = state.copyWith(tracks: List<Track>.from(state.tracks));
+      _applyFilters();
+      snapshot = state.tracks;
     }
 
     for (final entry in missing.entries) {
@@ -189,13 +221,18 @@ class TrackNotifier extends StateNotifier<TrackState> {
       if (path == null) continue;
       if (!mounted) return;
 
-      final track = state.tracks.firstWhereOrNull((t) => t.filePath == entry.key);
+      if (!identical(snapshot, state.tracks)) {
+        snapshot = state.tracks;
+        byPath = indexByPath(snapshot);
+      }
+
+      final track = byPath[entry.key];
       if (track == null) continue;
 
       track.coverUrl = path;
       pending.add(track);
 
-      if (pending.length >= 25) await flush();
+      if (pending.length >= 50) await flush();
     }
 
     await flush();
@@ -226,19 +263,35 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// merge the results into local storage (updating already-known tracks
   /// with fresh metadata/duration while preserving their mood
   /// classification), then reload. Runs on every app open.
+  ///
+  /// Pensé pour que l'ouverture soit rapide :
+  ///  1. cache d'abord : les morceaux déjà en base s'affichent tout de suite,
+  ///     le scan tourne ensuite sans masquer la liste ;
+  ///  2. mise à jour par différences : seuls les morceaux nouveaux ou
+  ///     modifiés sont écrits, et la liste n'est relue que si quelque chose
+  ///     a changé (cas le plus courant : rien, donc zéro écriture) ;
+  ///  3. cache des pochettes lu en un seul listing de dossier.
   Future<void> scanAndLoadTracks() async {
     await _ensureFilterLoaded();
-    state = state.copyWith(isLoading: true, error: null);
+
+    // 1. Cache d'abord. Si la liste est déjà en mémoire, on la garde telle
+    // quelle (relance manuelle du scan).
+    if (state.tracks.isEmpty) {
+      await loadTracks();
+    }
+    // Le squelette de chargement ne s'affiche que s'il n'y a rien à montrer.
+    state = state.copyWith(isLoading: state.tracks.isEmpty, error: null);
 
     try {
       final result = await _libraryScanService.scan();
 
       if (!result.permissionGranted) {
-        // No permission: fall back to whatever is already stored locally.
-        await loadTracks();
+        // No permission: fall back to whatever is already stored locally
+        // (déjà affiché par le chargement du cache ci-dessus).
         final permanentlyDenied =
             await _libraryScanService.isPermissionPermanentlyDenied();
         state = state.copyWith(
+          isLoading: false,
           error: permanentlyDenied
               ? 'Autorisation d\'accès à la musique définitivement refusée. '
                   'Activez-la dans les paramètres de l\'application.'
@@ -252,7 +305,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
         // Permission is granted but the OS reports no audio at all. Say so
         // explicitly - otherwise this is indistinguishable from a bug,
         // since the screen just shows an empty list either way.
-        await loadTracks();
+        state = state.copyWith(isLoading: false);
         if (state.tracks.isEmpty) {
           state = state.copyWith(
             error: 'Aucun fichier audio trouvé sur cet appareil. '
@@ -268,11 +321,18 @@ class TrackNotifier extends StateNotifier<TrackState> {
       final nameOverrides = await TrackNameOverrides.load();
       final removedPaths = await RemovedTracks.load();
 
-      final existingTracks = await _storageService.getAllTracks();
+      // Morceaux déjà connus : ceux de l'état (chargés depuis la base juste
+      // au-dessus), sans relire toute la base une deuxième fois.
+      final existingTracks = state.tracks.isNotEmpty
+          ? state.tracks
+          : await _storageService.getAllTracks();
       final byFilePath = <String, Track>{
         for (final t in existingTracks)
           if (t.filePath != null) t.filePath!: t,
       };
+
+      // Pochettes déjà en cache : un seul listing de dossier.
+      final artCache = await _artworkService.loadCacheIndex();
 
       final now = DateTime.now();
       final toSave = <Track>[];
@@ -283,6 +343,11 @@ class TrackNotifier extends StateNotifier<TrackState> {
       // correspondance chemin -> id pour la passe d'extraction qui suit.
       final mediaStoreIdByPath = <String, int>{};
 
+      // Genre des tags, par chemin : sert au pré-classement local et d'indice
+      // pour Groq. Absent sur certains appareils / Android anciens : alors
+      // tout passe par Groq, comme avant.
+      final genreByPath = <String, String>{};
+
       for (final SongModel song in result.songs) {
         final filePath = song.data;
         if (filePath.isEmpty) continue;
@@ -291,28 +356,53 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
         mediaStoreIdByPath[filePath] = song.id;
 
-        // Pochette déjà extraite lors d'un scan précédent : simple test
-        // d'existence de fichier, aucun appel natif.
-        final cachedArt = await _artworkService.cachedPath(song.id);
+        final rawGenre = song.getMap['genre'];
+        if (rawGenre is String) {
+          final g = rawGenre.trim();
+          if (g.isNotEmpty && g.toLowerCase() != '<unknown>' && g.toLowerCase() != 'unknown') {
+            genreByPath[filePath] = g;
+          }
+        }
+
+        // Pochette déjà extraite lors d'un scan précédent : consultation de
+        // l'index en mémoire, aucun accès disque ni appel natif.
+        final cachedArt = artCache.pathFor(song.id);
 
         final existing = byFilePath[filePath];
         if (existing != null) {
           // Update metadata/duration for an already-known track, keep its
-          // mood classification and creation date intact.
+          // mood classification and creation date intact. On ne le marque
+          // « à sauvegarder » que si quelque chose a réellement changé.
           final custom = nameOverrides[filePath];
-          existing
-            ..title = custom?['title'] ??
-                (song.title.isNotEmpty ? song.title : existing.title)
-            ..artist = custom?['artist'] ??
-                ((song.artist != null && song.artist!.isNotEmpty)
-                    ? song.artist!
-                    : existing.artist)
-            ..album = song.album ?? existing.album
-            ..duration = song.duration ?? existing.duration
-            ..uri = song.uri ?? existing.uri
-            ..coverUrl = cachedArt ?? existing.coverUrl
-            ..updatedAt = now;
-          toSave.add(existing);
+          final newTitle = custom?['title'] ??
+              (song.title.isNotEmpty ? song.title : existing.title);
+          final newArtist = custom?['artist'] ??
+              ((song.artist != null && song.artist!.isNotEmpty)
+                  ? song.artist!
+                  : existing.artist);
+          final newAlbum = song.album ?? existing.album;
+          final newDuration = song.duration ?? existing.duration;
+          final newUri = song.uri ?? existing.uri;
+          final newCover = cachedArt ?? existing.coverUrl;
+
+          final changed = existing.title != newTitle ||
+              existing.artist != newArtist ||
+              existing.album != newAlbum ||
+              existing.duration != newDuration ||
+              existing.uri != newUri ||
+              existing.coverUrl != newCover;
+
+          if (changed) {
+            existing
+              ..title = newTitle
+              ..artist = newArtist
+              ..album = newAlbum
+              ..duration = newDuration
+              ..uri = newUri
+              ..coverUrl = newCover
+              ..updatedAt = now;
+            toSave.add(existing);
+          }
         } else {
           // Use the device's actual "date added" from MediaStore rather
           // than the scan time. Using DateTime.now() here made every
@@ -347,17 +437,23 @@ class TrackNotifier extends StateNotifier<TrackState> {
         }
       }
 
+      await TrackGenres.merge(genreByPath);
+
       if (toSave.isNotEmpty) {
         await _storageService.saveTracks(toSave);
+        // Quelque chose a changé : on relit la base (ids des nouveaux
+        // morceaux, état « aimé »...).
+        await loadTracks();
+      } else {
+        // Rien de nouveau : la liste affichée est déjà la bonne.
+        state = state.copyWith(isLoading: false);
       }
-
-      await loadTracks();
 
       // Extraction des pochettes manquantes en tâche de fond : le premier
       // scan d'une grosse bibliothèque prend un moment, et l'utilisateur
       // n'a aucune raison d'attendre devant une liste vide pour ça. Les
       // scans suivants ne repassent que sur les nouveautés.
-      unawaited(_backfillArtwork(mediaStoreIdByPath));
+      unawaited(_backfillArtwork(mediaStoreIdByPath, artCache));
     } catch (e) {
       // Whatever went wrong during the scan itself (permission plugin
       // hiccup, MediaStore query error, merge bug, etc.), don't leave the
@@ -426,6 +522,19 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
     try {
       await _storageService.saveTrack(track);
+      // Mémorise la correction : elle servira d'exemple aux prochaines
+      // classifications Groq (« ce que toi tu appelles chill »). Un échec
+      // ici ne doit jamais empêcher le changement d'ambiance.
+      if (previousMood != mood) {
+        try {
+          final genre = track.filePath != null
+              ? (await TrackGenres.load())[track.filePath!]
+              : null;
+          await _correctionService?.record(track, mood, genre: genre);
+        } catch (e) {
+          debugPrint('[corrections] enregistrement impossible : $e');
+        }
+      }
       final updatedTracks = [
         for (final t in state.tracks) if (t.id == track.id) track else t,
       ];
@@ -506,7 +615,64 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// batch classification below is the path actually used for bulk work).
   Future<void> classifyTrack(Track track) async {
     if (track.isClassified) return;
-    await _classifyChunk([track], maxRateLimitRetries: 5);
+    final doubtful = await _applyLocalClassification([track]);
+    if (doubtful.isEmpty) return;
+    await _classifyChunk(doubtful, maxRateLimitRetries: 5);
+  }
+
+  /// Classe localement, à partir du tag genre, les morceaux de [tracks] dont
+  /// le genre désigne sans ambiguïté une ambiance, les enregistre, et
+  /// renvoie les autres (les cas douteux, à envoyer à Groq).
+  ///
+  /// Un genre que l'utilisateur a déjà contredit en reclassant un morceau à
+  /// la main n'est plus tranché localement : sa définition personnelle prime.
+  Future<List<Track>> _applyLocalClassification(List<Track> tracks) async {
+    try {
+      final genres = await TrackGenres.load();
+      if (genres.isEmpty) return tracks;
+
+      final decided = <Track>[];
+      final doubtful = <Track>[];
+      final now = DateTime.now();
+
+      for (final track in tracks) {
+        final genre = track.filePath != null ? genres[track.filePath!] : null;
+        final guess = GenreMoodClassifier.guess(genre);
+        final contested = guess != null &&
+            genre != null &&
+            (await _correctionService?.isContested(genre, guess.mood) ?? false);
+
+        if (guess == null || contested) {
+          doubtful.add(track);
+          continue;
+        }
+        track
+          ..mood = guess.mood
+          ..moodConfidence = guess.confidence
+          ..lastClassified = now;
+        decided.add(track);
+      }
+
+      if (decided.isEmpty) return tracks;
+
+      await _storageService.saveTracks(decided);
+      final indexById = {
+        for (var i = 0; i < state.tracks.length; i++) state.tracks[i].id: i,
+      };
+      final updatedTracks = List<Track>.from(state.tracks);
+      for (final t in decided) {
+        final i = indexById[t.id];
+        if (i != null) updatedTracks[i] = t;
+      }
+      state = state.copyWith(tracks: updatedTracks);
+      _applyFilters();
+      return doubtful;
+    } catch (e) {
+      // Le pré-classement n'est qu'un raccourci : en cas de souci, tout part
+      // chez Groq comme avant.
+      debugPrint('[classification locale] ignorée : $e');
+      return tracks;
+    }
   }
 
   /// Sends one Groq request classifying every track in [chunk] together,
@@ -521,7 +687,13 @@ class TrackNotifier extends StateNotifier<TrackState> {
     var networkAttempt = 0;
     while (true) {
       try {
-        final results = await _groqService.classifyTracksBatch(chunk);
+        final corrections =
+            await _correctionService?.examplesFor(chunk) ?? const <MoodCorrection>[];
+        final results = await _groqService.classifyTracksBatch(
+          chunk,
+          corrections: corrections,
+          genresByPath: await TrackGenres.load(),
+        );
 
         final updatedTracks = List<Track>.from(state.tracks);
         String? lastError;
@@ -621,10 +793,18 @@ class TrackNotifier extends StateNotifier<TrackState> {
         classifyTotal: unclassifiedTracks.length,
       );
 
-      var processed = 0;
-      for (var start = 0; start < unclassifiedTracks.length; start += batchSize) {
-        final end = (start + batchSize).clamp(0, unclassifiedTracks.length);
-        final chunk = unclassifiedTracks.sublist(start, end);
+      // Étape 1, instantanée et sans réseau : les morceaux dont le genre
+      // tranche clairement (gospel, classique, métal...) sont classés tout
+      // de suite. Seuls les cas douteux partent chez Groq : moins de
+      // requêtes, moins de limite de débit, et une connexion faible n'empêche
+      // plus d'avancer.
+      final doubtful = await _applyLocalClassification(unclassifiedTracks);
+      var processed = unclassifiedTracks.length - doubtful.length;
+      state = state.copyWith(classifyProgress: processed);
+
+      for (var start = 0; start < doubtful.length; start += batchSize) {
+        final end = (start + batchSize).clamp(0, doubtful.length);
+        final chunk = doubtful.sublist(start, end);
 
         final completed = await _classifyChunk(chunk, maxRateLimitRetries: 5);
         // Échec définitif (réseau / limite de requêtes) : inutile d'enchaîner
@@ -636,7 +816,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
         // Small pause between batches - with 50 tracks/request there are
         // far fewer calls overall, but this still keeps us clear of
         // Groq's free-tier rate limit if batches are small/numerous.
-        if (end < unclassifiedTracks.length) {
+        if (end < doubtful.length) {
           await Future.delayed(const Duration(milliseconds: 1500));
         }
       }
@@ -776,11 +956,13 @@ final trackProvider = StateNotifierProvider<TrackNotifier, TrackState>((ref) {
   final groqService = ref.watch(groqServiceProvider);
   final libraryScanService = ref.watch(libraryScanServiceProvider);
   final artworkService = ref.watch(artworkServiceProvider);
+  final correctionService = ref.watch(moodCorrectionServiceProvider);
   return TrackNotifier(
     storageService,
     groqService,
     libraryScanService,
     artworkService,
+    correctionService: correctionService,
     onLikedChanged: (trackId, liked) {
       try {
         ref

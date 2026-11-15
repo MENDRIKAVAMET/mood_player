@@ -20,6 +20,27 @@ import 'package:path_provider/path_provider.dart';
 class ArtworkService {
   final OnAudioQuery _audioQuery = OnAudioQuery();
 
+  /// Liste UNE fois le dossier de cache et renvoie un index consultable en
+  /// O(1). Remplace un `cachedPath()` (un `await` + un test de fichier) par
+  /// morceau : sur 3000 titres, c'est 1 listing au lieu de 3000 allers-retours
+  /// asynchrones à chaque ouverture de l'app.
+  Future<ArtworkCacheIndex> loadCacheIndex() async {
+    final dir = await _dir();
+    final names = <String>{};
+    try {
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is File) {
+          final segments = entity.uri.pathSegments;
+          if (segments.isNotEmpty) names.add(segments.last);
+        }
+      }
+    } catch (_) {
+      // Dossier illisible : index vide, les pochettes seront simplement
+      // réextraites. Ce n'est pas une raison de casser le scan.
+    }
+    return ArtworkCacheIndex(dir.path, names);
+  }
+
   Directory? _cacheDir;
 
   Future<Directory> _dir() async {
@@ -98,4 +119,27 @@ class ArtworkService {
       if (path != null) onProgress?.call(id, path);
     }
   }
+}
+
+
+/// Photographie du dossier de cache des pochettes (voir
+/// [ArtworkService.loadCacheIndex]). Les noms de fichiers sont les mêmes que
+/// ceux écrits par [ArtworkService.extract].
+class ArtworkCacheIndex {
+  final String _dirPath;
+  final Set<String> _names;
+
+  const ArtworkCacheIndex(this._dirPath, this._names);
+
+  /// Chemin de la pochette en cache, ou null.
+  String? pathFor(int mediaStoreId) {
+    final name = 'art_$mediaStoreId.jpg';
+    return _names.contains(name) ? '$_dirPath/$name' : null;
+  }
+
+  /// Vrai si ce morceau n'a ni pochette en cache ni marqueur « pas de
+  /// pochette » : il faut tenter l'extraction.
+  bool needsExtraction(int mediaStoreId) =>
+      !_names.contains('art_$mediaStoreId.jpg') &&
+      !_names.contains('art_$mediaStoreId.none');
 }

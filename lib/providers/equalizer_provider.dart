@@ -50,6 +50,13 @@ class EqualizerNotifier extends StateNotifier<EqualizerSettings> {
   Future<void> setNormalizeVolume(bool value) =>
       _commit(state.copyWith(normalizeVolume: value));
 
+  Future<void> setCrossfadeSeconds(int seconds) => _commit(
+        state.copyWith(
+          crossfadeSeconds:
+              seconds.clamp(0, EqualizerSettings.maxCrossfadeSeconds),
+        ),
+      );
+
   Future<void> setEnabled(bool enabled) =>
       _commit(state.copyWith(enabled: enabled));
 
@@ -74,6 +81,7 @@ class EqualizerNotifier extends StateNotifier<EqualizerSettings> {
         EqualizerSettings(
           enabled: state.enabled,
           normalizeVolume: state.normalizeVolume,
+          crossfadeSeconds: state.crossfadeSeconds,
         ),
       );
 }

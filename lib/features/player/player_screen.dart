@@ -16,6 +16,8 @@ import 'queue_screen.dart';
 import 'lyrics_screen.dart';
 import '../../widgets/track_options_sheet.dart';
 import '../../widgets/mood_edit_sheet.dart';
+import '../../widgets/mood_aura_backdrop.dart';
+import '../../widgets/mood_image.dart';
 import '../../utils/app_error.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -444,7 +446,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               fit: StackFit.expand,
               children: [
                 // Pochette centrée à la largeur de l'écran, fond flou autour.
-                TrackArtworkFitBlur(track: _displayTrack),
+                TrackArtworkFitBlur(
+                  track: _displayTrack,
+                  // Aura de l'ambiance en fond : image floutée qui dérive
+                  // pendant la lecture, aux couleurs de l'ambiance.
+                  backdrop: _displayTrack.mood == null
+                      ? null
+                      : MoodAuraBackdrop(
+                          mood: _displayTrack.mood!,
+                          animate: isPlaying,
+                        ),
+                ),
                 // Voile sombre en haut et en bas pour que le titre et les
                 // boutons restent lisibles quelle que soit la pochette.
                 const DecoratedBox(
@@ -946,6 +958,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
+  Widget _moodIconFallback(MoodColors moodColors) {
+    return Center(
+      child: Icon(
+        _displayTrack.mood?.iconData ?? Icons.music_note_rounded,
+        size: 24,
+        color: moodColors.primary,
+      ),
+    );
+  }
+
   Widget _buildMoodInfoCard(MoodColors moodColors) {
     return InkWell(
       borderRadius: BorderRadius.circular(AppTheme.radiusL),
@@ -970,20 +992,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       ),
       child: Row(
         children: [
+          // Image de l'ambiance, la même que sur sa carte dans « Ambiances »
+          // (photo, animé ou image importée selon le choix de l'utilisateur).
+          // L'icône ne sert plus que de secours : pas d'ambiance, ou
+          // ambiance sans image.
           Container(
-            width: 48,
-            height: 48,
+            width: 56,
+            height: 56,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: moodColors.primary.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppTheme.radiusM),
-            ),
-            child: Center(
-              child: Icon(
-                _displayTrack.mood?.iconData ?? Icons.music_note_rounded,
-                size: 24,
-                color: moodColors.primary,
+              border: Border.all(
+                color: moodColors.primary.withValues(alpha: 0.35),
+                width: 1,
               ),
             ),
+            child: _displayTrack.mood == null
+                ? _moodIconFallback(moodColors)
+                : MoodImage(
+                    mood: _displayTrack.mood!,
+                    cacheWidth: 168,
+                    fallback: (_) => _moodIconFallback(moodColors),
+                  ),
           ),
           const SizedBox(width: AppTheme.spacingM),
           Expanded(

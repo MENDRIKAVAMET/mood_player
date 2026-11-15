@@ -38,56 +38,80 @@ void main() {
     // Set system UI overlay style for immersive dark theme
     _applySystemUi();
 
-    String? startupError;
+    // Les quatre étapes de démarrage sont indépendantes (le thème, le profil
+    // et le journal de crash lisent de simples fichiers, pas Isar) : on les
+    // lance en même temps au lieu de les enchaîner. Chacune garde son propre
+    // délai maximum et son propre try/catch, donc le comportement en cas
+    // d'échec ne change pas : on atteint toujours runApp().
 
     // Initialize local storage. This is the step most likely to hang or
     // throw right after a crash mid-write (corrupted/locked database) -
     // catch both so we always reach runApp().
-    try {
-      await StorageService.initialize().timeout(_startupStepTimeout);
-    } catch (e, st) {
-      // ignore: avoid_print
-      print('main: StorageService.initialize failed: $e\n$st');
-      startupError = 'Le stockage local n\'a pas pu être initialisé.\n$e';
-    }
+    final storageFuture = () async {
+      try {
+        await StorageService.initialize().timeout(_startupStepTimeout);
+        return null;
+      } catch (e, st) {
+        // ignore: avoid_print
+        print('main: StorageService.initialize failed: $e\n$st');
+        return 'Le stockage local n\'a pas pu être initialisé.\n$e';
+      }
+    }();
 
     // Couleur de fond choisie par l'utilisateur : chargée AVANT runApp pour
     // que la toute première image ait déjà la bonne couleur. Non bloquant :
     // en cas d'échec on garde le thème d'origine.
-    try {
-      final background =
-          await ThemeService.instance.load().timeout(_startupStepTimeout);
-      AppTheme.applyBackground(background);
-      AppTheme.applyAccent(ThemeService.instance.accent);
-      ThemeNotifier.applyLoaded(ThemeService.instance);
-      _applySystemUi();
-    } catch (e, st) {
-      // ignore: avoid_print
-      print('main: theme load failed: $e\n$st');
-    }
+    final Future<({bool ok, Color? background})> themeFuture = () async {
+      try {
+        final background =
+            await ThemeService.instance.load().timeout(_startupStepTimeout);
+        return (ok: true, background: background);
+      } catch (e, st) {
+        // ignore: avoid_print
+        print('main: theme load failed: $e\n$st');
+        return (ok: false, background: null);
+      }
+    }();
 
     // If the previous run died from an uncaught (often native) exception,
     // CrashHandlerApplication will have written its stack trace to a file.
     // Surface it here so it can be diagnosed without adb/logcat access.
-    String? crashLog;
-    try {
-      crashLog = await CrashLogService.getLastCrashLog().timeout(_startupStepTimeout);
-    } catch (e, st) {
-      // ignore: avoid_print
-      print('main: getLastCrashLog failed: $e\n$st');
-    }
+    final crashFuture = () async {
+      try {
+        return await CrashLogService.getLastCrashLog()
+            .timeout(_startupStepTimeout);
+      } catch (e, st) {
+        // ignore: avoid_print
+        print('main: getLastCrashLog failed: $e\n$st');
+        return null;
+      }
+    }();
 
     // First launch (or the welcome flow was never finished) - decided
     // once here rather than inside a widget, so there's no flash of the
     // main shell before redirecting to onboarding.
-    var needsOnboarding = true;
-    try {
-      final profile =
-          await ProfileService().load().timeout(_startupStepTimeout);
-      needsOnboarding = !profile.onboardingCompleted;
-    } catch (e, st) {
-      // ignore: avoid_print
-      print('main: profile load failed: $e\n$st');
+    final onboardingFuture = () async {
+      try {
+        final profile =
+            await ProfileService().load().timeout(_startupStepTimeout);
+        return !profile.onboardingCompleted;
+      } catch (e, st) {
+        // ignore: avoid_print
+        print('main: profile load failed: $e\n$st');
+        return true;
+      }
+    }();
+
+    final String? startupError = await storageFuture;
+    final theme = await themeFuture;
+    final String? crashLog = await crashFuture;
+    final bool needsOnboarding = await onboardingFuture;
+
+    if (theme.ok) {
+      AppTheme.applyBackground(theme.background);
+      AppTheme.applyAccent(ThemeService.instance.accent);
+      ThemeNotifier.applyLoaded(ThemeService.instance);
+      _applySystemUi();
     }
 
     runApp(ProviderScope(

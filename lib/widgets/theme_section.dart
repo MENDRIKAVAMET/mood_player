@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/theme_provider.dart';
 import '../theme/app_theme.dart';
 
-/// Carte « Thème » de l'écran de profil : choix de la couleur de fond de
+/// Carte « Apparence » de l'écran de profil (groupes repliables) : choix de la couleur de fond de
 /// l'app (préréglages ou composée soi-même) et de la couleur principale
 /// (boutons, curseurs, éléments actifs) : préréglages suggérés, ou composée
 /// librement (teinte / intensité / clarté) avec « Perso ».
@@ -83,123 +83,104 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
     final preview = _hsl.toColor();
 
     return Container(
-      padding: const EdgeInsets.all(AppTheme.spacingL),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundCard,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacingL,
+        vertical: AppTheme.spacingS,
       ),
+      decoration: AppTheme.glassDecoration,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          _ThemeGroup(
+            icon: Icons.auto_awesome_mosaic_rounded,
+            title: 'Thèmes complets',
+            subtitle: 'Un clic règle tout',
+            children: [_buildPresetsSection(settings)],
+          ),
+          const _GroupDivider(),
+          _ThemeGroup(
+            icon: Icons.palette_rounded,
+            title: 'Couleurs',
+            subtitle: 'Fond, style du fond, couleur principale',
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.accentPrimary.withValues(alpha: 0.30),
-                      AppTheme.accentPrimary.withValues(alpha: 0.10),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: AppTheme.accentPrimary.withValues(alpha: 0.30),
-                  ),
-                ),
-                child: Icon(Icons.palette_rounded,
-                    color: AppTheme.accentPrimary, size: 23),
-              ),
-              const SizedBox(width: AppTheme.spacingM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Thème',
-                        style: AppTheme.titleMedium
-                            .copyWith(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Couleurs de l\'application',
-                      style: AppTheme.bodySmall
-                          .copyWith(color: AppTheme.textTertiary),
+              Text('Fond', style: AppTheme.labelLarge),
+              const SizedBox(height: AppTheme.spacingS),
+              Wrap(
+                spacing: AppTheme.spacingM,
+                runSpacing: AppTheme.spacingM,
+                children: [
+                  for (final preset in _presets)
+                    _Swatch(
+                      label: preset.$1,
+                      palette: preset.$2 == null
+                          ? ThemePalette.standard
+                          : ThemePalette.fromBase(preset.$2!),
+                      selected: _isSelected(preset.$2, current),
+                      onTap: () => _apply(preset.$2),
                     ),
-                  ],
-                ),
+                  _Swatch(
+                    label: 'Perso',
+                    palette: ThemePalette.fromBase(preview),
+                    selected: !isPreset,
+                    icon: Icons.tune_rounded,
+                    onTap: () {
+                      setState(() => _customOpen = !_customOpen);
+                      if (_customOpen) _apply(preview);
+                    },
+                  ),
+                ],
               ),
+              if (_customOpen) ...[
+                const SizedBox(height: AppTheme.spacingL),
+                _buildSlider(
+                  label: 'Teinte',
+                  value: _hsl.hue,
+                  max: 360,
+                  onChanged: (v) => setState(() => _hsl = _hsl.withHue(v)),
+                ),
+                _buildSlider(
+                  label: 'Intensité',
+                  value: _hsl.saturation,
+                  max: 1,
+                  onChanged: (v) => setState(() => _hsl = _hsl.withSaturation(v)),
+                ),
+                _buildSlider(
+                  label: 'Clarté',
+                  value: _hsl.lightness.clamp(0.0, 0.4).toDouble(),
+                  max: 0.4,
+                  onChanged: (v) => setState(() => _hsl = _hsl.withLightness(v)),
+                ),
+                const SizedBox(height: AppTheme.spacingS),
+                Text(
+                  'Les couleurs trop claires sont assombries automatiquement '
+                  'pour que le texte reste lisible.',
+                  style:
+                      AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+                ),
+              ],
+              const SizedBox(height: AppTheme.spacingXL),
+              _buildBackgroundStyleSection(settings.backgroundStyle),
+              const SizedBox(height: AppTheme.spacingXL),
+              _buildAccentSection(accent),
             ],
           ),
-          const SizedBox(height: AppTheme.spacingL),
-          _buildPresetsSection(settings),
-          const SizedBox(height: AppTheme.spacingXL),
-          Text('Fond', style: AppTheme.labelLarge),
-          const SizedBox(height: AppTheme.spacingS),
-          Wrap(
-            spacing: AppTheme.spacingM,
-            runSpacing: AppTheme.spacingM,
+          const _GroupDivider(),
+          _ThemeGroup(
+            icon: Icons.touch_app_rounded,
+            title: 'Boutons et lecteur',
+            subtitle: 'Forme des boutons, disposition, barre du bas',
             children: [
-              for (final preset in _presets)
-                _Swatch(
-                  label: preset.$1,
-                  palette: preset.$2 == null
-                      ? ThemePalette.standard
-                      : ThemePalette.fromBase(preset.$2!),
-                  selected: _isSelected(preset.$2, current),
-                  onTap: () => _apply(preset.$2),
-                ),
-              _Swatch(
-                label: 'Perso',
-                palette: ThemePalette.fromBase(preview),
-                selected: !isPreset,
-                icon: Icons.tune_rounded,
-                onTap: () {
-                  setState(() => _customOpen = !_customOpen);
-                  if (_customOpen) _apply(preview);
-                },
-              ),
+              _buildButtonSection(settings),
+              const SizedBox(height: AppTheme.spacingXL),
+              _buildLayoutSection(settings),
             ],
           ),
-          if (_customOpen) ...[
-            const SizedBox(height: AppTheme.spacingL),
-            _buildSlider(
-              label: 'Teinte',
-              value: _hsl.hue,
-              max: 360,
-              onChanged: (v) => setState(() => _hsl = _hsl.withHue(v)),
-            ),
-            _buildSlider(
-              label: 'Intensité',
-              value: _hsl.saturation,
-              max: 1,
-              onChanged: (v) => setState(() => _hsl = _hsl.withSaturation(v)),
-            ),
-            _buildSlider(
-              label: 'Clarté',
-              value: _hsl.lightness.clamp(0.0, 0.4).toDouble(),
-              max: 0.4,
-              onChanged: (v) => setState(() => _hsl = _hsl.withLightness(v)),
-            ),
-            const SizedBox(height: AppTheme.spacingS),
-            Text(
-              'Les couleurs trop claires sont assombries automatiquement '
-              'pour que le texte reste lisible.',
-              style:
-                  AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
-            ),
-          ],
-          const SizedBox(height: AppTheme.spacingXL),
-          _buildBackgroundStyleSection(settings.backgroundStyle),
-          const SizedBox(height: AppTheme.spacingXL),
-          _buildAccentSection(accent),
-          const SizedBox(height: AppTheme.spacingXL),
-          _buildButtonSection(settings),
-          const SizedBox(height: AppTheme.spacingXL),
-          _buildLayoutSection(settings),
-          const SizedBox(height: AppTheme.spacingXL),
-          _buildComfortSection(settings),
+          const _GroupDivider(),
+          _ThemeGroup(
+            icon: Icons.text_fields_rounded,
+            title: 'Texte et liste',
+            subtitle: 'Taille du texte, densité de la liste',
+            children: [_buildComfortSection(settings)],
+          ),
         ],
       ),
     );
@@ -211,8 +192,6 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Thèmes complets', style: AppTheme.labelLarge),
-        const SizedBox(height: 2),
         Text(
           'Un clic règle tout ; tu peux ensuite ajuster en détail',
           style: AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
@@ -1094,6 +1073,118 @@ class _PresetPreview extends StatelessWidget {
         child: Icon(Icons.play_arrow_rounded,
             size: side * 0.62, color: Colors.white),
       ),
+    );
+  }
+}
+
+
+/// Ligne de séparation fine entre deux groupes de la carte Apparence.
+class _GroupDivider extends StatelessWidget {
+  const _GroupDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: Colors.white.withValues(alpha: 0.08),
+    );
+  }
+}
+
+/// Groupe repliable de la carte Apparence : en-tête (icône, titre,
+/// description, flèche) toujours visible, réglages affichés au toucher.
+/// Replié par défaut pour que l'écran Profil reste lisible.
+class _ThemeGroup extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
+
+  const _ThemeGroup({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.children,
+  });
+
+  @override
+  State<_ThemeGroup> createState() => _ThemeGroupState();
+}
+
+class _ThemeGroupState extends State<_ThemeGroup> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppTheme.accentPrimary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingM),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                    color: accent.withValues(alpha: 0.16),
+                    border: Border.all(color: accent.withValues(alpha: 0.30)),
+                  ),
+                  child: Icon(widget.icon, color: accent, size: 20),
+                ),
+                const SizedBox(width: AppTheme.spacingM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: AppTheme.titleMedium
+                            .copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle,
+                        style: AppTheme.bodySmall
+                            .copyWith(color: AppTheme.textTertiary),
+                      ),
+                    ],
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: _open ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(Icons.chevron_right_rounded,
+                      color: AppTheme.textTertiary),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _open
+              ? Padding(
+                  padding: const EdgeInsets.only(
+                    top: AppTheme.spacingS,
+                    bottom: AppTheme.spacingL,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: widget.children,
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
     );
   }
 }

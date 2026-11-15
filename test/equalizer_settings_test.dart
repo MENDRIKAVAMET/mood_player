@@ -32,4 +32,30 @@ void main() {
     expect(back.preset, 'Rock');
     expect(back.loudnessDb, 3);
   });
+
+  test('fondu : désactivé par défaut, borné et conservé en JSON', () {
+    expect(const EqualizerSettings().crossfadeSeconds, 0);
+
+    final back = EqualizerSettings.fromJson(
+      const EqualizerSettings(crossfadeSeconds: 4).toJson(),
+    );
+    expect(back.crossfadeSeconds, 4);
+
+    // Ancien fichier sans la clé, ou valeur hors plage.
+    expect(EqualizerSettings.fromJson({}).crossfadeSeconds, 0);
+    expect(
+      EqualizerSettings.fromJson({'crossfadeSeconds': 99}).crossfadeSeconds,
+      EqualizerSettings.maxCrossfadeSeconds,
+    );
+    expect(
+      EqualizerSettings.fromJson({'crossfadeSeconds': -3}).crossfadeSeconds,
+      0,
+    );
+  });
+
+  test('copyWith garde le fondu quand on change autre chose', () {
+    const s = EqualizerSettings(crossfadeSeconds: 2);
+    expect(s.copyWith(enabled: true).crossfadeSeconds, 2);
+    expect(s.copyWith(crossfadeSeconds: 6).crossfadeSeconds, 6);
+  });
 }

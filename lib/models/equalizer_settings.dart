@@ -29,6 +29,10 @@ class EqualizerSettings {
   /// Renforcement du volume maximal proposé (dB).
   static const double maxLoudnessDb = 8;
 
+  /// Durées de fondu proposées (secondes, 0 = désactivé) et maximum accepté.
+  static const List<int> crossfadeChoices = [0, 2, 4, 6];
+  static const int maxCrossfadeSeconds = 6;
+
   final bool enabled;
 
   /// Nom d'un préréglage, ou [customName].
@@ -45,12 +49,18 @@ class EqualizerSettings {
   /// tous sonnent à peu près aussi fort.
   final bool normalizeVolume;
 
+  /// Fondu entre les morceaux : durée (secondes) de la baisse de volume à
+  /// la fin d'un morceau et de la remontée au début du suivant. 0 = coupure
+  /// nette, comme avant.
+  final int crossfadeSeconds;
+
   const EqualizerSettings({
     this.enabled = false,
     this.preset = 'Neutre',
     this.gains = const [],
     this.loudnessDb = 0,
     this.normalizeVolume = false,
+    this.crossfadeSeconds = 0,
   });
 
   EqualizerSettings copyWith({
@@ -59,6 +69,7 @@ class EqualizerSettings {
     List<double>? gains,
     double? loudnessDb,
     bool? normalizeVolume,
+    int? crossfadeSeconds,
   }) =>
       EqualizerSettings(
         enabled: enabled ?? this.enabled,
@@ -66,6 +77,7 @@ class EqualizerSettings {
         gains: gains ?? this.gains,
         loudnessDb: loudnessDb ?? this.loudnessDb,
         normalizeVolume: normalizeVolume ?? this.normalizeVolume,
+        crossfadeSeconds: crossfadeSeconds ?? this.crossfadeSeconds,
       );
 
   /// Interpolation linéaire de [source] sur [count] points.
@@ -107,6 +119,7 @@ class EqualizerSettings {
         'gains': gains,
         'loudnessDb': loudnessDb,
         'normalizeVolume': normalizeVolume,
+        'crossfadeSeconds': crossfadeSeconds,
       };
 
   factory EqualizerSettings.fromJson(Map<String, dynamic> j) =>
@@ -121,5 +134,7 @@ class EqualizerSettings {
             .clamp(0.0, maxLoudnessDb)
             .toDouble(),
         normalizeVolume: j['normalizeVolume'] as bool? ?? false,
+        crossfadeSeconds: ((j['crossfadeSeconds'] as num?)?.toInt() ?? 0)
+            .clamp(0, maxCrossfadeSeconds),
       );
 }

@@ -193,7 +193,12 @@ class TrackArtworkFill extends StatelessWidget {
 class TrackArtworkFitBlur extends StatelessWidget {
   final Track track;
 
-  const TrackArtworkFitBlur({super.key, required this.track});
+  /// Calque optionnel posé sur le fond flou de la pochette, sous la pochette
+  /// nette (ex. l'aura de l'ambiance). Ignoré quand il n'y a pas de pochette :
+  /// l'image de l'ambiance occupe alors déjà tout l'écran.
+  final Widget? backdrop;
+
+  const TrackArtworkFitBlur({super.key, required this.track, this.backdrop});
 
   @override
   Widget build(BuildContext context) {
@@ -233,6 +238,7 @@ class TrackArtworkFitBlur extends StatelessWidget {
             filterQuality: FilterQuality.high,
           ),
         ),
+        if (backdrop != null) Positioned.fill(child: backdrop!),
         // Léger assombrissement du fond pour faire ressortir l'image nette.
         const ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.25)),
         // Pochette nette encadrée (coins arrondis, ombre portée), plus

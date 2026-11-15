@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../models/track.dart';
+import 'mood_correction_service.dart';
 
 /// Classifies tracks by mood using Groq's OpenAI-compatible chat
 /// completions API. Chosen over Gemini for this task because it's a
@@ -70,7 +72,16 @@ class GroqService {
   /// into chunks of [maxBatchSize] and sends one request per chunk, asking
   /// the model to return a mood for every track in that chunk in a single
   /// JSON response. Results are returned in the same order as [tracks].
-  Future<List<MoodClassificationResult>> classifyTracksBatch(List<Track> tracks) async {
+  ///
+  /// [corrections] : reclassements manuels de l'utilisateur, injectés comme
+  /// exemples dans le prompt pour personnaliser la classification.
+  /// [genresByPath] : genre lu dans les tags (par chemin de fichier), donné
+  /// au modèle comme indice pour les morceaux qui en ont un.
+  Future<List<MoodClassificationResult>> classifyTracksBatch(
+    List<Track> tracks, {
+    List<MoodCorrection> corrections = const [],
+    Map<String, String> genresByPath = const {},
+  }) async {
     if (tracks.isEmpty) return [];
 
     final results = <MoodClassificationResult>[];
@@ -79,14 +90,18 @@ class GroqService {
         start,
         (start + maxBatchSize).clamp(0, tracks.length),
       );
-      results.addAll(await _classifyChunk(chunk));
+      results.addAll(await _classifyChunk(chunk, corrections, genresByPath));
     }
     return results;
   }
 
   /// Sends exactly one request classifying every track in [chunk].
-  Future<List<MoodClassificationResult>> _classifyChunk(List<Track> chunk) async {
-    final prompt = _buildBatchPrompt(chunk);
+  Future<List<MoodClassificationResult>> _classifyChunk(
+    List<Track> chunk,
+    List<MoodCorrection> corrections,
+    Map<String, String> genresByPath,
+  ) async {
+    final prompt = _buildBatchPrompt(chunk, corrections, genresByPath);
 
     try {
       final response = await _dio.post(
@@ -161,7 +176,19 @@ class GroqService {
     return Duration(seconds: seconds ?? 20);
   }
 
-  String _buildBatchPrompt(List<Track> chunk) {
+  @visibleForTesting
+  String buildBatchPromptForTest(
+    List<Track> chunk,
+    List<MoodCorrection> corrections, [
+    Map<String, String> genresByPath = const {},
+  ]) =>
+      _buildBatchPrompt(chunk, corrections, genresByPath);
+
+  String _buildBatchPrompt(
+    List<Track> chunk,
+    List<MoodCorrection> corrections,
+    Map<String, String> genresByPath,
+  ) {
     final buffer = StringBuffer();
     buffer.writeln(
       'Tu es un expert en musique, spécialisé dans la classification fine '
@@ -280,11 +307,31 @@ class GroqService {
       'plutôt que celle qui décrit juste le tempo.',
     );
     buffer.writeln();
+    final personal = MoodCorrectionService.buildPromptBlock(corrections);
+    if (personal.isNotEmpty) {
+      buffer.write(personal);
+      buffer.writeln();
+    }
+    final hasGenres = chunk.any(
+      (t) => t.filePath != null && genresByPath.containsKey(t.filePath),
+    );
+    if (hasGenres) {
+      buffer.writeln(
+        'Quand un genre est indiqué, il vient des tags du fichier : c\'est un '
+        'indice utile, mais il peut être faux ou trop large (« Pop », '
+        '« Other »).',
+      );
+      buffer.writeln();
+    }
     buffer.writeln('Morceaux à classer:');
     for (var i = 0; i < chunk.length; i++) {
       final t = chunk[i];
       final album = t.album != null && t.album!.isNotEmpty ? ' | Album: ${t.album}' : '';
-      buffer.writeln('$i. Titre: ${t.title} | Artiste: ${t.artist}$album');
+      final g = t.filePath != null ? genresByPath[t.filePath] : null;
+      final genre = (g != null && g.isNotEmpty)
+          ? ' | Genre: ${MoodCorrectionService.sanitize(g, max: 40)}'
+          : '';
+      buffer.writeln('$i. Titre: ${t.title} | Artiste: ${t.artist}$album$genre');
     }
     buffer.writeln();
     buffer.writeln(

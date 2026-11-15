@@ -45,6 +45,32 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   /// Gain (dB) de « Volume uniforme » pour le morceau en cours.
   double _normalizationGainDb = 0;
+
+  // --- Fondu entre les morceaux ---------------------------------------
+  // Fondu simple (pas de chevauchement) : le volume baisse sur les
+  // dernières secondes d'un morceau et remonte au début du suivant. Le
+  // facteur est calculé à partir de la POSITION de lecture, donc pause,
+  // seek et saut manuel restent justes sans cas particulier.
+
+  /// Volume « de fond » : atténuation du volume uniforme, ou valeur de
+  /// [setVolume]. Le volume réel du lecteur est ce volume × [_fadeFactor].
+  double _baseVolume = 1.0;
+  double _fadeFactor = 1.0;
+
+  /// Durée du fondu en ms (0 = désactivé).
+  int _fadeMs = 0;
+
+  /// Vrai juste le temps de lancer le morceau suivant après une fin de
+  /// morceau naturelle (seul cas où il démarre en fondu).
+  bool _fadeInPending = false;
+
+  /// Le morceau en cours démarre en fondu et n'a pas fini de remonter.
+  bool _fadeInActive = false;
+
+  /// Un morceau est en cours de chargement : la position lue serait celle
+  /// de l'ancien morceau, on ne calcule rien.
+  bool _transitioning = false;
+  Timer? _fadeTimer;
   final List<MediaItem> _queue = [];
   final List<MediaItem> _originalQueue = []; // Store original order for unshuffle
   final _repeatModeController = StreamController<PlayerRepeatMode>.broadcast();
@@ -118,12 +144,69 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
       if (measured != null) gainDb = LoudnessService.gainFor(measured);
     }
     _normalizationGainDb = gainDb;
-    try {
-      await _player.setVolume(
-        gainDb < 0 ? math.pow(10, gainDb / 20).toDouble() : 1.0,
-      );
-    } catch (_) {}
+    _baseVolume = gainDb < 0 ? math.pow(10, gainDb / 20).toDouble() : 1.0;
+    await _applyVolume();
     if (Platform.isAndroid) unawaited(_syncLoudnessEnhancer());
+  }
+
+  /// Envoie au lecteur le volume de fond multiplié par le facteur de fondu.
+  Future<void> _applyVolume() async {
+    try {
+      await _player.setVolume((_baseVolume * _fadeFactor).clamp(0.0, 1.0));
+    } catch (_) {}
+  }
+
+  /// Courbe du fondu (t de 0 à 1) : quadratique, plus proche de la
+  /// perception du volume qu'une rampe linéaire.
+  static double _fadeCurve(double t) {
+    final c = t.clamp(0.0, 1.0);
+    return c * c;
+  }
+
+  void _ensureFadeTimer() {
+    _fadeTimer ??= Timer.periodic(
+      const Duration(milliseconds: 80),
+      (_) => _fadeTick(),
+    );
+  }
+
+  void _stopFadeTimer() {
+    _fadeTimer?.cancel();
+    _fadeTimer = null;
+  }
+
+  void _fadeTick() {
+    if (_fadeMs <= 0 || _transitioning || !_player.playing) return;
+
+    final pos = _player.position.inMilliseconds;
+    var factor = 1.0;
+
+    if (_fadeInActive) {
+      if (pos >= _fadeMs) {
+        _fadeInActive = false;
+      } else {
+        factor = math.min(factor, _fadeCurve(pos / _fadeMs));
+      }
+    }
+
+    // Baisse de fin de morceau, seulement si le morceau est assez long
+    // pour que les deux fondus ne se chevauchent pas.
+    final duration = _player.duration?.inMilliseconds;
+    if (duration != null && duration > _fadeMs * 2) {
+      final remaining = duration - pos;
+      if (remaining < _fadeMs) {
+        factor = math.min(factor, _fadeCurve(remaining / _fadeMs));
+      }
+    }
+
+    // Évite un appel natif à chaque tick pour un écart inaudible, mais
+    // applique toujours les valeurs extrêmes (0 et 1) exactement.
+    if (factor != 0.0 && factor != 1.0 && (factor - _fadeFactor).abs() < 0.02) {
+      return;
+    }
+    if (factor == _fadeFactor) return;
+    _fadeFactor = factor;
+    unawaited(_applyVolume());
   }
 
   /// Renforcement total (égaliseur + volume uniforme) du renforçateur de
@@ -147,6 +230,15 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   /// est pris en compte.
   Future<void> applyEqualizerSettings(EqualizerSettings settings) async {
     _eqSettings = settings;
+    _fadeMs = settings.crossfadeSeconds * 1000;
+    if (_fadeMs > 0) {
+      _ensureFadeTimer();
+    } else {
+      // Désactivé en cours de route : volume normal tout de suite.
+      _stopFadeTimer();
+      _fadeInActive = false;
+      _fadeFactor = 1.0;
+    }
     // « Volume uniforme » activé/désactivé : s'applique tout de suite au
     // morceau en cours.
     final current = mediaItem.value;
@@ -388,8 +480,16 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         break;
       case PlayerRepeatMode.all:
       case PlayerRepeatMode.off:
-        // Use skipToNext which already handles wrap-around logic
-        skipToNext();
+        // Use skipToNext which already handles wrap-around logic.
+        // Le morceau suivant démarre en fondu : le drapeau est lu par
+        // _playMediaItem dans la partie synchrone de son corps (avant son
+        // premier await), donc dès le retour de l'appel ci-dessous. On le
+        // remet à faux juste après, pour que le cas « fin de file, rien à
+        // lancer » ne laisse pas un drapeau périmé (skipToNext, lui, ne
+        // rend la main qu'à la fin du morceau suivant).
+        _fadeInPending = _fadeMs > 0;
+        unawaited(skipToNext());
+        _fadeInPending = false;
         break;
     }
   }
@@ -654,7 +754,8 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   }
 
   Future<void> setVolume(double volume) async {
-    await _player.setVolume(volume);
+    _baseVolume = volume;
+    await _applyVolume();
   }
 
   /// Add a track to the queue and play it
@@ -819,6 +920,15 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
     if (uri == null && filePath == null) return;
 
+    // Fondu : un morceau lancé par l'enchaînement naturel démarre à volume 0
+    // et remonte ; tout autre départ (choix manuel, saut) repart à volume
+    // normal, même si le morceau précédent était en plein fondu.
+    final fadeIn = _fadeInPending && _fadeMs > 0;
+    _fadeInPending = false;
+    _fadeInActive = fadeIn;
+    _fadeFactor = fadeIn ? 0.0 : 1.0;
+    _transitioning = true;
+
     try {
       Duration? duration;
       if (uri != null) {
@@ -838,8 +948,21 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         mediaItem.add(item.copyWith(duration: duration));
       }
 
+      // Avant play() : sa Future ne se termine qu'à la fin du morceau.
+      _transitioning = false;
+      if (fadeIn) {
+        // Filet de sécurité : si les ticks étaient suspendus (économie
+        // d'énergie), le morceau ne doit pas rester muet.
+        Timer(Duration(milliseconds: _fadeMs + 1000), () {
+          if (_fadeInActive && mediaItem.value?.id == item.id) {
+            _fadeInActive = false;
+            _fadeTick();
+          }
+        });
+      }
       await _player.play();
     } catch (e, st) {
+      _transitioning = false;
       // ignore: avoid_print
       print('MoodAudioHandler: failed to play "${item.title}": $e\n$st');
       playbackState.add(playbackState.value.copyWith(
@@ -904,6 +1027,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   Future<void> close() async {
     _persistTimer?.cancel();
+    _stopFadeTimer();
     await _repeatModeController.close();
     await _shuffleModeController.close();
     await _likeChangedController.close();

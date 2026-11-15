@@ -23,11 +23,16 @@ class MoodImage extends ConsumerWidget {
   /// disponible).
   final WidgetBuilder? fallback;
 
+  /// Qualité de l'agrandissement. `FilterQuality.high` donne un flou lisse
+  /// quand une image décodée toute petite est étirée en fond d'écran.
+  final FilterQuality? filterQuality;
+
   const MoodImage({
     super.key,
     required this.mood,
     this.cacheWidth = 600,
     this.fallback,
+    this.filterQuality,
   });
 
   /// Vrai si [mood] affiche une image (et non juste son icône) avec le
@@ -58,6 +63,7 @@ class MoodImage extends ConsumerWidget {
         fit: BoxFit.cover,
         cacheWidth: cacheWidth,
         gaplessPlayback: true,
+        filterQuality: filterQuality ?? FilterQuality.medium,
         errorBuilder: (ctx, _, _) => fallbackWidget(ctx),
       );
     }
@@ -73,6 +79,7 @@ class MoodImage extends ConsumerWidget {
             fit: BoxFit.cover,
             cacheWidth: cacheWidth,
             gaplessPlayback: true,
+            filterQuality: filterQuality ?? FilterQuality.medium,
             // Fichier disparu : retour à l'image d'origine.
             errorBuilder: (ctx, _, _) => assetImage(ctx, mood.imageAsset),
           );

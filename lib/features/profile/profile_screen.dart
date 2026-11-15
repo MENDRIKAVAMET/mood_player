@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/equalizer_settings.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
 import '../../services/import_service.dart';
@@ -116,48 +117,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
 
                     const SizedBox(height: AppTheme.spacingXL),
-                    const _SectionTitle('Lecture'),
-                    const SizedBox(height: AppTheme.spacingM),
-
-                    // Égaliseur
-                    _SettingTile(
-                      icon: Icons.equalizer_rounded,
-                      title: 'Égaliseur',
-                      subtitle: 'Préréglages, basses, aigus et volume',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const EqualizerScreen()),
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded,
-                          color: AppTheme.textTertiary),
-                    ),
-                    const SizedBox(height: AppTheme.spacingS),
-
-                    // Lecture intelligente
-                    _SettingTile(
-                      icon: Icons.auto_awesome_rounded,
-                      title: 'Lecture intelligente',
-                      subtitle: 'Suggère la suite par ambiance à mi-morceau, '
-                          'au lieu de suivre la file d\'attente.',
-                      trailing: Switch(
-                        value: profile.smartQueueEnabled,
-                        activeThumbColor: AppTheme.accentPrimary,
-                        onChanged: (value) => ref
-                            .read(profileProvider.notifier)
-                            .setSmartQueueEnabled(value),
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.spacingS),
-
-                    // Volume uniforme
-                    _buildNormalizeCard(),
-                    const SizedBox(height: AppTheme.spacingXL),
-
-                    // Thème : couleur de fond de l'application
-                    const ThemeSection(),
-                    const SizedBox(height: AppTheme.spacingXL),
-
                     // Artistes préférés
                     _SectionTitle(
                       'Artistes préférés',
@@ -219,8 +178,54 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                         ],
                       ),
-                    const SizedBox(height: AppTheme.spacingXL),
 
+                    const SizedBox(height: AppTheme.spacingXL),
+                    const _SectionTitle('Lecture'),
+                    const SizedBox(height: AppTheme.spacingM),
+
+                    // Égaliseur
+                    _SettingTile(
+                      icon: Icons.equalizer_rounded,
+                      title: 'Égaliseur',
+                      subtitle: 'Préréglages, basses, aigus et volume',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const EqualizerScreen()),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          color: AppTheme.textTertiary),
+                    ),
+                    const SizedBox(height: AppTheme.spacingS),
+
+                    // Lecture intelligente
+                    _SettingTile(
+                      icon: Icons.auto_awesome_rounded,
+                      title: 'Lecture intelligente',
+                      subtitle: 'Suggère la suite par ambiance à mi-morceau, '
+                          'au lieu de suivre la file d\'attente.',
+                      trailing: Switch(
+                        value: profile.smartQueueEnabled,
+                        activeThumbColor: AppTheme.accentPrimary,
+                        onChanged: (value) => ref
+                            .read(profileProvider.notifier)
+                            .setSmartQueueEnabled(value),
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spacingS),
+
+                    // Volume uniforme
+                    _buildNormalizeCard(),
+                    const SizedBox(height: AppTheme.spacingM),
+                    _buildCrossfadeCard(),
+
+                    const SizedBox(height: AppTheme.spacingXL),
+                    const _SectionTitle('Apparence'),
+                    const SizedBox(height: AppTheme.spacingM),
+                    // Couleurs, boutons, texte : groupes repliables
+                    const ThemeSection(),
+
+                    const SizedBox(height: AppTheme.spacingXL),
                     // Transfert de données (changement de téléphone,
                     // classifications d'une autre personne)
                     const DataTransferSection(),
@@ -230,6 +235,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Fondu entre les morceaux : choix de la durée (0 = désactivé).
+  Widget _buildCrossfadeCard() {
+    final seconds =
+        ref.watch(equalizerProvider.select((s) => s.crossfadeSeconds));
+    return _SettingTile(
+      icon: Icons.swap_horiz_rounded,
+      title: 'Fondu entre les morceaux',
+      subtitle: 'Le volume baisse à la fin d\'un morceau et remonte au '
+          'début du suivant, au lieu d\'une coupure nette.',
+      footer: Padding(
+        padding: const EdgeInsets.only(top: AppTheme.spacingM),
+        child: Wrap(
+          spacing: AppTheme.spacingS,
+          children: [
+            for (final choice in EqualizerSettings.crossfadeChoices)
+              ChoiceChip(
+                label: Text(choice == 0 ? 'Désactivé' : '$choice s'),
+                selected: seconds == choice,
+                onSelected: (_) => ref
+                    .read(equalizerProvider.notifier)
+                    .setCrossfadeSeconds(choice),
+              ),
+          ],
         ),
       ),
     );
