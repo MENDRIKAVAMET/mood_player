@@ -108,7 +108,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     });
 
     final trackState = ref.watch(trackProvider);
-    final currentTrack = ref.watch(currentTrackProvider);
+    // Seul l'id compte ici : évite de reconstruire la liste à chaque mise à
+    // jour des métadonnées du morceau en cours.
+    final currentId =
+        ref.watch(currentTrackProvider.select((v) => v.valueOrNull?.id));
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
@@ -171,7 +174,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     (context, index) {
                       final track = trackState.filteredTracks[index];
                       final isPlaying =
-                          currentTrack.valueOrNull?.id == track.id.toString();
+                          currentId == track.id.toString();
                       return KeyedSubtree(
                         key: _locator.keyFor(track.id),
                         child: TrackTile(
@@ -191,6 +194,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       );
                     },
                     childCount: trackState.filteredTracks.length,
+                    // Pas de KeepAlive ni d'index sémantique par ligne : sur des
+                    // milliers de morceaux, c'est du travail inutile au scroll.
+                    addAutomaticKeepAlives: false,
+                    addSemanticIndexes: false,
                   ),
                 ),
 

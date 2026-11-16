@@ -422,7 +422,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     final moodColors = MoodColors.forMood(_displayTrack.mood);
     final isPlaying = ref.watch(isPlayingProvider);
-    final position = ref.watch(currentPositionProvider);
     final duration = ref.watch(durationProvider).valueOrNull ?? Duration.zero;
 
     return Scaffold(
@@ -500,7 +499,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 children: [
                                   _buildLikeButton(moodColors),
                                   const SizedBox(height: AppTheme.spacingL),
-                                  _buildProgressBar(moodColors, position, duration),
+                                  // La position change ~5 fois par seconde : seule la
+                                  // barre de progression doit se reconstruire, pas tout
+                                  // l'écran (swipes, pochette, boutons).
+                                  Consumer(
+                                    builder: (context, ref, _) {
+                                      final position =
+                                          ref.watch(currentPositionProvider);
+                                      return _buildProgressBar(
+                                          moodColors, position, duration);
+                                    },
+                                  ),
                                   const SizedBox(height: AppTheme.spacingL),
                                   _buildControls(moodColors, isPlaying),
                                   const SizedBox(height: AppTheme.spacingXL),

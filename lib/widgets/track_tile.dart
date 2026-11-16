@@ -376,7 +376,9 @@ class _AlbumArt extends StatelessWidget {
                   spreadRadius: -2,
                 ),
               ]
-            : AppTheme.shadowSmall,
+            // Pas d'ombre floutée par vignette au repos : sur des milliers de
+            // lignes, c'est un coût de rendu à chaque frame de scroll.
+            : null,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radiusM),

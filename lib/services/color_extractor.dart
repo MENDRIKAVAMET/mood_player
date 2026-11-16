@@ -18,7 +18,9 @@ class ColorExtractor {
               : FileImage(File(imageUrl));
 
       final PaletteGenerator palette = await PaletteGenerator.fromImageProvider(
-        provider,
+        // Décodée à 200 px : la pochette complète (souvent 1000+ px)
+        // coûtait plusieurs Mo de RAM à chaque changement de morceau.
+        ResizeImage(provider, width: 200),
         size: const Size(200, 200),
         maximumColorCount: 10,
       );
@@ -30,11 +32,30 @@ class ColorExtractor {
     }
   }
 
+  static final Map<String, PaletteColors> _paletteCache = {};
+
   /// Extract a color palette from an image URL
   static Future<PaletteColors> extractPalette(String? imageUrl) async {
     if (imageUrl == null || imageUrl.isEmpty) {
       return const PaletteColors();
     }
+    final cached = _paletteCache.remove(imageUrl);
+    if (cached != null) {
+      _paletteCache[imageUrl] = cached; // le plus récent en dernier
+      return cached;
+    }
+    final result = await _extractPaletteUncached(imageUrl);
+    // On ne mémorise pas un échec (pochette pas encore écrite, etc.).
+    if (result.dominant != null) {
+      _paletteCache[imageUrl] = result;
+      if (_paletteCache.length > 60) {
+        _paletteCache.remove(_paletteCache.keys.first);
+      }
+    }
+    return result;
+  }
+
+  static Future<PaletteColors> _extractPaletteUncached(String imageUrl) async {
 
     try {
       // La pochette est le plus souvent un fichier local extrait des tags
@@ -46,7 +67,9 @@ class ColorExtractor {
               : FileImage(File(imageUrl));
 
       final PaletteGenerator palette = await PaletteGenerator.fromImageProvider(
-        provider,
+        // Décodée à 200 px : la pochette complète (souvent 1000+ px)
+        // coûtait plusieurs Mo de RAM à chaque changement de morceau.
+        ResizeImage(provider, width: 200),
         size: const Size(200, 200),
         maximumColorCount: 10,
       );

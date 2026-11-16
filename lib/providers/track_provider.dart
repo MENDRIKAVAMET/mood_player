@@ -204,9 +204,11 @@ class TrackNotifier extends StateNotifier<TrackState> {
     var byPath = indexByPath(snapshot);
 
     final pending = <Track>[];
+    final sinceFlush = Stopwatch()..start();
 
     Future<void> flush() async {
       if (pending.isEmpty) return;
+      sinceFlush.reset();
       final batch = List<Track>.from(pending);
       pending.clear();
       await _storageService.saveTracks(batch);
@@ -218,6 +220,9 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
     for (final entry in missing.entries) {
       final path = await _artworkService.extract(entry.value);
+      // Respiration : laisse l'UI dessiner ses frames entre deux extractions
+      // natives (scroll fluide pendant le scan).
+      await Future<void>.delayed(const Duration(milliseconds: 20));
       if (path == null) continue;
       if (!mounted) return;
 
@@ -232,7 +237,11 @@ class TrackNotifier extends StateNotifier<TrackState> {
       track.coverUrl = path;
       pending.add(track);
 
-      if (pending.length >= 50) await flush();
+      // Lot de 100 ET au moins 1,5 s depuis le dernier : la liste (tri +
+      // reconstruction) n'est pas rafraîchie en rafale pendant le scan.
+      if (pending.length >= 100 && sinceFlush.elapsedMilliseconds >= 1500) {
+        await flush();
+      }
     }
 
     await flush();
@@ -894,12 +903,16 @@ class TrackNotifier extends StateNotifier<TrackState> {
     // Sort
     switch (state.sortOption) {
       case TrackSortOption.nameAsc:
-        filtered.sort((a, b) =>
-            a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-        break;
       case TrackSortOption.nameDesc:
+        // Clés en minuscules calculées une seule fois (et non deux par
+        // comparaison) : le tri d'une grosse bibliothèque est bien plus léger.
+        final keys = Map<Track, String>.identity();
+        for (final t in filtered) {
+          keys[t] = t.title.toLowerCase();
+        }
+        final asc = state.sortOption == TrackSortOption.nameAsc;
         filtered.sort((a, b) =>
-            b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+            asc ? keys[a]!.compareTo(keys[b]!) : keys[b]!.compareTo(keys[a]!));
         break;
       case TrackSortOption.dateNewest:
         filtered.sort((a, b) => (b.createdAt ?? DateTime(0))

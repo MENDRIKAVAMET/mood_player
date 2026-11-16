@@ -95,7 +95,8 @@ class ArtworkService {
       }
 
       final file = File('${dir.path}/${_fileNameFor(mediaStoreId)}');
-      await file.writeAsBytes(bytes, flush: true);
+      // Sans flush: un fsync par pochette ralentissait fortement le scan.
+      await file.writeAsBytes(bytes);
       return file.path;
     } catch (_) {
       // Fichier corrompu, tag illisible, plugin qui tousse : pas de

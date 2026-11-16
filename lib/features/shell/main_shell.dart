@@ -168,7 +168,17 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
       backgroundColor: AppTheme.backgroundPrimary,
       body: Stack(
         children: [
-          IndexedStack(index: _index, children: _screens),
+          // TickerMode coupé sur les onglets cachés : ils restent vivants
+          // (position de scroll conservée) mais n'animent plus rien, et
+          // Riverpod met en pause leurs écoutes de providers : un scan ou une
+          // classification ne reconstruit plus 4 écrans à la fois.
+          IndexedStack(
+            index: _index,
+            children: [
+              for (var i = 0; i < _screens.length; i++)
+                TickerMode(enabled: i == _index, child: _screens[i]),
+            ],
+          ),
 
           // Pop-up « tu écoutais ça à cette heure » (invisible sinon).
           const ListenReminderHost(),

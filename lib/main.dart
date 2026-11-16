@@ -26,6 +26,12 @@ void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
+    // Plafonne le cache d'images (défaut : 1000 images / 100 Mo) pour limiter
+    // la RAM en scroll et les pauses du ramasse-miettes.
+    PaintingBinding.instance.imageCache
+      ..maximumSize = 300
+      ..maximumSizeBytes = 64 << 20;
+
     // Route framework-level errors (widget build errors etc.) through the
     // same guarded zone instead of only printing to console and leaving
     // the screen blank.
