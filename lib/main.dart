@@ -9,6 +9,7 @@ import 'providers/theme_provider.dart';
 import 'services/crash_log_service.dart';
 import 'services/profile_service.dart';
 import 'services/storage_service.dart';
+import 'services/ui_gate.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/update_gate.dart';
@@ -31,6 +32,10 @@ void main() {
     PaintingBinding.instance.imageCache
       ..maximumSize = 300
       ..maximumSizeBytes = 64 << 20;
+
+    // Mesure des frames lentes : les tâches de fond (pochettes, volume...) se
+    // mettent en pause quand l'écran ramène ou défile (voir UiGate).
+    UiGate.instance.attach();
 
     // Route framework-level errors (widget build errors etc.) through the
     // same guarded zone instead of only printing to console and leaving
@@ -218,13 +223,21 @@ class _MyAppState extends ConsumerState<MyApp> {
       // système (on la multiplie, on ne l'écrase pas).
       builder: (context, child) {
         final mq = MediaQuery.of(context);
-        return MediaQuery(
-          data: mq.copyWith(
-            textScaler: TextScaler.linear(
-              mq.textScaler.scale(1.0) * AppTheme.textSize.scale,
+        // Placé à la racine : voit les défilements de TOUTES les listes de
+        // l'app et prévient UiGate, qui met alors les tâches de fond en pause.
+        return NotificationListener<ScrollNotification>(
+          onNotification: (_) {
+            UiGate.instance.noteScrollActivity();
+            return false;
+          },
+          child: MediaQuery(
+            data: mq.copyWith(
+              textScaler: TextScaler.linear(
+                mq.textScaler.scale(1.0) * AppTheme.textSize.scale,
+              ),
             ),
+            child: child ?? const SizedBox.shrink(),
           ),
-          child: child ?? const SizedBox.shrink(),
         );
       },
       // Pas d'effet d'étirement/lueur au bout des listes (Android 12+).

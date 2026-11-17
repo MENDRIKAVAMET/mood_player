@@ -72,10 +72,16 @@ class ArtworkService {
 
   /// Extrait la pochette et l'écrit dans le cache. Renvoie le chemin, ou
   /// null si le morceau n'en a pas.
-  Future<String?> extract(int mediaStoreId) async {
-    final existing = await cachedPath(mediaStoreId);
-    if (existing != null) return existing;
-    if (await _isKnownEmpty(mediaStoreId)) return null;
+  ///
+  /// [knownMissing] : l'appelant sait déjà (grâce à [loadCacheIndex]) qu'il
+  /// n'y a ni pochette ni marqueur « sans pochette » en cache ; on saute les
+  /// deux tests de fichier, qui coûtent des appels disque pour rien.
+  Future<String?> extract(int mediaStoreId, {bool knownMissing = false}) async {
+    if (!knownMissing) {
+      final existing = await cachedPath(mediaStoreId);
+      if (existing != null) return existing;
+      if (await _isKnownEmpty(mediaStoreId)) return null;
+    }
 
     final dir = await _dir();
     try {

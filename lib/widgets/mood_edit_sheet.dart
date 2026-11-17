@@ -32,6 +32,10 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
   late MoodType _selectedMood =
       widget.track.mood ?? MoodType.unknown;
   late double _confidence = widget.track.moodConfidence ?? 1.0;
+
+  /// Ambiance secondaire (nuance) ; null = aucune. Toucher la chip déjà
+  /// sélectionnée la retire.
+  late MoodType? _selectedSecondary = widget.track.effectiveSecondaryMood;
   bool _saving = false;
 
   /// Toutes les ambiances intégrées sauf [MoodType.unknown], qui est l'état
@@ -54,6 +58,8 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
           widget.track,
           mood: _selectedMood,
           confidence: _confidence,
+          secondaryMood: _selectedSecondary,
+          updateSecondary: true,
         );
     final customNotifier = ref.read(customMoodProvider.notifier);
     for (final id in _selectedCustom.difference(_initialCustom)) {
@@ -123,8 +129,37 @@ class _MoodEditSheetState extends ConsumerState<_MoodEditSheet> {
                     _MoodChip(
                       mood: mood,
                       selected: mood == _selectedMood,
-                      onTap: () => setState(() => _selectedMood = mood),
+                      onTap: () => setState(() {
+                        _selectedMood = mood;
+                        if (_selectedSecondary == mood) _selectedSecondary = null;
+                      }),
                     ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.spacingL),
+              Text('Ambiance secondaire (optionnelle)',
+                  style: AppTheme.labelLarge),
+              const SizedBox(height: AppTheme.spacingXXS),
+              Text(
+                'Une nuance en plus, par ex. Chill + Nostalgique, pour des '
+                'mixes plus justes.',
+                style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: AppTheme.spacingS),
+              Wrap(
+                spacing: AppTheme.spacingS,
+                runSpacing: AppTheme.spacingS,
+                children: [
+                  for (final mood in _selectableMoods)
+                    if (mood != _selectedMood)
+                      _MoodChip(
+                        mood: mood,
+                        selected: mood == _selectedSecondary,
+                        onTap: () => setState(() {
+                          _selectedSecondary =
+                              _selectedSecondary == mood ? null : mood;
+                        }),
+                      ),
                 ],
               ),
               if (customMoods.isNotEmpty) ...[

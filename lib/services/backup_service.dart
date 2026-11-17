@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/track.dart';
 import '../models/user_profile.dart';
 import 'storage_service.dart';
+import 'track_secondary_mood_store.dart';
 
 /// Fichier de transfert illisible ou qui ne vient pas de Aura.
 class BackupFormatException implements Exception {
@@ -61,6 +62,9 @@ class BackupTrack {
 
   /// Nom de [MoodType] (`chill`...), null si le morceau n'était pas classé.
   final String? mood;
+
+  /// Nom de l'ambiance secondaire (absent des anciennes sauvegardes).
+  final String? secondaryMood;
   final double? moodConfidence;
   final DateTime? lastClassified;
 
@@ -71,17 +75,24 @@ class BackupTrack {
     this.album,
     this.durationMs,
     this.mood,
+    this.secondaryMood,
     this.moodConfidence,
     this.lastClassified,
   });
 
-  MoodType? get moodType {
-    final m = mood;
-    if (m == null) return null;
+  static MoodType? _moodByName(String? name) {
+    if (name == null) return null;
     for (final t in MoodType.values) {
-      if (t.name == m) return t;
+      if (t.name == name) return t;
     }
     return null;
+  }
+
+  MoodType? get moodType => _moodByName(mood);
+
+  MoodType? get secondaryMoodType {
+    final m = _moodByName(secondaryMood);
+    return (m == null || m == MoodType.unknown) ? null : m;
   }
 
   Map<String, dynamic> toJson() => {
@@ -91,6 +102,7 @@ class BackupTrack {
         if (album != null) 'album': album,
         if (durationMs != null) 'durationMs': durationMs,
         if (mood != null) 'mood': mood,
+        if (secondaryMood != null) 'mood2': secondaryMood,
         if (moodConfidence != null) 'moodConfidence': moodConfidence,
         if (lastClassified != null)
           'lastClassified': lastClassified!.toUtc().toIso8601String(),
@@ -103,6 +115,7 @@ class BackupTrack {
         album: j['album'] as String?,
         durationMs: (j['durationMs'] as num?)?.toInt(),
         mood: j['mood'] as String?,
+        secondaryMood: j['mood2'] as String?,
         moodConfidence: (j['moodConfidence'] as num?)?.toDouble(),
         lastClassified: j['lastClassified'] == null
             ? null
@@ -425,6 +438,7 @@ class BackupService {
         album: t.album,
         durationMs: t.duration,
         mood: classified ? mood.name : null,
+        secondaryMood: classified ? t.effectiveSecondaryMood?.name : null,
         moodConfidence: classified ? t.moodConfidence : null,
         lastClassified: classified ? t.lastClassified : null,
       ));
@@ -556,14 +570,24 @@ class BackupService {
           kept++;
           continue;
         }
+        final secondary = bt.secondaryMoodType;
         track
           ..mood = mood
+          // Ancienne sauvegarde sans nuance : on garde celle qu'on a déjà,
+          // sauf si elle devient identique à la nouvelle principale.
+          ..secondaryMood = secondary ??
+              (track.secondaryMood == mood ? null : track.secondaryMood)
           ..moodConfidence = bt.moodConfidence?.clamp(0.0, 1.0).toDouble()
           ..lastClassified = bt.lastClassified ?? now
           ..updatedAt = now;
         toSave.add(track);
       }
-      if (toSave.isNotEmpty) await _storage.saveTracks(toSave);
+      if (toSave.isNotEmpty) {
+        await _storage.saveTracks(toSave);
+        for (final t in toSave) {
+          await TrackSecondaryMoods.set(t.filePath, t.secondaryMood);
+        }
+      }
     }
 
     var likedAdded = 0;

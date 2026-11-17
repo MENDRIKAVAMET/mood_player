@@ -1037,6 +1037,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (_displayTrack.effectiveSecondaryMood != null) ...[
+                  const SizedBox(height: AppTheme.spacingXXS),
+                  Row(
+                    children: [
+                      Icon(
+                        _displayTrack.effectiveSecondaryMood!.iconData,
+                        size: 14,
+                        color: MoodColors.forMood(
+                                _displayTrack.effectiveSecondaryMood)
+                            .primary,
+                      ),
+                      const SizedBox(width: AppTheme.spacingXXS),
+                      Flexible(
+                        child: Text(
+                          '+ ${_displayTrack.effectiveSecondaryMood!.displayName}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.bodySmall.copyWith(
+                            color: MoodColors.forMood(
+                                    _displayTrack.effectiveSecondaryMood)
+                                .primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 if (_displayTrack.moodConfidence != null) ...[
                   const SizedBox(height: AppTheme.spacingXXS),
                   Text(

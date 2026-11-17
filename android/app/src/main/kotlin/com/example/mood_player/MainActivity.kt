@@ -41,7 +41,14 @@ class MainActivity : AudioServiceFragmentActivity() {
     private var pendingRenameResult: MethodChannel.Result? = null
 
     // Analyse du volume (une seule à la fois, hors du thread principal).
-    private val analysisExecutor = Executors.newSingleThreadExecutor()
+    // Priorité « arrière-plan » : le décodage audio de l'analyse de volume ne
+    // doit jamais voler du processeur au thread d'interface ni au rendu.
+    private val analysisExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            runnable.run()
+        }
+    }
 
     private data class RenameRequest(
         val uri: Uri,

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/track.dart';
 import '../services/loudness_service.dart';
+import '../services/ui_gate.dart';
 import 'equalizer_provider.dart';
 import 'track_provider.dart';
 
@@ -42,6 +43,10 @@ class LoudnessNotifier extends StateNotifier<LoudnessState> {
 
     state = LoudnessState(running: true, done: 0, total: pending.length);
     for (var i = 0; i < pending.length; i++) {
+      if (!mounted || !_enabled) break;
+      // Décoder 20 s d'audio par morceau est lourd : on n'en lance un que
+      // quand l'écran est tranquille, avec une pause entre deux.
+      await UiGate.instance.idle(minGap: const Duration(milliseconds: 200));
       if (!mounted || !_enabled) break;
       await LoudnessService.analyze(pending[i]);
       if (mounted) {

@@ -7,6 +7,7 @@ import '../models/track.dart';
 import '../services/storage_service.dart';
 import 'audio_provider.dart';
 import 'listen_history_provider.dart';
+import 'play_log_provider.dart';
 import 'track_provider.dart';
 
 /// Suit les écoutes *réelles* : un morceau ne compte que lorsqu'il a été
@@ -113,6 +114,14 @@ class PlaybackStatsNotifier extends StateNotifier<Map<int, int>> {
           .read(listenHistoryProvider.notifier)
           .recordFirstListenOfSession(track)
           .catchError((_) {}));
+
+      // Journal daté de CHAQUE écoute réelle, pour le bilan du mois.
+      if (mounted) {
+        unawaited(_ref
+            .read(playLogProvider.notifier)
+            .record(track)
+            .catchError((_) {}));
+      }
     }
   }
 

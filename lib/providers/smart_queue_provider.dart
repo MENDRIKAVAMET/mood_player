@@ -116,19 +116,45 @@ class SmartQueueController {
     final mood = currentTrack?.mood;
     if (mood == null) return; // piste non classifiée : file d'origine inchangée
 
-    final sameMood = library
-        .where((t) => t.mood == mood && t.id.toString() != current.id)
-        .toList();
-    if (sameMood.isEmpty) return; // aucune piste de cette ambiance : on ne touche à rien
+    final secondary = currentTrack!.effectiveSecondaryMood;
 
-    final artist = currentTrack!.artist.trim().toLowerCase();
-    final sameArtist = artist.isEmpty
+    // Du plus juste au plus large : même couple principale + secondaire,
+    // puis même principale, puis un morceau qui partage la nuance (sa
+    // secondaire est notre principale, ou notre secondaire est sa principale).
+    bool notCurrent(Track t) => t.id.toString() != current.id;
+    final exact = secondary == null
         ? const <Track>[]
-        : sameMood.where((t) => t.artist.trim().toLowerCase() == artist).toList();
+        : library
+            .where((t) =>
+                notCurrent(t) &&
+                t.mood == mood &&
+                t.effectiveSecondaryMood == secondary)
+            .toList();
+    final sameMood =
+        library.where((t) => notCurrent(t) && t.mood == mood).toList();
+    final related = library
+        .where((t) =>
+            notCurrent(t) &&
+            t.mood != mood &&
+            (t.effectiveSecondaryMood == mood ||
+                (secondary != null && t.mood == secondary)))
+        .toList();
+    if (sameMood.isEmpty && related.isEmpty) {
+      return; // rien de proche : on ne touche à rien
+    }
 
-    // Jamais un morceau déjà écouté : s'il n'en reste aucun de la même
-    // ambiance, la file d'origine continue telle quelle.
-    final pick = _pickUnplayed(sameArtist) ?? _pickUnplayed(sameMood);
+    final artist = currentTrack.artist.trim().toLowerCase();
+    List<Track> byArtist(List<Track> pool) => artist.isEmpty
+        ? const <Track>[]
+        : pool.where((t) => t.artist.trim().toLowerCase() == artist).toList();
+
+    // Jamais un morceau déjà écouté : s'il n'en reste aucun de proche, la
+    // file d'origine continue telle quelle.
+    final pick = _pickUnplayed(byArtist(exact)) ??
+        _pickUnplayed(exact) ??
+        _pickUnplayed(byArtist(sameMood)) ??
+        _pickUnplayed(sameMood) ??
+        _pickUnplayed(related);
     if (pick == null) return;
 
     _ref.read(audioHandlerProvider.future).then((handler) => handler.playNext(pick));

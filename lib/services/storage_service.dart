@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/track.dart';
 import '../models/playlist.dart';
 import '../models/custom_mood.dart';
+import 'track_secondary_mood_store.dart';
 
 class StorageService {
   static Isar? _isar;
@@ -107,6 +108,7 @@ class StorageService {
     final track = await isar.tracks.get(id);
     if (track != null) {
       track.isLiked = await isTrackLiked(track.id);
+      await TrackSecondaryMoods.applyTo([track]);
     }
     return track;
   }
@@ -119,6 +121,9 @@ class StorageService {
     for (final track in tracks) {
       track.isLiked = likedIds.contains(track.id);
     }
+    // Même principe pour l'ambiance secondaire (JSON à part, voir
+    // [TrackSecondaryMoods]) : tout chemin qui charge des morceaux passe ici.
+    await TrackSecondaryMoods.applyTo(tracks);
   }
 
 

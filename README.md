@@ -15,6 +15,8 @@ Une application mobile Flutter qui organise vos playlists musicales par "mood" (
 - **Outils de listes** : sur les listes de morceaux, barre de défilement rapide, bouton ancre (retour au morceau en cours) et boutons Tout lire / Aléatoire / Trier
 - **Volume uniforme** : interrupteur dans le Profil ; mesure le volume de chaque morceau une fois (en arrière-plan) puis ajuste le gain à la lecture pour que tout sonne à peu près aussi fort
 - **Filtrage et recherche** : Filtrer par mood, rechercher par titre/artiste
+- **Recherche par ambiance** : « un truc calme pour réviser » (mots-clés en local, Groq pour les phrases floues, négations comprises)
+- **Bilan du mois** : carte-image partageable (ambiance dominante, top morceaux, heure favorite), construite à partir d'un journal d'écoute daté
 
 ## 📁 Structure du projet
 

@@ -49,6 +49,25 @@ class Track {
   @ignore
   bool isLiked = false;
 
+  /// Ambiance secondaire (ex. Chill + Nostalgique), pour des mixes plus
+  /// justes. Non persistée par Isar (pas de migration) : gardée par chemin de
+  /// fichier dans `TrackSecondaryMoods` et réappliquée au chargement par
+  /// [StorageService].
+  @ignore
+  MoodType? secondaryMood;
+
+  /// Ambiance secondaire valide : jamais « inconnu », jamais identique à
+  /// la principale.
+  @ignore
+  MoodType? get effectiveSecondaryMood {
+    final s = secondaryMood;
+    if (s == null || s == MoodType.unknown || s == mood) return null;
+    return s;
+  }
+
+  /// Vrai si [m] est l'ambiance principale OU secondaire du morceau.
+  bool hasMood(MoodType m) => mood == m || effectiveSecondaryMood == m;
+
   @ignore
   bool get isClassified => mood != null;
 

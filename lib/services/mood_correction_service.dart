@@ -174,6 +174,20 @@ class MoodCorrectionService {
     );
   }
 
+  /// Pour chaque genre (en minuscules) : les ambiances que l'utilisateur lui a
+  /// données en corrigeant. Calculé une fois, il remplace un appel à
+  /// [isContested] par morceau (des milliers d'appels × des centaines de
+  /// corrections × un `toLowerCase` chacun).
+  Future<Map<String, Set<MoodType>>> moodsByGenre() async {
+    final out = <String, Set<MoodType>>{};
+    for (final c in await _load()) {
+      final g = c.genre;
+      if (g == null) continue;
+      (out[g.trim().toLowerCase()] ??= <MoodType>{}).add(c.mood);
+    }
+    return out;
+  }
+
   /// Choisit les exemples les plus utiles pour [tracks] : d'abord ceux des
   /// mêmes artistes (le goût de l'utilisateur pour cet artiste), puis les
   /// plus récents, avec un plafond par ambiance.

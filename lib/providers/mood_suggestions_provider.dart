@@ -198,8 +198,14 @@ final periodMixesProvider =
   final counts = ref.watch(playbackStatsProvider);
   final profileArtists = ref.watch(profileProvider.select((p) => p.favoriteArtists));
 
-  final pool =
-      allTracks.where((t) => t.mood != null && moods.contains(t.mood)).toList();
+  // Un morceau compte si son ambiance principale OU secondaire est de
+  // celles du moment : « Chill + Nostalgique » entre dans un mix nostalgique.
+  final pool = allTracks
+      .where((t) =>
+          (t.mood != null && moods.contains(t.mood)) ||
+          (t.effectiveSecondaryMood != null &&
+              moods.contains(t.effectiveSecondaryMood)))
+      .toList();
   if (pool.isEmpty) return const [];
 
   final playsByArtist = <String, int>{};
@@ -308,6 +314,10 @@ final suggestedMixesProvider = Provider<List<TrackMix>>((ref) {
     if (mood != null && mood != MoodType.unknown) {
       moodScores[mood] = (moodScores[mood] ?? 0) + weight;
     }
+    final secondary = track.effectiveSecondaryMood;
+    if (secondary != null) {
+      moodScores[secondary] = (moodScores[secondary] ?? 0) + weight;
+    }
     final artist = track.artist.toLowerCase();
     artistScores[artist] = (artistScores[artist] ?? 0) + weight;
   }
@@ -324,6 +334,9 @@ final suggestedMixesProvider = Provider<List<TrackMix>>((ref) {
     var score = 0;
     final mood = track.mood;
     if (mood != null) score += (moodScores[mood] ?? 0) * 2;
+    // La nuance pèse moitié moins que l'ambiance principale.
+    final secondary = track.effectiveSecondaryMood;
+    if (secondary != null) score += moodScores[secondary] ?? 0;
     score += (artistScores[track.artist.toLowerCase()] ?? 0) * 3;
     return score;
   }

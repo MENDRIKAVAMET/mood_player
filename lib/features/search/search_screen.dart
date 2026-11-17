@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
+import '../../services/groq_service.dart';
+import '../../services/mood_query_parser.dart';
+import '../../theme/mood_colors.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
@@ -36,6 +39,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<String> _recentSearches = [];
   String _query = '';
 
+  // Recherche par ambiance : interprétation Groq de la requête courante.
+  MoodQuery? _aiQuery;
+  String? _aiForQuery;
+  bool _aiLoading = false;
+  String? _aiError;
+
+  /// Ambiances détectées que l'utilisateur a décochées.
+  final Set<MoodType> _hiddenMoods = {};
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +77,69 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     await _loadRecentSearches();
   }
 
+  /// Demande à Groq ce que veut dire la phrase, quand les mots-clés locaux
+  /// n'ont rien compris. Jamais à la frappe : à la validation, ou via le bouton.
+  Future<void> _askAi() async {
+    final query = _query.trim();
+    if (query.isEmpty || _aiLoading) return;
+    final key = MoodQueryParser.normalize(query);
+    setState(() {
+      _aiLoading = true;
+      _aiError = null;
+    });
+    try {
+      final result = await ref.read(moodQueryServiceProvider).interpretWithAi(query);
+      if (!mounted) return;
+      setState(() {
+        _aiLoading = false;
+        _aiQuery = result;
+        _aiForQuery = key;
+        _hiddenMoods.clear();
+        if (!result.hasMoods && !result.hasExclusions) {
+          _aiError = 'Je n\'ai pas reconnu d\'ambiance dans cette phrase.';
+        }
+      });
+    } on GroqRateLimitException {
+      _failAi('Trop de requêtes pour le moment, réessaie dans un instant.');
+    } on GroqNetworkException {
+      _failAi('Connexion impossible : vérifie ta connexion internet.');
+    } catch (_) {
+      _failAi('L\'interprétation par IA n\'est pas disponible pour le moment.');
+    }
+  }
+
+  void _failAi(String message) {
+    if (!mounted) return;
+    setState(() {
+      _aiLoading = false;
+      _aiError = message;
+    });
+  }
+
+  void _onQueryChanged(String value) {
+    setState(() {
+      _query = value;
+      _hiddenMoods.clear();
+      _aiError = null;
+    });
+  }
+
+  /// À la validation : si ni les titres ni les mots-clés ne répondent, on
+  /// laisse l'IA tenter de comprendre.
+  void _onSubmit(String value) {
+    _commitSearch(value);
+    final q = value.trim();
+    if (q.split(RegExp(r'\s+')).length < 2) return;
+    final local = ref.read(moodQueryServiceProvider).parseLocal(q);
+    if (local.hasMoods || local.hasExclusions) return;
+    final lower = q.toLowerCase();
+    final hasTextMatch = ref.read(trackProvider).tracks.any((t) =>
+        t.title.toLowerCase().contains(lower) ||
+        t.artist.toLowerCase().contains(lower) ||
+        (t.album?.toLowerCase().contains(lower) ?? false));
+    if (!hasTextMatch) _askAi();
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -86,7 +161,40 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 t.artist.toLowerCase().contains(lowerQuery) ||
                 (t.album?.toLowerCase().contains(lowerQuery) ?? false))
             .toList();
-    final results = _sort == null ? matches : sortTracks(matches, _sort!);
+
+    // Ambiances comprises : mots-clés locaux d'abord, sinon l'IA (si elle a
+    // déjà répondu à CETTE phrase). Les puces décochées sont retirées.
+    final service = ref.read(moodQueryServiceProvider);
+    final detected = lowerQuery.isEmpty
+        ? MoodQuery.empty
+        : () {
+            final local = service.parseLocal(_query);
+            if (local.hasMoods) return local;
+            final ai = _aiForQuery == MoodQueryParser.normalize(_query)
+                ? _aiQuery
+                : null;
+            if (ai != null && (ai.hasMoods || ai.hasExclusions)) return ai;
+            return local; // peut n'avoir que des exclusions (« pas triste »)
+          }();
+    final activeMoods = detected.only(
+      detected.weights.keys.toSet().difference(_hiddenMoods),
+    );
+    final matchIds = {for (final t in matches) t.id};
+    // Si toutes les puces sont décochées, on n'affiche rien par ambiance
+    // (et surtout pas « tout sauf les exclusions »). Seule une phrase
+    // purement négative filtre par exclusion.
+    final moodSearchOn =
+        detected.hasMoods ? activeMoods.hasMoods : detected.hasExclusions;
+    final byMood = moodSearchOn
+        ? activeMoods.rank(allTracks.where((t) => !matchIds.contains(t.id)))
+        : const <Track>[];
+    final combined = [...matches, ...byMood];
+    final results = _sort == null ? combined : sortTracks(combined, _sort!);
+    // Séparateur entre « correspond au texte » et « correspond à l'ambiance ».
+    final headerAt =
+        (_sort == null && matches.isNotEmpty && byMood.isNotEmpty)
+            ? matches.length
+            : null;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundPrimary,
@@ -97,16 +205,35 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: Column(
           children: [
             _buildSearchField(),
+            if (lowerQuery.isNotEmpty && (detected.hasMoods || detected.hasExclusions || _aiLoading))
+              _DetectedMoodsRow(
+                query: detected,
+                hidden: _hiddenMoods,
+                loading: _aiLoading,
+                onToggle: (m) => setState(() {
+                  if (!_hiddenMoods.remove(m)) _hiddenMoods.add(m);
+                }),
+              ),
             Expanded(
               child: lowerQuery.isEmpty
-                  ? _RecentSearchesList(
+                  ? Column(
+                      children: [
+                        _ExampleQueries(onTap: (q) {
+                          _controller.text = q;
+                          _controller.selection = TextSelection.fromPosition(
+                            TextPosition(offset: q.length),
+                          );
+                          _onQueryChanged(q);
+                          _commitSearch(q);
+                        }),
+                        Expanded(child: _RecentSearchesList(
                       searches: _recentSearches,
                       onTapSearch: (s) {
                         _controller.text = s;
                         _controller.selection = TextSelection.fromPosition(
                           TextPosition(offset: s.length),
                         );
-                        setState(() => _query = s);
+                        _onQueryChanged(s);
                         _commitSearch(s);
                       },
                       onRemove: _removeRecentSearch,
@@ -114,9 +241,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         await ref.read(storageServiceProvider).clearRecentSearches();
                         await _loadRecentSearches();
                       },
+                    )),
+                      ],
                     )
                   : results.isEmpty
-                      ? _NoResults(query: _query)
+                      ? _NoResults(
+                          query: _query,
+                          loading: _aiLoading,
+                          error: _aiError,
+                          onAskAi: (!detected.hasMoods &&
+                                  !detected.hasExclusions &&
+                                  !_aiLoading)
+                              ? _askAi
+                              : null,
+                          hasUnclassified: (detected.hasMoods || detected.hasExclusions) &&
+                              allTracks.any((t) => !t.isClassified),
+                        )
                       : Column(
                           children: [
                             Padding(
@@ -152,8 +292,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                         top: AppTheme.spacingS,
                                         bottom: 40,
                                       ),
-                                      itemCount: results.length,
-                                      itemBuilder: (context, index) {
+                                      itemCount: results.length +
+                                          (headerAt != null ? 1 : 0),
+                                      itemBuilder: (context, rawIndex) {
+                                        if (headerAt != null &&
+                                            rawIndex == headerAt) {
+                                          return const _SectionLabel(
+                                              'Correspond à l\'ambiance');
+                                        }
+                                        final index =
+                                            (headerAt != null && rawIndex > headerAt)
+                                                ? rawIndex - 1
+                                                : rawIndex;
                                         final track = results[index];
                                         void open() {
                                           _commitSearch(_query);
@@ -211,11 +361,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 controller: _controller,
                 focusNode: _focusNode,
                 textInputAction: TextInputAction.search,
-                onChanged: (value) => setState(() => _query = value),
-                onSubmitted: _commitSearch,
+                onChanged: _onQueryChanged,
+                onSubmitted: _onSubmit,
                 style: AppTheme.bodyMedium.copyWith(color: AppTheme.textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'Rechercher morceaux, artistes...',
+                  hintText: 'Titre, artiste ou ambiance…',
                   hintStyle:
                       AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
                   border: InputBorder.none,
@@ -227,7 +377,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               GestureDetector(
                 onTap: () {
                   _controller.clear();
-                  setState(() => _query = '');
+                  _onQueryChanged('');
                 },
                 child: Icon(
                   Icons.close_rounded,
@@ -312,27 +462,240 @@ class _RecentSearchesList extends StatelessWidget {
 
 class _NoResults extends StatelessWidget {
   final String query;
+  final bool loading;
+  final String? error;
+  final VoidCallback? onAskAi;
+  final bool hasUnclassified;
 
-  const _NoResults({required this.query});
+  const _NoResults({
+    required this.query,
+    this.loading = false,
+    this.error,
+    this.onAskAi,
+    this.hasUnclassified = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hint = loading
+        ? 'Je cherche ce que tu veux écouter…'
+        : hasUnclassified
+            ? 'Aucun morceau classé dans cette ambiance pour l\'instant. '
+                'Classe ta bibliothèque pour de meilleurs résultats.'
+            : 'Aucun résultat pour « $query »';
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppTheme.spacingXL),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off_rounded, size: 40, color: AppTheme.textTertiary),
+            if (loading)
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(Icons.search_off_rounded, size: 40, color: AppTheme.textTertiary),
             const SizedBox(height: AppTheme.spacingM),
             Text(
-              'Aucun résultat pour « $query »',
+              hint,
               textAlign: TextAlign.center,
               style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: AppTheme.spacingS),
+              Text(
+                error!,
+                textAlign: TextAlign.center,
+                style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
+              ),
+            ],
+            if (onAskAi != null) ...[
+              const SizedBox(height: AppTheme.spacingM),
+              OutlinedButton.icon(
+                onPressed: onAskAi,
+                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: const Text('Chercher par ambiance (IA)'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Puces des ambiances comprises dans la phrase ; toucher une puce
+/// l'exclut (ou la remet) des résultats.
+class _DetectedMoodsRow extends StatelessWidget {
+  final MoodQuery query;
+  final Set<MoodType> hidden;
+  final bool loading;
+  final ValueChanged<MoodType> onToggle;
+
+  const _DetectedMoodsRow({
+    required this.query,
+    required this.hidden,
+    required this.loading,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingL, AppTheme.spacingXS, AppTheme.spacingL, AppTheme.spacingS,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: AppTheme.spacingS,
+          runSpacing: AppTheme.spacingS,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (query.hasMoods || !query.hasExclusions)
+              Text(
+                query.fromAi ? 'Compris par l\'IA :' : 'Ambiances :',
+                style: AppTheme.labelMedium,
+              ),
+            if (loading)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            for (final mood in query.ranked.take(4))
+              GestureDetector(
+                onTap: () => onToggle(mood),
+                child: _chip(mood, !hidden.contains(mood)),
+              ),
+            if (query.hasExclusions) ...[
+              Text(
+                query.fromAi && !query.hasMoods
+                    ? 'Compris par l\'IA · sans :'
+                    : 'Sans :',
+                style: AppTheme.labelMedium,
+              ),
+              for (final mood in query.excluded) _excludedChip(mood),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Ambiance écartée : puce barrée, non cliquable.
+  Widget _excludedChip(MoodType mood) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacingM, vertical: AppTheme.spacingXS,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.block_rounded, size: 14, color: AppTheme.textSecondary),
+          const SizedBox(width: AppTheme.spacingXXS),
+          Text(
+            mood.displayName,
+            style: AppTheme.bodySmall.copyWith(
+              color: AppTheme.textSecondary,
+              decoration: TextDecoration.lineThrough,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(MoodType mood, bool on) {
+    final color = MoodColors.forMood(mood).primary;
+    return AnimatedContainer(
+      duration: AppTheme.animFast,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacingM, vertical: AppTheme.spacingXS,
+      ),
+      decoration: BoxDecoration(
+        color: on ? color.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        border: Border.all(color: on ? color : Colors.transparent, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(mood.iconData, size: 14, color: on ? color : AppTheme.textSecondary),
+          const SizedBox(width: AppTheme.spacingXXS),
+          Text(
+            mood.displayName,
+            style: AppTheme.bodySmall.copyWith(
+              color: on ? color : AppTheme.textSecondary,
+              fontWeight: on ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Exemples de phrases, affichés tant que le champ est vide : c'est ce qui
+/// fait découvrir la recherche par ambiance.
+class _ExampleQueries extends StatelessWidget {
+  final ValueChanged<String> onTap;
+  const _ExampleQueries({required this.onTap});
+
+  static const _examples = [
+    'un truc calme pour réviser',
+    'pour le trajet',
+    'pour faire du sport',
+    'pour m\'endormir',
+    'une soirée entre amis',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spacingL, AppTheme.spacingM, AppTheme.spacingL, AppTheme.spacingS,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Essaie par ambiance', style: AppTheme.labelMedium),
+            const SizedBox(height: AppTheme.spacingS),
+            Wrap(
+              spacing: AppTheme.spacingS,
+              runSpacing: AppTheme.spacingS,
+              children: [
+                for (final e in _examples)
+                  ActionChip(
+                    label: Text(e, style: AppTheme.bodySmall),
+                    onPressed: () => onTap(e),
+                  ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.spacingXL, AppTheme.spacingM, AppTheme.spacingL, AppTheme.spacingXS,
+        ),
+        child: Text(text, style: AppTheme.labelMedium),
+      );
 }

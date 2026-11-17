@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../widgets/app_header.dart';
 import '../player/equalizer_screen.dart';
+import '../recap/recap_screen.dart';
 import '../../widgets/data_transfer_section.dart';
 import '../../widgets/theme_section.dart';
 
@@ -178,6 +179,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             ),
                         ],
                       ),
+
+                    const SizedBox(height: AppTheme.spacingXL),
+                    const _SectionTitle('Ton mois en musique'),
+                    const SizedBox(height: AppTheme.spacingM),
+                    _SettingTile(
+                      icon: Icons.auto_graph_rounded,
+                      title: 'Bilan du mois',
+                      subtitle: 'Ton ambiance, tes morceaux et ton heure '
+                          'préférée, en une carte à partager.',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RecapScreen()),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          color: AppTheme.textTertiary),
+                    ),
 
                     const SizedBox(height: AppTheme.spacingXL),
                     const _SectionTitle('Lecture'),

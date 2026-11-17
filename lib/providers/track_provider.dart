@@ -10,8 +10,10 @@ import '../services/groq_service.dart';
 import '../services/mood_correction_service.dart';
 import '../services/genre_mood_classifier.dart';
 import '../services/track_genre_store.dart';
+import '../services/track_secondary_mood_store.dart';
 import '../services/library_scan_service.dart';
 import '../services/artwork_service.dart';
+import '../services/ui_gate.dart';
 import 'audio_provider.dart' show audioHandlerProvider;
 import '../services/library_filter_service.dart';
 import '../services/track_file_service.dart';
@@ -150,6 +152,10 @@ class TrackNotifier extends StateNotifier<TrackState> {
   })  : _correctionService = correctionService,
         super(const TrackState());
 
+  /// Durée maximale du squelette de chargement à l'ouverture. Passé ce
+  /// délai, on montre ce qui est déjà en base (voir [scanAndLoadTracks]).
+  static const Duration _maxLoaderWait = Duration(milliseconds: 1500);
+
   final LibraryFilterService _filterService = LibraryFilterService();
   bool _filterLoaded = false;
 
@@ -166,24 +172,22 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
   }
 
-  /// Extrait les pochettes encore absentes du cache, puis met à jour les
-  /// morceaux concernés par lots.
+  /// Extrait les pochettes encore absentes du cache, une à la fois, en tâche
+  /// de fond.
   ///
-  /// Les mises à jour partent par paquets plutôt qu'une par une : un
-  /// `state = ...` par pochette sur 300 titres, c'est 300 reconstructions
-  /// de la liste, et l'écran devient inutilisable pendant la passe.
-  ///
-  /// Les morceaux modifiés sont déjà les objets de `state.tracks` (mutés sur
-  /// place) : on les sauvegarde puis on ré-émet la liste, sans relire toute
-  /// la base à chaque lot.
+  /// Pour ne jamais gêner l'écran :
+  ///  * chaque extraction attend que l'écran soit tranquille ([UiGate]) ;
+  ///  * les morceaux sont mis à jour en place : une ligne qui entre à l'écran
+  ///    affiche déjà sa pochette sans qu'on ait besoin de reconstruire la liste ;
+  ///  * la liste n'est rafraîchie que par gros lots, au plus toutes les 3 s,
+  ///    et jamais pendant un défilement ; ni tri ni filtre ne dépendent de la
+  ///    pochette, on ne les rejoue donc pas.
   Future<void> _backfillArtwork(
     Map<String, int> mediaStoreIdByPath,
     ArtworkCacheIndex artCache,
   ) async {
     if (mediaStoreIdByPath.isEmpty) return;
 
-    // Un seul passage en mémoire grâce à l'index du cache (pas de test de
-    // fichier par morceau).
     final missing = <String, int>{};
     for (final entry in mediaStoreIdByPath.entries) {
       if (artCache.needsExtraction(entry.value)) {
@@ -192,37 +196,48 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
     if (missing.isEmpty) return;
 
+    final gate = UiGate.instance;
+
     Map<String, Track> indexByPath(List<Track> tracks) => {
           for (final t in tracks)
             if (t.filePath != null) t.filePath!: t,
         };
 
-    // Table chemin -> morceau construite une fois (au lieu d'un
-    // firstWhere O(N) par pochette) ; reconstruite seulement si la liste de
-    // l'état a été remplacée entre-temps (ex. rechargement par l'utilisateur).
+    // Table chemin -> morceau construite une fois ; reconstruite seulement si
+    // la liste de l'état a été remplacée entre-temps.
     var snapshot = state.tracks;
     var byPath = indexByPath(snapshot);
 
     final pending = <Track>[];
-    final sinceFlush = Stopwatch()..start();
+    final sincePublish = Stopwatch()..start();
 
-    Future<void> flush() async {
+    Future<void> publish({bool force = false}) async {
       if (pending.isEmpty) return;
-      sinceFlush.reset();
+      if (!force &&
+          (pending.length < 100 ||
+              sincePublish.elapsedMilliseconds < 3000 ||
+              gate.isBusy)) {
+        return;
+      }
+      if (force) await gate.idle();
+      if (!mounted) return;
       final batch = List<Track>.from(pending);
       pending.clear();
+      sincePublish.reset();
       await _storageService.saveTracks(batch);
       if (!mounted) return;
-      state = state.copyWith(tracks: List<Track>.from(state.tracks));
-      _applyFilters();
+      state = state.copyWith(
+        tracks: List<Track>.from(state.tracks),
+        filteredTracks: List<Track>.from(state.filteredTracks),
+      );
       snapshot = state.tracks;
     }
 
     for (final entry in missing.entries) {
-      final path = await _artworkService.extract(entry.value);
-      // Respiration : laisse l'UI dessiner ses frames entre deux extractions
-      // natives (scroll fluide pendant le scan).
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      if (!mounted) return;
+      // Une extraction native à la fois, seulement quand l'écran est calme.
+      await gate.idle(minGap: const Duration(milliseconds: 20));
+      final path = await _artworkService.extract(entry.value, knownMissing: true);
       if (path == null) continue;
       if (!mounted) return;
 
@@ -237,14 +252,10 @@ class TrackNotifier extends StateNotifier<TrackState> {
       track.coverUrl = path;
       pending.add(track);
 
-      // Lot de 100 ET au moins 1,5 s depuis le dernier : la liste (tri +
-      // reconstruction) n'est pas rafraîchie en rafale pendant le scan.
-      if (pending.length >= 100 && sinceFlush.elapsedMilliseconds >= 1500) {
-        await flush();
-      }
+      await publish();
     }
 
-    await flush();
+    await publish(force: true);
   }
 
   /// Load all tracks from storage
@@ -268,14 +279,33 @@ class TrackNotifier extends StateNotifier<TrackState> {
     }
   }
 
+  /// Relit la base SANS passer par `isLoading`. `loadTracks()` met `isLoading`
+  /// à vrai, ce qui remplace la liste par des squelettes : si la liste est
+  /// déjà à l'écran, elle disparaît et la position de défilement est perdue
+  /// (c'est ce qui donnait l'impression d'une liste « coincée »).
+  Future<void> _reloadQuietly() async {
+    final tracks = await _storageService.getAllTracks();
+    if (!mounted) return;
+    state = state.copyWith(
+      tracks: tracks,
+      filteredTracks: tracks,
+      isLoading: false,
+    );
+    _applyFilters();
+  }
+
   /// Scan the device's entire audio library (every format the OS indexes),
   /// merge the results into local storage (updating already-known tracks
   /// with fresh metadata/duration while preserving their mood
   /// classification), then reload. Runs on every app open.
   ///
-  /// Pensé pour que l'ouverture soit rapide :
-  ///  1. cache d'abord : les morceaux déjà en base s'affichent tout de suite,
-  ///     le scan tourne ensuite sans masquer la liste ;
+  /// Pensé pour que l'ouverture soit rapide ET fluide :
+  ///  1. chargement d'abord : le squelette s'affiche tant que la bibliothèque
+  ///     n'est pas prête, puis la liste apparaît d'un bloc, déjà à jour (plus
+  ///     de remplissage petit à petit pendant qu'on défile). Le squelette ne
+  ///     dure jamais plus de [_maxLoaderWait] : au-delà, on montre la base
+  ///     existante et le scan finit en tâche de fond (une seule mise à jour,
+  ///     hors défilement) ;
   ///  2. mise à jour par différences : seuls les morceaux nouveaux ou
   ///     modifiés sont écrits, et la liste n'est relue que si quelque chose
   ///     a changé (cas le plus courant : rien, donc zéro écriture) ;
@@ -283,20 +313,32 @@ class TrackNotifier extends StateNotifier<TrackState> {
   Future<void> scanAndLoadTracks() async {
     await _ensureFilterLoaded();
 
-    // 1. Cache d'abord. Si la liste est déjà en mémoire, on la garde telle
-    // quelle (relance manuelle du scan).
-    if (state.tracks.isEmpty) {
-      await loadTracks();
+    // 1. Chargement d'abord (squelette), avec garde-fou de durée. Si la liste
+    // est déjà à l'écran (relance manuelle du scan), on ne la masque pas.
+    final initialLoad = state.tracks.isEmpty;
+    var shownFromCache = false;
+    Timer? loaderGuard;
+    state = state.copyWith(isLoading: initialLoad, error: null);
+    if (initialLoad) {
+      loaderGuard = Timer(_maxLoaderWait, () async {
+        if (!mounted || !state.isLoading) return;
+        try {
+          // Premier lancement : rien en base, le squelette reste.
+          if (await _storageService.getTrackCount() == 0) return;
+          shownFromCache = true;
+          await _reloadQuietly();
+        } catch (_) {
+          // Le scan en cours finira par afficher la liste de toute façon.
+        }
+      });
     }
-    // Le squelette de chargement ne s'affiche que s'il n'y a rien à montrer.
-    state = state.copyWith(isLoading: state.tracks.isEmpty, error: null);
 
     try {
       final result = await _libraryScanService.scan();
 
       if (!result.permissionGranted) {
-        // No permission: fall back to whatever is already stored locally
-        // (déjà affiché par le chargement du cache ci-dessus).
+        // No permission: fall back to whatever is already stored locally.
+        if (state.tracks.isEmpty) await _reloadQuietly();
         final permanentlyDenied =
             await _libraryScanService.isPermissionPermanentlyDenied();
         state = state.copyWith(
@@ -314,6 +356,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
         // Permission is granted but the OS reports no audio at all. Say so
         // explicitly - otherwise this is indistinguishable from a bug,
         // since the screen just shows an empty list either way.
+        if (state.tracks.isEmpty) await _reloadQuietly();
         state = state.copyWith(isLoading: false);
         if (state.tracks.isEmpty) {
           state = state.copyWith(
@@ -357,7 +400,11 @@ class TrackNotifier extends StateNotifier<TrackState> {
       // tout passe par Groq, comme avant.
       final genreByPath = <String, String>{};
 
+      var scanned = 0;
       for (final SongModel song in result.songs) {
+        // Une grosse bibliothèque = des milliers d'itérations : on rend la
+        // main à l'UI régulièrement au lieu de bloquer le thread d'un bloc.
+        if (++scanned % 400 == 0) await Future<void>.delayed(Duration.zero);
         final filePath = song.data;
         if (filePath.isEmpty) continue;
         // Morceau retiré par l'utilisateur : on ne le remet pas.
@@ -448,13 +495,26 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
       await TrackGenres.merge(genreByPath);
 
-      if (toSave.isNotEmpty) {
-        await _storageService.saveTracks(toSave);
-        // Quelque chose a changé : on relit la base (ids des nouveaux
-        // morceaux, état « aimé »...).
-        await loadTracks();
-      } else {
-        // Rien de nouveau : la liste affichée est déjà la bonne.
+      final needsReload = toSave.isNotEmpty;
+      if (needsReload) await _storageService.saveTracks(toSave);
+
+      if (needsReload) {
+        // La liste est peut-être déjà à l'écran : une seule mise à jour, et
+        // jamais pendant un défilement. Relecture « silencieuse » (ids des
+        // nouveaux morceaux, état « aimé »...), sans squelette.
+        if (!initialLoad || shownFromCache) await UiGate.instance.idle();
+        if (!mounted) return;
+        await _reloadQuietly();
+      } else if (state.tracks.isEmpty) {
+        // Ouverture sans aucun changement : on réutilise la lecture de la
+        // base déjà faite pour comparer, sans la refaire.
+        state = state.copyWith(
+          tracks: existingTracks,
+          filteredTracks: existingTracks,
+          isLoading: false,
+        );
+        _applyFilters();
+      } else if (state.isLoading) {
         state = state.copyWith(isLoading: false);
       }
 
@@ -469,7 +529,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
       // screen showing an empty list when storage already has tracks from
       // a previous successful scan - fall back to those.
       try {
-        await loadTracks();
+        if (state.tracks.isEmpty) await _reloadQuietly();
       } catch (_) {
         // Storage itself is also failing - nothing more we can recover.
       }
@@ -477,6 +537,8 @@ class TrackNotifier extends StateNotifier<TrackState> {
         isLoading: false,
         error: 'Erreur lors du scan de la bibliothèque. ${friendlyError(e)}',
       );
+    } finally {
+      loaderGuard?.cancel();
     }
   }
 
@@ -515,13 +577,21 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// as classified with today's date so it won't be picked up again by
   /// [classifyAllUnclassified], and refreshes filtered lists so the track
   /// immediately moves out of its old mood section and into the new one.
+  ///
+  /// [secondaryMood] : ambiance secondaire choisie (null = aucune). Elle n'est
+  /// touchée que si [updateSecondary] est vrai, pour que les appels qui ne
+  /// parlent que de l'ambiance principale la laissent intacte. Une secondaire
+  /// identique à la principale est ignorée.
   Future<void> setTrackMood(
     Track track, {
     required MoodType mood,
     required double confidence,
+    MoodType? secondaryMood,
+    bool updateSecondary = false,
   }) async {
     final previousMood = track.mood;
     final previousConfidence = track.moodConfidence;
+    final previousSecondary = track.secondaryMood;
 
     track
       ..mood = mood
@@ -529,8 +599,19 @@ class TrackNotifier extends StateNotifier<TrackState> {
       ..lastClassified = DateTime.now()
       ..updatedAt = DateTime.now();
 
+    if (updateSecondary) {
+      track.secondaryMood =
+          (secondaryMood == null || secondaryMood == MoodType.unknown)
+              ? null
+              : secondaryMood;
+    }
+    // La principale vient de devenir égale à l'ancienne secondaire : plus
+    // de nuance à afficher.
+    if (track.secondaryMood == mood) track.secondaryMood = null;
+
     try {
       await _storageService.saveTrack(track);
+      await TrackSecondaryMoods.set(track.filePath, track.secondaryMood);
       // Mémorise la correction : elle servira d'exemple aux prochaines
       // classifications Groq (« ce que toi tu appelles chill »). Un échec
       // ici ne doit jamais empêcher le changement d'ambiance.
@@ -552,7 +633,8 @@ class TrackNotifier extends StateNotifier<TrackState> {
     } catch (e) {
       track
         ..mood = previousMood
-        ..moodConfidence = previousConfidence;
+        ..moodConfidence = previousConfidence
+        ..secondaryMood = previousSecondary;
       state = state.copyWith(
         error: 'Erreur lors de la mise à jour de l\'ambiance. ${friendlyError(e)}',
       );
@@ -607,6 +689,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
         title: title,
         artist: artist,
       );
+      await TrackSecondaryMoods.move(oldPath, newPath);
 
       state = state.copyWith(tracks: [
         for (final t in state.tracks) if (t.id == track.id) track else t,
@@ -644,12 +727,25 @@ class TrackNotifier extends StateNotifier<TrackState> {
       final doubtful = <Track>[];
       final now = DateTime.now();
 
+      // Calculés une seule fois pour toute la passe (et non par morceau) :
+      // les ambiances déjà corrigées par genre, et le verdict par genre.
+      final correctedMoods = await _correctionService?.moodsByGenre() ??
+          const <String, Set<MoodType>>{};
+      final guessByGenre = <String, GenreMoodGuess?>{};
+
+      var seen = 0;
       for (final track in tracks) {
+        if (++seen % 300 == 0) await Future<void>.delayed(Duration.zero);
         final genre = track.filePath != null ? genres[track.filePath!] : null;
-        final guess = GenreMoodClassifier.guess(genre);
+        final guess = genre == null
+            ? null
+            : guessByGenre.putIfAbsent(
+                genre, () => GenreMoodClassifier.guess(genre));
         final contested = guess != null &&
             genre != null &&
-            (await _correctionService?.isContested(genre, guess.mood) ?? false);
+            (correctedMoods[genre.trim().toLowerCase()]
+                    ?.any((m) => m != guess.mood) ??
+                false);
 
         if (guess == null || contested) {
           doubtful.add(track);
@@ -707,6 +803,8 @@ class TrackNotifier extends StateNotifier<TrackState> {
         final updatedTracks = List<Track>.from(state.tracks);
         String? lastError;
         final toSave = <Track>[];
+        final secondaryByPath = <String, MoodType>{};
+        final clearedSecondary = <String>[];
 
         for (var i = 0; i < chunk.length; i++) {
           final track = chunk[i];
@@ -715,8 +813,18 @@ class TrackNotifier extends StateNotifier<TrackState> {
           if (!result.hasError) {
             track.mood = result.mood;
             track.moodConfidence = result.confidence;
+            track.secondaryMood = result.secondaryMood;
             track.lastClassified = DateTime.now();
             toSave.add(track);
+            final path = track.filePath;
+            if (path != null) {
+              final sec = result.secondaryMood;
+              if (sec != null) {
+                secondaryByPath[path] = sec;
+              } else {
+                clearedSecondary.add(path);
+              }
+            }
 
             final index = updatedTracks.indexWhere((t) => t.id == track.id);
             if (index != -1) updatedTracks[index] = track;
@@ -729,6 +837,10 @@ class TrackNotifier extends StateNotifier<TrackState> {
 
         if (toSave.isNotEmpty) {
           await _storageService.saveTracks(toSave);
+          for (final path in clearedSecondary) {
+            await TrackSecondaryMoods.remove(path);
+          }
+          await TrackSecondaryMoods.merge(secondaryByPath);
         }
 
         state = state.copyWith(
@@ -815,6 +927,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
         final end = (start + batchSize).clamp(0, doubtful.length);
         final chunk = doubtful.sublist(start, end);
 
+        await UiGate.instance.idle();
         final completed = await _classifyChunk(chunk, maxRateLimitRetries: 5);
         // Échec définitif (réseau / limite de requêtes) : inutile d'enchaîner
         // les lots suivants, le message d'erreur est déjà affiché.
@@ -936,6 +1049,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
       // morceau (son fichier est toujours sur l'appareil).
       final path = state.tracks.firstWhereOrNull((t) => t.id == id)?.filePath;
       if (path != null) await RemovedTracks.add(path);
+      await TrackSecondaryMoods.remove(path);
       await _storageService.deleteTrack(id);
       await loadTracks();
     } catch (e) {
@@ -953,6 +1067,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     try {
       await _storageService.clearAllTracks();
       await RemovedTracks.clear();
+      await TrackSecondaryMoods.clear();
       await loadTracks();
     } catch (e) {
       state = state.copyWith(
