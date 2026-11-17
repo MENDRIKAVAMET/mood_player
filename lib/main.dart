@@ -12,6 +12,7 @@ import 'services/storage_service.dart';
 import 'services/ui_gate.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/startup_gate.dart';
 import 'widgets/update_gate.dart';
 
 /// Every startup step wrapped in a timeout so a hung native call (e.g.
@@ -211,7 +212,8 @@ class _MyAppState extends ConsumerState<MyApp> {
     } else if (widget.needsOnboarding) {
       home = const OnboardingScreen();
     } else {
-      home = const UpdateGate(child: MainShell());
+      // Écran de démarrage (icône + animation) pendant le scan, puis l'app.
+      home = const UpdateGate(child: StartupGate(child: MainShell()));
     }
 
     return MaterialApp(

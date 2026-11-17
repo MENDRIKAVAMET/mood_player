@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/mood_splash.dart';
+import '../../widgets/startup_gate.dart';
 import '../shell/main_shell.dart';
 
 enum _Step { permission, loading, artist, smartQueue }
@@ -30,6 +31,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   _Step _step = _Step.permission;
   List<String> _artists = const [];
+
+  /// Vrai une fois le scan fait ici. Si l'utilisateur passe l'étape
+  /// d'autorisation, aucun scan n'a eu lieu : l'écran de démarrage
+  /// (StartupGate) le fait alors avant d'entrer dans l'app.
+  bool _scanned = false;
   List<String>? _pendingFavoriteArtists;
 
   int get _stepIndex {
@@ -51,6 +57,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // sur Android 13+, storage avant) puis le scan MediaStore - pas besoin
     // de dupliquer cette logique ici.
     await ref.read(trackProvider.notifier).scanAndLoadTracks();
+    _scanned = true;
     if (!mounted) return;
 
     // Demandée ici, explicitement, pendant que l'utilisateur vient déjà
@@ -104,8 +111,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await ref.read(profileProvider.notifier).setSmartQueueEnabled(smartQueueEnabled);
     await ref.read(profileProvider.notifier).completeOnboarding();
     if (!mounted) return;
+    final scanned = _scanned;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainShell()),
+      MaterialPageRoute(
+        builder: (_) => scanned
+            ? const MainShell()
+            : const StartupGate(child: MainShell()),
+      ),
     );
   }
 

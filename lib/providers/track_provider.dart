@@ -310,7 +310,13 @@ class TrackNotifier extends StateNotifier<TrackState> {
   ///     modifiés sont écrits, et la liste n'est relue que si quelque chose
   ///     a changé (cas le plus courant : rien, donc zéro écriture) ;
   ///  3. cache des pochettes lu en un seul listing de dossier.
-  Future<void> scanAndLoadTracks() async {
+  ///
+  /// [showCachedWhileScanning] : à vrai (défaut), au bout de [_maxLoaderWait]
+  /// la base existante est montrée pendant que le scan finit. À faux, on ne
+  /// relit rien avant la fin du scan : utilisé par l'écran de démarrage
+  /// (StartupGate), qui attend de toute façon le scan avant d'afficher l'app,
+  /// et évite ainsi une double lecture + un double tri de toute la base.
+  Future<void> scanAndLoadTracks({bool showCachedWhileScanning = true}) async {
     await _ensureFilterLoaded();
 
     // 1. Chargement d'abord (squelette), avec garde-fou de durée. Si la liste
@@ -319,7 +325,7 @@ class TrackNotifier extends StateNotifier<TrackState> {
     var shownFromCache = false;
     Timer? loaderGuard;
     state = state.copyWith(isLoading: initialLoad, error: null);
-    if (initialLoad) {
+    if (initialLoad && showCachedWhileScanning) {
       loaderGuard = Timer(_maxLoaderWait, () async {
         if (!mounted || !state.isLoading) return;
         try {

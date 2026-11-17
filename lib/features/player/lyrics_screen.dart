@@ -13,6 +13,7 @@ import '../../theme/mood_colors.dart';
 import '../../widgets/player_slider_shapes.dart';
 import '../../widgets/track_artwork.dart';
 import 'lyrics_search_screen.dart';
+import '../share/track_share.dart';
 
 /// How much one tap of the sync buttons shifts the lyrics. 300ms is small
 /// enough to fine-tune without overshooting, big enough to feel like it
@@ -445,6 +446,8 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                   _openTextSettings(color);
                 case 'search':
                   _openSearch();
+                case 'share':
+                  startTrackShare(context, _track);
                 case 'sync':
                   setState(() => _showSyncControls = !_showSyncControls);
               }
@@ -456,6 +459,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                 value: 'search',
                 child: Text('Rechercher les paroles'),
               ),
+              const PopupMenuItem(value: 'share', child: Text('Partager')),
               if (synced)
                 const PopupMenuItem(
                   value: 'sync',
@@ -703,7 +707,7 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
           ),
           const SizedBox(height: AppTheme.spacingM),
 
-          // Trois actions : style du texte, recherche, synchronisation
+          // Quatre actions : style du texte, recherche, synchronisation, partage
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -729,6 +733,11 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                     ? () => setState(() => _showSyncControls = !_showSyncControls)
                     : null,
                 child: const Icon(Icons.swap_horiz_rounded),
+              ),
+              roundAction(
+                tooltip: 'Partager',
+                onTap: () => startTrackShare(context, _track),
+                child: const Icon(Icons.share_rounded),
               ),
             ],
           ),

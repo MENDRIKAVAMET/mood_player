@@ -42,15 +42,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Scan de toute la bibliothèque audio de l'appareil à chaque
-      // ouverture : récupère les nouveaux fichiers et rafraîchit les
-      // métadonnées des morceaux déjà connus, sans toucher à leur
-      // classification.
-      ref.read(trackProvider.notifier).scanAndLoadTracks().then((_) {
-        // « Volume uniforme » : mesure les nouveaux morceaux (ne fait rien
-        // si la fonction est désactivée).
-        if (mounted) ref.read(loudnessProvider.notifier).analyzeLibrary();
-      });
+      // Le scan de la bibliothèque audio est déjà fait à l'ouverture de
+      // l'app, derrière l'écran de démarrage (StartupGate) : la liste est
+      // donc prête dès le premier affichage. Les relances manuelles du scan
+      // (boutons plus bas) restent possibles.
+      //
+      // « Volume uniforme » : mesure les nouveaux morceaux (ne fait rien
+      // si la fonction est désactivée).
+      if (mounted) ref.read(loudnessProvider.notifier).analyzeLibrary();
       ref.read(customMoodProvider.notifier).loadMoods();
 
       // Démarre le suivi des écoutes réelles dès l'ouverture de l'app,

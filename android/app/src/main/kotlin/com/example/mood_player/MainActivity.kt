@@ -22,7 +22,15 @@ import android.os.Build
 import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Paint
+import android.graphics.Rect
 import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaMuxer
+import android.view.Surface
+import java.nio.ByteBuffer
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import java.nio.ByteOrder
@@ -49,6 +57,10 @@ class MainActivity : AudioServiceFragmentActivity() {
             runnable.run()
         }
     }
+
+    // Création des vidéos d'extrait : executor dédié (priorité normale, pas
+    // celle d'arrière-plan de analysisExecutor).
+    private val excerptExecutor = Executors.newSingleThreadExecutor()
 
     private data class RenameRequest(
         val uri: Uri,
@@ -163,6 +175,36 @@ class MainActivity : AudioServiceFragmentActivity() {
                                 null
                             }
                             runOnUiThread { result.success(value) }
+                        }
+                    }
+                    "createExcerptVideo" -> {
+                        val uri = call.argument<String>("uri")
+                        val path = call.argument<String>("path")
+                        val imagePath = call.argument<String>("imagePath")
+                        val outputPath = call.argument<String>("outputPath")
+                        val startMs = call.argument<Number>("startMs")?.toLong()
+                        val durationMs = call.argument<Number>("durationMs")?.toLong()
+                        if ((uri == null && path == null) || imagePath == null ||
+                            outputPath == null || startMs == null || durationMs == null
+                        ) {
+                            result.error("ARGS", "Arguments manquants", null)
+                        } else {
+                            excerptExecutor.execute {
+                                try {
+                                    val out = createExcerptVideo(
+                                        uri, path, imagePath, startMs, durationMs, outputPath
+                                    )
+                                    runOnUiThread { result.success(out) }
+                                } catch (e: Throwable) {
+                                    runOnUiThread {
+                                        result.error(
+                                            "EXCERPT",
+                                            e.message ?: "Création de la vidéo impossible",
+                                            null
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                     else -> result.notImplemented()
@@ -289,6 +331,404 @@ class MainActivity : AudioServiceFragmentActivity() {
             try { codec?.stop() } catch (_: Throwable) {}
             try { codec?.release() } catch (_: Throwable) {}
             extractor.release()
+        }
+    }
+
+
+    // ---------------------------------------------------------------
+    // Extrait vidéo (image fixe + audio) : MediaCodec + MediaMuxer
+    // ---------------------------------------------------------------
+
+    private class PcmResult(val pcm: ShortArray, val sampleRate: Int, val channels: Int)
+
+    private class EncodedSample(val data: ByteArray, val timeUs: Long, val flags: Int)
+
+    private class EncodedTrack(val format: MediaFormat, val samples: List<EncodedSample>)
+
+    private val phaseLimitMs = 30_000L
+
+    private fun createExcerptVideo(
+        uri: String?,
+        path: String?,
+        imagePath: String,
+        startMs: Long,
+        durationMs: Long,
+        outputPath: String
+    ): String {
+        if (durationMs <= 0) throw IllegalArgumentException("Durée d'extrait invalide")
+        try {
+            val pcm = decodeExcerptPcm(uri, path, startMs, durationMs)
+            val audio = encodeAac(pcm)
+            val frames = pcm.pcm.size / pcm.channels
+            // Durée réelle de l'audio obtenu (peut être < durationMs en fin de morceau).
+            val audioDurationUs = frames * 1_000_000L / pcm.sampleRate
+            val video = encodeVideo(imagePath, audioDurationUs)
+            muxTracks(outputPath, audio, video)
+            return outputPath
+        } catch (e: Throwable) {
+            try { File(outputPath).delete() } catch (_: Throwable) {}
+            throw e
+        }
+    }
+
+    /** Décode [durationMs] d'audio à partir de [startMs] en PCM 16 bits entrelacé. */
+    private fun decodeExcerptPcm(
+        uri: String?,
+        path: String?,
+        startMs: Long,
+        durationMs: Long
+    ): PcmResult {
+        val extractor = MediaExtractor()
+        var codec: MediaCodec? = null
+        try {
+            if (uri != null) {
+                extractor.setDataSource(applicationContext, Uri.parse(uri), null)
+            } else if (path != null) {
+                extractor.setDataSource(path)
+            } else {
+                throw IllegalArgumentException("Source audio manquante")
+            }
+
+            var trackIndex = -1
+            var format: MediaFormat? = null
+            var mime = ""
+            for (i in 0 until extractor.trackCount) {
+                val f = extractor.getTrackFormat(i)
+                val m = f.getString(MediaFormat.KEY_MIME) ?: continue
+                if (m.startsWith("audio/")) {
+                    trackIndex = i
+                    format = f
+                    mime = m
+                    break
+                }
+            }
+            if (trackIndex < 0 || format == null) throw IllegalStateException("Aucune piste audio")
+            extractor.selectTrack(trackIndex)
+
+            val startUs = startMs * 1000L
+            val windowUs = durationMs * 1000L
+            if (startUs > 0) extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+
+            var sampleRate =
+                if (format.containsKey(MediaFormat.KEY_SAMPLE_RATE)) format.getInteger(MediaFormat.KEY_SAMPLE_RATE) else 44100
+            var channels =
+                if (format.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) format.getInteger(MediaFormat.KEY_CHANNEL_COUNT) else 2
+            if (channels > 2) throw IllegalStateException("Audio à plus de 2 canaux non pris en charge")
+
+            val decoder = MediaCodec.createDecoderByType(mime)
+            codec = decoder
+            decoder.configure(format, null, null, 0)
+            decoder.start()
+
+            val info = MediaCodec.BufferInfo()
+            var inputDone = false
+            var outputDone = false
+            var isFloat = false
+            var pcmBuf: ShortArray? = null
+            var filled = 0
+            val deadline = System.currentTimeMillis() + phaseLimitMs
+
+            while (!outputDone) {
+                if (System.currentTimeMillis() > deadline) {
+                    throw IllegalStateException("Décodage de l'audio trop long")
+                }
+                if (!inputDone) {
+                    val inIndex = decoder.dequeueInputBuffer(10_000)
+                    if (inIndex >= 0) {
+                        val buf = decoder.getInputBuffer(inIndex)!!
+                        val size = extractor.readSampleData(buf, 0)
+                        val time = extractor.sampleTime
+                        if (size < 0 || time < 0 || time > startUs + windowUs + 1_000_000L) {
+                            decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                        } else {
+                            decoder.queueInputBuffer(inIndex, 0, size, time, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+
+                val outIndex = decoder.dequeueOutputBuffer(info, 10_000)
+                if (outIndex >= 0) {
+                    val out = decoder.getOutputBuffer(outIndex)
+                    if (out != null && info.size > 0) {
+                        out.position(info.offset)
+                        out.limit(info.offset + info.size)
+                        val data = out.slice().order(ByteOrder.nativeOrder())
+                        val samples: ShortArray
+                        if (isFloat) {
+                            val fb = data.asFloatBuffer()
+                            samples = ShortArray(fb.remaining())
+                            for (i in samples.indices) {
+                                val v = fb.get() * 32767f
+                                samples[i] = v.coerceIn(-32768f, 32767f).toInt().toShort()
+                            }
+                        } else {
+                            val sb = data.asShortBuffer()
+                            samples = ShortArray(sb.remaining())
+                            sb.get(samples)
+                        }
+                        val frames = samples.size / channels
+                        // On jette les trames situées avant startUs (niveau trame).
+                        var skip = 0
+                        if (info.presentationTimeUs < startUs) {
+                            skip = (((startUs - info.presentationTimeUs) * sampleRate + 999_999L) / 1_000_000L)
+                                .toInt().coerceIn(0, frames)
+                        }
+                        val dst = pcmBuf ?: ShortArray(((windowUs * sampleRate) / 1_000_000L).toInt() * channels)
+                            .also { pcmBuf = it }
+                        val n = minOf((frames - skip) * channels, dst.size - filled)
+                        if (n > 0) {
+                            System.arraycopy(samples, skip * channels, dst, filled, n)
+                            filled += n
+                        }
+                        if (filled >= dst.size) outputDone = true
+                    }
+                    decoder.releaseOutputBuffer(outIndex, false)
+                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
+                } else if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    val of = decoder.outputFormat
+                    if (of.containsKey(MediaFormat.KEY_SAMPLE_RATE)) sampleRate = of.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                    if (of.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) channels = of.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                    if (channels > 2) throw IllegalStateException("Audio à plus de 2 canaux non pris en charge")
+                    if (of.containsKey("pcm-encoding")) {
+                        val enc = of.getInteger("pcm-encoding")
+                        // 2 = PCM 16 bits, 4 = PCM float
+                        if (enc != 2 && enc != 4) throw IllegalStateException("Format PCM non pris en charge")
+                        isFloat = enc == 4
+                    } else {
+                        isFloat = false
+                    }
+                }
+            }
+
+            val buf = pcmBuf
+            val usable = filled - (filled % channels)
+            if (buf == null || usable <= 0) {
+                throw IllegalStateException("Aucun échantillon audio dans l'extrait demandé")
+            }
+            return PcmResult(buf.copyOf(usable), sampleRate, channels)
+        } finally {
+            try { codec?.stop() } catch (_: Throwable) {}
+            try { codec?.release() } catch (_: Throwable) {}
+            try { extractor.release() } catch (_: Throwable) {}
+        }
+    }
+
+    /** Encode le PCM en AAC-LC 128 kbps ; garde les échantillons en mémoire. */
+    private fun encodeAac(src: PcmResult): EncodedTrack {
+        val format = MediaFormat.createAudioFormat(
+            MediaFormat.MIMETYPE_AUDIO_AAC, src.sampleRate, src.channels
+        ).apply {
+            setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+            setInteger(MediaFormat.KEY_BIT_RATE, 128_000)
+            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384)
+        }
+        var codec: MediaCodec? = null
+        try {
+            val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
+            codec = encoder
+            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            encoder.start()
+
+            val info = MediaCodec.BufferInfo()
+            val samples = ArrayList<EncodedSample>()
+            var outFormat: MediaFormat? = null
+            var inputDone = false
+            var outputDone = false
+            var offsetShorts = 0
+            val frameShorts = src.channels
+            val deadline = System.currentTimeMillis() + phaseLimitMs
+
+            while (!outputDone) {
+                if (System.currentTimeMillis() > deadline) {
+                    throw IllegalStateException("Encodage audio trop long")
+                }
+                if (!inputDone) {
+                    val inIndex = encoder.dequeueInputBuffer(10_000)
+                    if (inIndex >= 0) {
+                        val ib = encoder.getInputBuffer(inIndex)!!
+                        ib.clear()
+                        val remaining = src.pcm.size - offsetShorts
+                        if (remaining <= 0) {
+                            encoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                        } else {
+                            var chunk = minOf(remaining, ib.capacity() / 2)
+                            chunk -= chunk % frameShorts
+                            if (chunk <= 0) throw IllegalStateException("Tampon d'entrée AAC trop petit")
+                            ib.order(ByteOrder.nativeOrder()).asShortBuffer().put(src.pcm, offsetShorts, chunk)
+                            val ptsUs = (offsetShorts / frameShorts) * 1_000_000L / src.sampleRate
+                            encoder.queueInputBuffer(inIndex, 0, chunk * 2, ptsUs, 0)
+                            offsetShorts += chunk
+                        }
+                    }
+                }
+
+                val outIndex = encoder.dequeueOutputBuffer(info, 10_000)
+                if (outIndex >= 0) {
+                    val ob = encoder.getOutputBuffer(outIndex)
+                    val isConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+                    if (ob != null && info.size > 0 && !isConfig) {
+                        ob.position(info.offset)
+                        ob.limit(info.offset + info.size)
+                        val bytes = ByteArray(info.size)
+                        ob.get(bytes)
+                        samples.add(
+                            EncodedSample(
+                                bytes,
+                                info.presentationTimeUs,
+                                info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM.inv()
+                            )
+                        )
+                    }
+                    encoder.releaseOutputBuffer(outIndex, false)
+                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
+                } else if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    outFormat = encoder.outputFormat
+                }
+            }
+
+            val fmt = outFormat ?: encoder.outputFormat
+            if (samples.isEmpty()) throw IllegalStateException("Encodage audio vide")
+            return EncodedTrack(fmt, samples)
+        } finally {
+            try { codec?.stop() } catch (_: Throwable) {}
+            try { codec?.release() } catch (_: Throwable) {}
+        }
+    }
+
+    /** Encode l'image fixe en H.264 (~10 fps) pendant [durationUs]. */
+    private fun encodeVideo(imagePath: String, durationUs: Long): EncodedTrack {
+        val fps = 10
+        val source = BitmapFactory.decodeFile(imagePath)
+            ?: throw IllegalStateException("Image illisible")
+        var codec: MediaCodec? = null
+        var surface: Surface? = null
+        try {
+            // H.264 exige des dimensions paires.
+            val w = (source.width / 2) * 2
+            val h = (source.height / 2) * 2
+            if (w < 2 || h < 2) throw IllegalStateException("Image trop petite")
+            val dst = Rect(0, 0, w, h)
+            val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+
+            val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w, h).apply {
+                setInteger(
+                    MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface
+                )
+                setInteger(MediaFormat.KEY_BIT_RATE, 2_000_000)
+                setInteger(MediaFormat.KEY_FRAME_RATE, fps)
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+            }
+            val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+            codec = encoder
+            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            val inSurface = encoder.createInputSurface()
+            surface = inSurface
+            encoder.start()
+
+            val info = MediaCodec.BufferInfo()
+            val samples = ArrayList<EncodedSample>()
+            var outFormat: MediaFormat? = null
+            var index = 0L
+            val deadline = System.currentTimeMillis() + phaseLimitMs
+
+            // Vide la sortie ; renvoie true quand EOS est atteint.
+            fun drain(untilEos: Boolean): Boolean {
+                while (true) {
+                    if (System.currentTimeMillis() > deadline) {
+                        throw IllegalStateException("Encodage vidéo trop long")
+                    }
+                    val outIndex = encoder.dequeueOutputBuffer(info, 10_000)
+                    if (outIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                        if (!untilEos) return false
+                    } else if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                        outFormat = encoder.outputFormat
+                    } else if (outIndex >= 0) {
+                        val ob = encoder.getOutputBuffer(outIndex)
+                        val isConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+                        if (ob != null && info.size > 0 && !isConfig) {
+                            ob.position(info.offset)
+                            ob.limit(info.offset + info.size)
+                            val bytes = ByteArray(info.size)
+                            ob.get(bytes)
+                            // Les timestamps de la surface sont ceux de l'horloge
+                            // système : on les réécrit en index × 1e6 / fps.
+                            samples.add(
+                                EncodedSample(
+                                    bytes,
+                                    index * 1_000_000L / fps,
+                                    info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM.inv()
+                                )
+                            )
+                            index++
+                        }
+                        encoder.releaseOutputBuffer(outIndex, false)
+                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return true
+                    }
+                }
+            }
+
+            val frameCount = Math.round(durationUs * fps / 1_000_000.0).toInt().coerceAtLeast(1)
+            for (i in 0 until frameCount) {
+                if (System.currentTimeMillis() > deadline) {
+                    throw IllegalStateException("Encodage vidéo trop long")
+                }
+                val canvas = inSurface.lockCanvas(null)
+                try {
+                    canvas.drawBitmap(source, null, dst, paint)
+                } finally {
+                    inSurface.unlockCanvasAndPost(canvas)
+                }
+                // Vider la sortie entre chaque frame évite de bloquer l'encodeur.
+                drain(false)
+            }
+            encoder.signalEndOfInputStream()
+            drain(true)
+
+            val fmt = outFormat ?: encoder.outputFormat
+            if (samples.isEmpty()) throw IllegalStateException("Encodage vidéo vide")
+            return EncodedTrack(fmt, samples)
+        } finally {
+            try { codec?.stop() } catch (_: Throwable) {}
+            try { codec?.release() } catch (_: Throwable) {}
+            try { surface?.release() } catch (_: Throwable) {}
+            try { source.recycle() } catch (_: Throwable) {}
+        }
+    }
+
+    /** Assemble les deux pistes dans un MP4, échantillons triés par timestamp. */
+    private fun muxTracks(outputPath: String, audio: EncodedTrack, video: EncodedTrack) {
+        val outFile = File(outputPath)
+        outFile.parentFile?.mkdirs()
+        if (outFile.exists()) outFile.delete()
+        var muxer: MediaMuxer? = null
+        var started = false
+        try {
+            val m = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            muxer = m
+            val videoIdx = m.addTrack(video.format)
+            val audioIdx = m.addTrack(audio.format)
+            m.start()
+            started = true
+
+            val info = MediaCodec.BufferInfo()
+            var vi = 0
+            var ai = 0
+            while (vi < video.samples.size || ai < audio.samples.size) {
+                val takeVideo = ai >= audio.samples.size ||
+                    (vi < video.samples.size && video.samples[vi].timeUs <= audio.samples[ai].timeUs)
+                val s = if (takeVideo) video.samples[vi++] else audio.samples[ai++]
+                info.set(0, s.data.size, s.timeUs, s.flags)
+                m.writeSampleData(if (takeVideo) videoIdx else audioIdx, ByteBuffer.wrap(s.data), info)
+            }
+            m.stop()
+            started = false
+        } finally {
+            try { if (started) muxer?.stop() } catch (_: Throwable) {}
+            try { muxer?.release() } catch (_: Throwable) {}
         }
     }
 
