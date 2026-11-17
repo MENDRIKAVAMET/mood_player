@@ -122,7 +122,8 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
       return;
     }
     try {
-      final handler = _handler ?? await ref.read(audioHandlerProvider.future);
+      final MoodAudioHandler handler =
+          await ref.read(audioHandlerProvider.future);
       _handler = handler;
       await handler.seek(Duration(milliseconds: _startMs.round()));
       await handler.play();
@@ -148,6 +149,7 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
     setState(() => _sharing = true);
     try {
       await _stopPreview();
+      if (!mounted) return;
       final boundary =
           _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) throw StateError('carte indisponible');
