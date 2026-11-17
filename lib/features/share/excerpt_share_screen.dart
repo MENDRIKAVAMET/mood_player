@@ -15,9 +15,9 @@ import '../../providers/audio_provider.dart';
 import '../../services/audio_handler.dart';
 import '../../services/excerpt_service.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/mood_colors.dart';
 import '../../utils/app_error.dart';
 import '../../widgets/app_header.dart';
+import 'share_card.dart';
 
 /// Partage d'un extrait de 10 s (vidéo MP4 : image fixe + audio).
 class ExcerptShareScreen extends ConsumerStatefulWidget {
@@ -324,89 +324,8 @@ class _ExcerptCard extends StatelessWidget {
     required this.cover,
   });
 
-  Widget _gradient(MoodColors c) => DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [c.secondary, c.primary, c.gradientEnd],
-          ),
-        ),
-      );
-
-  Widget _background(MoodColors c) {
-    final fallback = _gradient(c);
-    final custom = this.custom;
-    if (custom != null) {
-      // Image choisie : plein cadre, sans pochette au centre.
-      return Image(
-        image: custom,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => fallback,
-      );
-    }
-    final cover = this.cover;
-    if (cover != null) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          ClipRect(
-            child: Transform.scale(
-              scale: 1.2,
-              child: ImageFiltered(
-                imageFilter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-                child: Image(
-                  image: cover,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => fallback,
-                ),
-              ),
-            ),
-          ),
-          Align(
-            alignment: const Alignment(0, -0.2),
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 40,
-                    offset: const Offset(0, 16),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Image(
-                  image: cover,
-                  fit: BoxFit.cover,
-                  width: 250,
-                  height: 250,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    final asset = track.mood?.imageAsset;
-    if (asset != null) {
-      return Image.asset(
-        asset,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => fallback,
-      );
-    }
-    return fallback;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colors = MoodColors.forMood(track.mood);
     return SizedBox(
       width: 360,
       height: 640,
@@ -414,7 +333,7 @@ class _ExcerptCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _background(colors),
+            ShareCardBackground(track: track, custom: custom, cover: cover),
             // Dégradé sombre pour la lisibilité du texte.
             DecoratedBox(
               decoration: BoxDecoration(

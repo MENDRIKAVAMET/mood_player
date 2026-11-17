@@ -148,13 +148,23 @@ class ClassifyHeaderButton extends ConsumerWidget {
             style: AppTheme.headlineMedium),
         content: Text(
           'Voulez-vous classifier tous les morceaux non classifiés ? '
-          'Cela peut prendre du temps selon le nombre de morceaux.',
+          'Cela peut prendre du temps selon le nombre de morceaux.\n\n'
+          'Tu peux aussi compléter les ambiances secondaires manquantes des '
+          'morceaux déjà classés : leur ambiance principale ne change pas.',
           style: AppTheme.bodyMedium,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
             child: Text('Annuler',
+                style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              ref.read(trackProvider.notifier).fillMissingSecondaryMoods();
+            },
+            child: Text('Compléter les 2ᵉ moods',
                 style: TextStyle(color: AppTheme.textSecondary)),
           ),
           TextButton(

@@ -7,8 +7,10 @@ import '../../theme/app_theme.dart';
 import '../../utils/app_error.dart';
 import '../../widgets/app_header.dart';
 import 'excerpt_share_screen.dart';
+import 'lyrics_card_screen.dart';
 
-/// Sélection des lignes de paroles à partager en texte.
+/// Sélection des lignes de paroles à partager, en image (par défaut) ou en
+/// texte.
 class LyricsShareScreen extends StatefulWidget {
   final Track track;
   final LyricsResult result;
@@ -72,7 +74,34 @@ class _LyricsShareScreenState extends State<LyricsShareScreen> {
     return buf.toString();
   }
 
-  Future<void> _share() async {
+  /// Lignes choisies dans l'ordre, avec une chaîne vide entre deux sélections
+  /// non adjacentes : sert à dessiner la carte image.
+  List<String> _blocks() {
+    final sorted = _selected.toList()..sort();
+    final out = <String>[];
+    int? prev;
+    for (final i in sorted) {
+      if (prev != null && i != prev + 1) out.add('');
+      out.add(_lines[i]);
+      prev = i;
+    }
+    return out;
+  }
+
+  void _openCard() {
+    if (_selected.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LyricsCardScreen(
+          track: widget.track,
+          lines: _blocks(),
+          text: _compose(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareText() async {
     if (_sharing || _selected.isEmpty) return;
     setState(() => _sharing = true);
     try {
@@ -185,12 +214,16 @@ class _LyricsShareScreenState extends State<LyricsShareScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: (n == 0 || _sharing) ? null : _share,
-                        icon: const Icon(Icons.share_rounded),
-                        label: Text('Partager ($n)'),
+                        onPressed: n == 0 ? null : _openCard,
+                        icon: const Icon(Icons.image_rounded),
+                        label: Text('Créer l\'image ($n)'),
                       ),
                     ),
                     const SizedBox(height: AppTheme.spacingS),
+                    TextButton(
+                      onPressed: (n == 0 || _sharing) ? null : _shareText,
+                      child: const Text('Partager en texte'),
+                    ),
                     TextButton(
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
