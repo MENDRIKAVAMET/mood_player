@@ -41,6 +41,10 @@ class _StartupGateState extends ConsumerState<StartupGate> {
   static const Duration _minSplash = Duration(milliseconds: 800);
   static const Duration _maxWait = Duration(seconds: 45);
 
+  /// Pause supplémentaire une fois le scan terminé, avant de quitter
+  /// l'écran de chargement et d'afficher l'app.
+  static const Duration _postScanDelay = Duration(seconds: 5);
+
   bool _ready = false;
   Timer? _minTimer;
   Timer? _safetyTimer;
@@ -82,6 +86,9 @@ class _StartupGateState extends ConsumerState<StartupGate> {
 
     await Future.wait([minDone.future, scanDone.future]);
     _safetyTimer?.cancel();
+    if (!mounted) return;
+    // Scan terminé : on garde le chargement 5 s de plus.
+    await Future<void>.delayed(_postScanDelay);
     if (!mounted) return;
     setState(() => _ready = true);
   }
