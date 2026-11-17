@@ -191,7 +191,9 @@ class GroqService {
       query.replaceAll(RegExp(r'[<>]'), ' '),
       max: 160,
     );
-    if (clean.isEmpty) return (weights: const {}, excluded: const {});
+    if (clean.isEmpty) {
+      return (weights: const <MoodType, double>{}, excluded: const <MoodType>{});
+    }
 
     try {
       final response = await _dio.post(
@@ -311,7 +313,9 @@ class GroqService {
         }
       }
 
-      if (found.isEmpty) return (weights: const {}, excluded: excluded);
+      if (found.isEmpty) {
+        return (weights: const <MoodType, double>{}, excluded: excluded);
+      }
 
       final top = (found.entries.toList()
             ..sort((a, b) => b.value.compareTo(a.value)))

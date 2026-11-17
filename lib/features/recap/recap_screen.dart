@@ -111,7 +111,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                     horizontal: AppTheme.spacingL,
                   ),
                   itemCount: choices.length,
-                  separatorBuilder: (_, __) =>
+                  separatorBuilder: (_, _) =>
                       const SizedBox(width: AppTheme.spacingS),
                   itemBuilder: (_, i) => ChoiceChip(
                     label: Text(RecapBuilder.monthLabel(choices[i])),
