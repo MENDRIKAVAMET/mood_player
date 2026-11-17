@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -36,9 +35,7 @@ class _StartupGateState extends ConsumerState<StartupGate> {
   static const Duration _minSplash = Duration(milliseconds: 800);
   static const Duration _maxWait = Duration(seconds: 45);
 
-  // Dans les tests il n'y a ni permission ni MediaStore : le scan ne se
-  // terminerait jamais et l'écran de démarrage resterait affiché.
-  bool _ready = Platform.environment.containsKey('FLUTTER_TEST');
+  bool _ready = false;
   Timer? _minTimer;
   Timer? _safetyTimer;
 
@@ -47,7 +44,6 @@ class _StartupGateState extends ConsumerState<StartupGate> {
     super.initState();
     // Après la première image : l'icône est déjà à l'écran quand le scan
     // démarre, il n'y a donc jamais d'écran vide pendant l'attente.
-    if (_ready) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => _run());
   }
 

@@ -102,31 +102,74 @@ class UpdateService {
 
       final assets = data['assets'];
       if (assets is! List) return null;
+
+      final apks = <_ApkAsset>[];
       for (final a in assets) {
         if (a is! Map) continue;
         final name = a['name'];
         final url = a['browser_download_url'];
-        if (name is String &&
-            name.toLowerCase().endsWith('.apk') &&
-            url is String) {
-          final uri = Uri.tryParse(url);
-          // N'accepte que le téléchargement depuis GitHub.
-          if (uri == null || uri.scheme != 'https' || !_isGithubHost(uri.host)) {
-            continue;
-          }
-          final size = a['size'];
-          return AppUpdate(
-            version: tag.startsWith('v') ? tag.substring(1) : tag,
-            apkUrl: uri,
-            size: size is int ? size : null,
-            notes: data['body'] is String ? (data['body'] as String).trim() : '',
-          );
+        if (name is! String ||
+            url is! String ||
+            !name.toLowerCase().endsWith('.apk')) {
+          continue;
         }
+        final uri = Uri.tryParse(url);
+        // N'accepte que le téléchargement depuis GitHub.
+        if (uri == null || uri.scheme != 'https' || !_isGithubHost(uri.host)) {
+          continue;
+        }
+        final size = a['size'];
+        apks.add(_ApkAsset(name, uri, size is int ? size : null));
       }
+      if (apks.isEmpty) return null;
+
+      final apk = await _pickApk(apks);
+      return AppUpdate(
+        version: tag.startsWith('v') ? tag.substring(1) : tag,
+        apkUrl: apk.uri,
+        size: apk.size,
+        notes: data['body'] is String ? (data['body'] as String).trim() : '',
+      );
     } catch (_) {
       // Silencieux, voir ci-dessus.
     }
     return null;
+  }
+
+  /// Architectures dont le nom peut apparaître dans un APK de la release
+  /// (« app-arm64-v8a-release.apk », etc.).
+  static const List<String> _knownAbis = [
+    'arm64-v8a',
+    'armeabi-v7a',
+    'x86_64',
+    'x86',
+  ];
+
+  static bool _hasAbi(String name, String abi) =>
+      name.toLowerCase().contains('-$abi-');
+
+  /// Choisit, parmi les APK de la release, celui de l'architecture du
+  /// téléphone : un APK par architecture pèse environ trois fois moins
+  /// qu'un APK qui les embarque toutes. Sans correspondance (release avec
+  /// un seul APK universel, ou architectures illisibles), on prend un APK
+  /// sans nom d'architecture, sinon le premier : le comportement d'avant.
+  Future<_ApkAsset> _pickApk(List<_ApkAsset> apks) async {
+    var abis = const <String>[];
+    try {
+      abis = await _channel.invokeListMethod<String>('supportedAbis') ??
+          const <String>[];
+    } catch (_) {
+      // Pas de canal natif (tests, plateforme inconnue) : repli plus bas.
+    }
+    for (final abi in abis) {
+      for (final a in apks) {
+        if (_hasAbi(a.name, abi)) return a;
+      }
+    }
+    for (final a in apks) {
+      if (!_knownAbis.any((abi) => _hasAbi(a.name, abi))) return a;
+    }
+    return apks.first;
   }
 
   static bool _isGithubHost(String host) =>
@@ -268,4 +311,13 @@ class UpdateService {
   /// Lance l'installateur système sur [apk].
   Future<void> install(File apk) =>
       _channel.invokeMethod<void>('installApk', {'path': apk.path});
+}
+
+/// Un fichier .apk d'une release GitHub.
+class _ApkAsset {
+  final String name;
+  final Uri uri;
+  final int? size;
+
+  const _ApkAsset(this.name, this.uri, this.size);
 }

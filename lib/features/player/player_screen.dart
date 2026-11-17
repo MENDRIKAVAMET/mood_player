@@ -14,7 +14,6 @@ import '../../theme/mood_colors.dart';
 import 'equalizer_screen.dart';
 import 'queue_screen.dart';
 import 'lyrics_screen.dart';
-import '../share/track_share.dart';
 import '../../widgets/track_options_sheet.dart';
 import '../../widgets/mood_edit_sheet.dart';
 import '../../widgets/mood_aura_backdrop.dart';
@@ -565,8 +564,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               ),
             ),
           ),
-          // Compense le bouton de partage ajouté à droite (titre au même endroit).
-          const SizedBox(width: 44),
           Expanded(
             child: Column(
               children: [
@@ -591,25 +588,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
-          ),
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 220),
-            opacity: _controlsVisible ? 1 : 0,
-            child: IgnorePointer(
-              ignoring: !_controlsVisible,
-              child: GestureDetector(
-                onTap: () => startTrackShare(context, _displayTrack),
-                child: const SizedBox(
-                  width: 44,
-                  height: 48,
-                  child: Icon(
-                    Icons.share_rounded,
-                    size: 22,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
             ),
           ),
           AnimatedOpacity(

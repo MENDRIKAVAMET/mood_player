@@ -789,15 +789,10 @@ class TrackNotifier extends StateNotifier<TrackState> {
   /// Sends one Groq request classifying every track in [chunk] together,
   /// applies the results, and retries the whole chunk automatically if
   /// Groq responds with a rate limit (429).
-  ///
-  /// Avec [secondaryOnly], l'ambiance principale (et sa confiance, et la date
-  /// de classification) reste intacte : on ne retient que l'ambiance
-  /// secondaire renvoyée par Groq, et seulement si elle est valide.
   Future<bool> _classifyChunk(
     List<Track> chunk, {
     required int maxRateLimitRetries,
     int maxNetworkRetries = 4,
-    bool secondaryOnly = false,
   }) async {
     var attempt = 0;
     var networkAttempt = 0;
@@ -820,22 +815,6 @@ class TrackNotifier extends StateNotifier<TrackState> {
         for (var i = 0; i < chunk.length; i++) {
           final track = chunk[i];
           final result = results[i];
-
-          if (secondaryOnly) {
-            // Mode « compléter les secondaires » : on garde l'ancien mood.
-            final sec = result.secondaryMood;
-            if (!result.hasError &&
-                sec != null &&
-                sec != MoodType.unknown &&
-                sec != track.mood) {
-              track.secondaryMood = sec;
-              final path = track.filePath;
-              if (path != null) secondaryByPath[path] = sec;
-              final index = updatedTracks.indexWhere((t) => t.id == track.id);
-              if (index != -1) updatedTracks[index] = track;
-            }
-            continue;
-          }
 
           if (!result.hasError) {
             track.mood = result.mood;
@@ -860,10 +839,6 @@ class TrackNotifier extends StateNotifier<TrackState> {
             lastError = 'Impossible de classer « ${track.title} ». '
                 'Il sera retenté à la prochaine classification.';
           }
-        }
-
-        if (secondaryOnly && secondaryByPath.isNotEmpty) {
-          await TrackSecondaryMoods.merge(secondaryByPath);
         }
 
         if (toSave.isNotEmpty) {
@@ -980,54 +955,6 @@ class TrackNotifier extends StateNotifier<TrackState> {
     } finally {
       // Always clear the progress indicator, whether every track
       // succeeded, some failed, or the whole batch blew up.
-      state = state.copyWith(clearClassifyProgress: true);
-    }
-  }
-
-  /// Complète les ambiances secondaires manquantes des morceaux déjà
-  /// classés, sans toucher à leur ambiance principale (ni aux corrections
-  /// manuelles). Passe volontairement par Groq uniquement : la classification
-  /// locale par genre ne produit jamais de secondaire.
-  ///
-  /// Un morceau pour lequel Groq ne propose rien reste sans secondaire et
-  /// sera simplement renvoyé lors d'une prochaine passe.
-  Future<void> fillMissingSecondaryMoods({int batchSize = 50}) async {
-    if (state.isClassifying) return;
-    state = state.copyWith(error: null);
-
-    try {
-      final targets = state.tracks
-          .where((t) => t.isClassified && t.effectiveSecondaryMood == null)
-          .toList();
-      if (targets.isEmpty) return;
-
-      state = state.copyWith(classifyProgress: 0, classifyTotal: targets.length);
-
-      var processed = 0;
-      for (var start = 0; start < targets.length; start += batchSize) {
-        final end = (start + batchSize).clamp(0, targets.length);
-        final chunk = targets.sublist(start, end);
-
-        await UiGate.instance.idle();
-        final completed = await _classifyChunk(
-          chunk,
-          maxRateLimitRetries: 5,
-          secondaryOnly: true,
-        );
-        if (!completed) break;
-        processed += chunk.length;
-        state = state.copyWith(classifyProgress: processed, error: state.error);
-
-        if (end < targets.length) {
-          await Future.delayed(const Duration(milliseconds: 1500));
-        }
-      }
-    } catch (e) {
-      state = state.copyWith(
-        error: 'Erreur lors de la recherche des ambiances secondaires. '
-            '${friendlyError(e)}',
-      );
-    } finally {
       state = state.copyWith(clearClassifyProgress: true);
     }
   }
