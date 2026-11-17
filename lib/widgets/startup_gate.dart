@@ -25,7 +25,13 @@ import '../theme/app_theme.dart';
 class StartupGate extends ConsumerStatefulWidget {
   final Widget child;
 
-  const StartupGate({super.key, required this.child});
+  /// Entre directement dans l'app sans scan ni écran de démarrage. Réservé
+  /// aux tests : le scan passe par des plugins natifs (permissions,
+  /// MediaStore) qui ne répondent jamais dans `flutter test`, ce qui
+  /// laissait l'écran de démarrage affiché indéfiniment.
+  final bool skipScan;
+
+  const StartupGate({super.key, required this.child, this.skipScan = false});
 
   @override
   ConsumerState<StartupGate> createState() => _StartupGateState();
@@ -42,6 +48,10 @@ class _StartupGateState extends ConsumerState<StartupGate> {
   @override
   void initState() {
     super.initState();
+    if (widget.skipScan) {
+      _ready = true;
+      return;
+    }
     // Après la première image : l'icône est déjà à l'écran quand le scan
     // démarre, il n'y a donc jamais d'écran vide pendant l'attente.
     WidgetsBinding.instance.addPostFrameCallback((_) => _run());

@@ -17,7 +17,7 @@ void main() {
             throw UnimplementedError('Audio service is not available in tests');
           }),
         ],
-        child: const MyApp(),
+        child: const MyApp(skipStartupScan: true),
       ),
     );
     // Pump forward enough to let the one-shot flutter_animate entrance

@@ -154,11 +154,16 @@ class MyApp extends ConsumerStatefulWidget {
   final String? startupError;
   final bool needsOnboarding;
 
+  /// Tests uniquement : saute l'écran de démarrage et le scan (voir
+  /// [StartupGate.skipScan]).
+  final bool skipStartupScan;
+
   const MyApp({
     super.key,
     this.crashLog,
     this.startupError,
     this.needsOnboarding = false,
+    this.skipStartupScan = false,
   });
 
   @override
@@ -213,7 +218,12 @@ class _MyAppState extends ConsumerState<MyApp> {
       home = const OnboardingScreen();
     } else {
       // Écran de démarrage (icône + animation) pendant le scan, puis l'app.
-      home = const UpdateGate(child: StartupGate(child: MainShell()));
+      home = UpdateGate(
+        child: StartupGate(
+          skipScan: widget.skipStartupScan,
+          child: const MainShell(),
+        ),
+      );
     }
 
     return MaterialApp(
