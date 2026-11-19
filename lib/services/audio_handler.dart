@@ -948,7 +948,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (uri != null) {
       try {
         duration = await _player.setAudioSource(AudioSource.uri(Uri.parse(uri)));
-      } catch (e, st) {
+      } catch (e) {
         lastError = e;
         // ignore: avoid_print
         print('MoodAudioHandler: URI failed for "${item.title}", trying filePath: $e');
@@ -957,8 +957,8 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
     if (duration == null && filePath != null) {
       try {
-        duration = await _player.setFilePath(filePath!);
-      } catch (e, st) {
+        duration = await _player.setFilePath(filePath);
+      } catch (e) {
         lastError = e;
         // ignore: avoid_print
         print('MoodAudioHandler: filePath also failed for "${item.title}": $e');
@@ -968,9 +968,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (duration == null) {
       // Les deux ont échoué : on propage l'erreur à l'UI.
       _transitioning = false;
-      final msg = lastError != null
-          ? 'Lecture impossible : ${friendlyError(lastError)}'
-          : 'Fichier introuvable ou illisible.';
+      final msg = 'Lecture impossible : ${friendlyError(lastError)}';
       playbackState.add(playbackState.value.copyWith(
         processingState: AudioProcessingState.error,
         playing: false,

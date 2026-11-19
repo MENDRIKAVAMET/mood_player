@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../models/track.dart';
 import '../../providers/providers.dart';
@@ -935,7 +934,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.accentPrimary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.music_note_rounded,
                 size: 48,
                 color: AppTheme.accentPrimary,
