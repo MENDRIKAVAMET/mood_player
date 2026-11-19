@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/audio_provider.dart';
+import '../providers/providers.dart';
 
 import '../features/player/player_screen.dart';
 import '../models/track.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_error.dart';
 
 /// Ouvre le lecteur sur [track], avec [tracks] comme file de lecture.
 ///
@@ -69,6 +71,7 @@ Future<void> togglePlayTrack(
   Track track,
   List<Track> tracks,
 ) async {
+  final context = ref.context;
   try {
     final handler = await ref.read(audioHandlerProvider.future);
     final isCurrent = handler.isLoadedTrack(track.id);
@@ -86,8 +89,20 @@ Future<void> togglePlayTrack(
     } else {
       await handler.addAndPlayTrack(track);
     }
-  } catch (_) {
-    // Lecture impossible (fichier manquant…) : le handler gère déjà ses
-    // erreurs de lecture, inutile de faire planter le tap.
+
+    // Le handler met `errorMessage` sur le playbackState quand la lecture
+    // échoue (fichier introuvable, permission révoquée…). Sans ça, un morceau
+    // qui refuse de jouer passait inaperçu à 00:00.
+    final error = handler.playbackState.value.errorMessage;
+    if (error != null && error.isNotEmpty && context.mounted) {
+      showAppError(context, error);
+    }
+  } catch (e) {
+    if (context.mounted) {
+      showAppError(
+        context,
+        'Lecture impossible. ${friendlyError(e)}',
+      );
+    }
   }
 }

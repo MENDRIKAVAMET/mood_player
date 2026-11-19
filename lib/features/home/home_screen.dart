@@ -450,20 +450,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: AppTheme.bodyLarge.copyWith(
                   color: AppTheme.textSecondary,
                 ),
-              ).animate().fadeIn(duration: AppTheme.animSlow),
               const SizedBox(height: AppTheme.spacingXS),
               Text(
                 'Aura',
                 style: AppTheme.displayLarge,
-              ).animate().fadeIn(
-                    duration: AppTheme.animSlow,
-                    delay: const Duration(milliseconds: 100),
-                  ).slideX(
-                    begin: 0.05,
-                    end: 0,
-                    duration: AppTheme.animSlow,
-                    delay: const Duration(milliseconds: 100),
-                  ),
+              ),
             ],
           ),
           // Menu button
@@ -529,10 +520,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
-      ).animate().fadeIn(
-            duration: AppTheme.animSlow,
-            delay: const Duration(milliseconds: 200),
-          ),
+      ),
     );
   }
 
@@ -564,10 +552,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onTap: () => _classifyAllTracks(),
           ),
         ],
-      ).animate().fadeIn(
-            duration: AppTheme.animSlow,
-            delay: const Duration(milliseconds: 300),
-          ),
+      ),
     );
   }
 
@@ -709,10 +694,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
         ),
       ],
-    ).animate().fadeIn(
-          duration: AppTheme.animSlow,
-          delay: const Duration(milliseconds: 400),
-        );
+    );
   }
 
   /// Petit liseré vertical en dégradé de marque devant les titres de section.
@@ -952,14 +934,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.accentPrimary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.music_note_rounded,
                 size: 48,
                 color: AppTheme.accentPrimary,
               ),
-            ).animate().scale(
-                  duration: AppTheme.animSlow,
-                ),
+            ),
             const SizedBox(height: AppTheme.spacingXL),
             Text(
               'Votre bibliothèque est vide',

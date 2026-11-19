@@ -75,3 +75,13 @@ final shuffleModeProvider = StreamProvider.autoDispose<bool>((ref) async* {
   final audioHandler = await ref.watch(audioHandlerProvider.future);
   yield* audioHandler.shuffleModeStream;
 });
+
+// Playback error message provider (exposed from MoodAudioHandler.playbackState.errorMessage)
+final playbackErrorProvider = Provider.autoDispose<String?>((ref) {
+  final playbackState = ref.watch(playbackStateProvider);
+  return playbackState.when(
+    data: (state) => state.errorMessage,
+    loading: () => null,
+    error: (_, _) => null,
+  );
+});

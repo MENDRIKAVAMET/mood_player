@@ -1,4 +1,15 @@
-export 'audio_provider.dart';
+export 'audio_provider.dart' show
+  audioHandlerProvider,
+  currentTrackProvider,
+  currentTrackIdProvider,
+  playbackStateProvider,
+  queueProvider,
+  isPlayingProvider,
+  currentPositionProvider,
+  durationProvider,
+  repeatModeProvider,
+  shuffleModeProvider,
+  playbackErrorProvider;
 export 'track_provider.dart';
 export 'color_provider.dart';
 export 'custom_mood_provider.dart';

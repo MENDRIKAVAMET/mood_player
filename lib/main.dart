@@ -28,11 +28,13 @@ void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Plafonne le cache d'images (défaut : 1000 images / 100 Mo) pour limiter
-    // la RAM en scroll et les pauses du ramasse-miettes.
+    // Cache d'images agrandi (défaut : 1000 images / 100 Mo). Les pochettes
+    // d'album sont nombreuses et souvent réutilisées : un cache plus gros
+    // évite les re-décodages pendant le scroll. 256 Mo est un bon compromis
+    // entre fluidité et empreinte RAM sur les téléphones modernes.
     PaintingBinding.instance.imageCache
-      ..maximumSize = 300
-      ..maximumSizeBytes = 64 << 20;
+      ..maximumSize = 1000
+      ..maximumSizeBytes = 256 << 20;
 
     // Mesure des frames lentes : les tâches de fond (pochettes, volume...) se
     // mettent en pause quand l'écran ramène ou défile (voir UiGate).

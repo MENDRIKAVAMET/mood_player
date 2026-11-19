@@ -51,6 +51,14 @@ class _TrackTileState extends State<TrackTile> {
 
   @override
   Widget build(BuildContext context) {
+    // RepaintBoundary isole ce tile : quand isPlaying change, seul ce tile
+    // se redessine, pas toute la liste. Critique pour la fluidité du scroll.
+    return RepaintBoundary(
+      child: _buildTile(context),
+    );
+  }
+
+  Widget _buildTile(BuildContext context) {
     final track = widget.track;
     final isPlaying = widget.isPlaying;
     final moodColors = MoodColors.forMood(track.mood);
@@ -359,7 +367,7 @@ class _AlbumArt extends StatelessWidget {
     required this.moodColors,
     required this.isPlaying,
     required this.equalizerAnimating,
-  });
+  }) : super(key: null);
 
   @override
   Widget build(BuildContext context) {
@@ -519,4 +527,5 @@ class EqualizerIndicatorState extends State<EqualizerIndicator>
       ),
     );
   }
+}
 }

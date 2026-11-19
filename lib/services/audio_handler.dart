@@ -9,6 +9,7 @@ import '../models/track.dart';
 import 'equalizer_service.dart';
 import 'loudness_service.dart';
 import 'storage_service.dart';
+import '../utils/app_error.dart';
 
 /// Repeat mode enum (renamed to avoid clashing with Flutter's own RepeatMode)
 enum PlayerRepeatMode {
@@ -918,7 +919,15 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final uri = item.extras?['uri'] as String?;
     final filePath = item.extras?['filePath'] as String?;
 
-    if (uri == null && filePath == null) return;
+    if (uri == null && filePath == null) {
+      // Rien de jouable : on signale l'erreur au lieu de faire silence.
+      playbackState.add(playbackState.value.copyWith(
+        processingState: AudioProcessingState.error,
+        playing: false,
+        errorMessage: 'Fichier introuvable (ni URI ni chemin local).',
+      ));
+      return;
+    }
 
     // Fondu : un morceau lancé par l'enchaînement naturel démarre à volume 0
     // et remonte ; tout autre départ (choix manuel, saut) repart à volume
@@ -929,47 +938,69 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     _fadeFactor = fadeIn ? 0.0 : 1.0;
     _transitioning = true;
 
-    try {
-      Duration? duration;
-      if (uri != null) {
-        // Preferred: content:// URI from MediaStore. Required on Android
-        // 10+ (scoped storage) since apps can't read another app's media
-        // files by raw filesystem path, only through the ContentResolver.
+    Duration? duration;
+    Object? lastError;
+
+    // On essaie d'abord l'URI MediaStore (requis Android 10+ pour l'accès
+    // scoped storage). Si ça échoue (permission révoquée, fichier déplacé),
+    // on retente avec le chemin brut — utile pour les fichiers importés
+    // manuellement qui n'ont pas d'URI MediaStore.
+    if (uri != null) {
+      try {
         duration = await _player.setAudioSource(AudioSource.uri(Uri.parse(uri)));
-      } else {
-        duration = await _player.setFilePath(filePath!);
+      } catch (e, st) {
+        lastError = e;
+        // ignore: avoid_print
+        print('MoodAudioHandler: URI failed for "${item.title}", trying filePath: $e');
       }
-      await _applyNormalization(item);
-
-      // Reflect the real duration on the media item as soon as it's known,
-      // so the UI (queue, notification) has it immediately rather than
-      // waiting on the duration stream alone.
-      if (duration != null) {
-        mediaItem.add(item.copyWith(duration: duration));
-      }
-
-      // Avant play() : sa Future ne se termine qu'à la fin du morceau.
-      _transitioning = false;
-      if (fadeIn) {
-        // Filet de sécurité : si les ticks étaient suspendus (économie
-        // d'énergie), le morceau ne doit pas rester muet.
-        Timer(Duration(milliseconds: _fadeMs + 1000), () {
-          if (_fadeInActive && mediaItem.value?.id == item.id) {
-            _fadeInActive = false;
-            _fadeTick();
-          }
-        });
-      }
-      await _player.play();
-    } catch (e, st) {
-      _transitioning = false;
-      // ignore: avoid_print
-      print('MoodAudioHandler: failed to play "${item.title}": $e\n$st');
-      playbackState.add(playbackState.value.copyWith(
-        processingState: AudioProcessingState.idle,
-        playing: false,
-      ));
     }
+
+    if (duration == null && filePath != null) {
+      try {
+        duration = await _player.setFilePath(filePath!);
+      } catch (e, st) {
+        lastError = e;
+        // ignore: avoid_print
+        print('MoodAudioHandler: filePath also failed for "${item.title}": $e');
+      }
+    }
+
+    if (duration == null) {
+      // Les deux ont échoué : on propage l'erreur à l'UI.
+      _transitioning = false;
+      final msg = lastError != null
+          ? 'Lecture impossible : ${friendlyError(lastError)}'
+          : 'Fichier introuvable ou illisible.';
+      playbackState.add(playbackState.value.copyWith(
+        processingState: AudioProcessingState.error,
+        playing: false,
+        errorMessage: msg,
+      ));
+      return;
+    }
+
+    await _applyNormalization(item);
+
+    // Reflect the real duration on the media item as soon as it's known,
+    // so the UI (queue, notification) has it immediately rather than
+    // waiting on the duration stream alone.
+    if (duration != null) {
+      mediaItem.add(item.copyWith(duration: duration));
+    }
+
+    // Avant play() : sa Future ne se termine qu'à la fin du morceau.
+    _transitioning = false;
+    if (fadeIn) {
+      // Filet de sécurité : si les ticks étaient suspendus (économie
+      // d'énergie), le morceau ne doit pas rester muet.
+      Timer(Duration(milliseconds: _fadeMs + 1000), () {
+        if (_fadeInActive && mediaItem.value?.id == item.id) {
+          _fadeInActive = false;
+          _fadeTick();
+        }
+      });
+    }
+    await _player.play();
   }
 
   /// Convertit une pochette (chemin local ou URL) en URI exploitable par

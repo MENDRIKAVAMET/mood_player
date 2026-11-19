@@ -21,10 +21,18 @@ class MoodCard extends ConsumerWidget {
     required this.trackCount,
     required this.onTap,
     this.onLongPress,
-  });
+  }) : super(key: null);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // RepaintBoundary isole cette carte : le changement d'image/état
+    // d'une ambiance ne redessine pas les autres cartes du carousel.
+    return RepaintBoundary(
+      child: _buildCard(context, ref),
+    );
+  }
+
+  Widget _buildCard(BuildContext context, WidgetRef ref) {
     final moodColors = MoodColors.forMood(mood);
     // Icône noire sur les teintes claires (jaune, orange...), blanche sur
     // les autres : contraste lisible quelle que soit l'ambiance.
@@ -245,13 +253,8 @@ class MoodCard extends ConsumerWidget {
 
           ],
         ),
-      ).animate().fadeIn(
-            duration: AppTheme.animSlow,
-          ).slideX(
-            begin: 0.05,
-            end: 0,
-            duration: AppTheme.animSlow,
-          ),
+      ),
     );
   }
+}
 }

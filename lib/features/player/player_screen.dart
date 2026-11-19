@@ -480,6 +480,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       // référence. Seuls les boutons qui les entourent (retour,
                       // options) apparaissent/disparaissent avec les contrôles.
                       _buildTopBar(moodColors),
+                      // Message d'erreur de lecture (fichier introuvable,
+                      // permission révoquée...) : sans ça, un morceau qui
+                      // refuse de jouer passait inaperçu à 00:00.
+                      _buildErrorBanner(),
                       const Spacer(),
                       // Barre de progression + contrôles de lecture : se
                       // cachent en glissant vers le bas et en s'effaçant après
@@ -632,6 +636,47 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Bandeau d'erreur de lecture, affiché juste sous le titre quand le
+  /// morceau en cours ne peut pas être lu (fichier introuvable, permission
+  /// révoquée, codec non supporté). Disparaît dès que la lecture reprend.
+  Widget _buildErrorBanner() {
+    final error = ref.watch(playbackErrorProvider);
+    if (error == null || error.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingM),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spacingM,
+          vertical: AppTheme.spacingS,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+          border: Border.all(
+            color: Colors.redAccent.withValues(alpha: 0.45),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: Colors.redAccent, size: 18),
+            const SizedBox(width: AppTheme.spacingS),
+            Expanded(
+              child: Text(
+                error,
+                style: AppTheme.bodySmall.copyWith(color: Colors.redAccent),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
