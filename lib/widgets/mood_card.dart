@@ -257,4 +257,3 @@ class MoodCard extends ConsumerWidget {
     );
   }
 }
-}

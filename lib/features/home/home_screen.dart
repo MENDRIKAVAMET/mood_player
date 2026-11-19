@@ -450,6 +450,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: AppTheme.bodyLarge.copyWith(
                   color: AppTheme.textSecondary,
                 ),
+              ),
               const SizedBox(height: AppTheme.spacingXS),
               Text(
                 'Aura',

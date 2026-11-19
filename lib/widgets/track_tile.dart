@@ -528,4 +528,3 @@ class EqualizerIndicatorState extends State<EqualizerIndicator>
     );
   }
 }
-}
