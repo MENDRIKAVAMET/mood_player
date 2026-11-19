@@ -490,7 +490,7 @@ class GroqService {
       'qui nuance le morceau (ex. principale « chill » + secondaire '
       '« nostalgique »). Elle doit être différente de la principale et '
       'prise dans la même liste de catégories. Si le morceau n\'a '
-      'vraiment qu\'une seule couleur nette, mets \"mood2\": null : '
+      'vraiment qu\'une seule couleur nette, mets "mood2": null : '
       'n\'en invente pas une pour remplir. Ne donne jamais "évangélique" '
       'en secondaire d\'un morceau profane, ni une secondaire profane à un '
       'morceau évangélique.',

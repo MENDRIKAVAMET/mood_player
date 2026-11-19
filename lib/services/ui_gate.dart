@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show FrameTiming;
 
 import 'package:flutter/scheduler.dart';
 

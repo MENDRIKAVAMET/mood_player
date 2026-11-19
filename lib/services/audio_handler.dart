@@ -982,9 +982,7 @@ class MoodAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     // Reflect the real duration on the media item as soon as it's known,
     // so the UI (queue, notification) has it immediately rather than
     // waiting on the duration stream alone.
-    if (duration != null) {
-      mediaItem.add(item.copyWith(duration: duration));
-    }
+    mediaItem.add(item.copyWith(duration: duration));
 
     // Avant play() : sa Future ne se termine qu'à la fin du morceau.
     _transitioning = false;
