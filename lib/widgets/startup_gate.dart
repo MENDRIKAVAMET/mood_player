@@ -5,23 +5,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
+import '../services/ui_gate.dart';
 import '../theme/app_theme.dart';
 
-/// Écran de démarrage de l'app : tant que la bibliothèque n'est pas scannée,
-/// on n'affiche que l'icône de l'app (grande, au centre, avec une animation
-/// de chargement). Le scan se fait derrière ; l'app (le [child]) n'est
-/// construite et affichée qu'une fois le scan terminé.
+/// Écran de démarrage de l'app : le scan d'abord, l'interface ensuite, et
+/// l'utilisateur coincé sur l'écran de chargement tant que l'écran n'est pas
+/// prêt.
 ///
-/// Pourquoi : lancer le scan pendant que la bibliothèque, les onglets et les
-/// images se construisent en même temps faisait ramer l'ouverture. Ici, un
-/// seul travail à la fois - le scan d'abord, l'interface ensuite.
+/// Trois phases, dans l'ordre :
+///  1. Le scan de la bibliothèque (appel natif MediaStore) déroule sous le
+///     splash : l'app n'est pas encore construite, donc pas de concurrence
+///     entre le scan et le build de l'interface (ça c'est ce qui faisait
+///     ramer l'ouverture avant).
+///  2. Le scan terminé, on construit l'app *derrière* le splash (le splash
+///     reste en foreground et absorbe les touches). Les pochettes et images
+///     se décodent pendant les premières frames, mais l'utilisateur ne peut
+///     rien faire : il est encore sur l'écran de chargement.
+///  3. Dès que l'écran est "apprêté" (première frame peinte + période
+///     tranquille sans frame lente), on retire le splash et on laisse l'utilisateur
+///     naviguer.
+///
+/// Un `await Future.delayed(5s)` n'était pas une bonne solution : trop long
+/// sur un rapide, trop court sur un lent, et il ne mesurait rien à la charge
+/// réelle de l'écran. Voir [_waitForScreenReady].
 ///
 /// Garde-fous :
 ///  * durée minimale d'affichage ([_minSplash]) pour que l'écran ne clignote
 ///    pas quand le scan est instantané (rien de nouveau sur l'appareil) ;
 ///  * durée maximale ([_maxWait]) : si un appel natif se bloque, on entre
 ///    quand même dans l'app (le scan continue en arrière-plan) au lieu de
-///    laisser l'utilisateur coincé sur le chargement.
+///    laisser l'utilisateur coincé sur le chargement ;
+///  * [_waitForScreenReady] a son propre plafond (10 s) : si la mesure des
+///    frames déraille sur un appareil étrange, on entre quand même dans l'app
+///    au lieu de laisser l'utilisateur coincé indéfiniment.
 class StartupGate extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -41,11 +57,8 @@ class _StartupGateState extends ConsumerState<StartupGate> {
   static const Duration _minSplash = Duration(milliseconds: 800);
   static const Duration _maxWait = Duration(seconds: 45);
 
-  /// Pause supplémentaire une fois le scan terminé, avant de quitter
-  /// l'écran de chargement et d'afficher l'app.
-  static const Duration _postScanDelay = Duration(seconds: 5);
-
-  bool _ready = false;
+  bool _appBuilt = false;
+  bool _screenReady = false;
   Timer? _minTimer;
   Timer? _safetyTimer;
 
@@ -53,7 +66,8 @@ class _StartupGateState extends ConsumerState<StartupGate> {
   void initState() {
     super.initState();
     if (widget.skipScan) {
-      _ready = true;
+      _appBuilt = true;
+      _screenReady = true;
       return;
     }
     // Après la première image : l'icône est déjà à l'écran quand le scan
@@ -72,10 +86,7 @@ class _StartupGateState extends ConsumerState<StartupGate> {
       if (!scanDone.isCompleted) scanDone.complete();
     });
 
-    // Le scan gère lui-même la demande de permission, les erreurs (qui
-    // finissent dans l'état du provider et s'affichent dans la
-    // bibliothèque) et la reprise sur la base locale. Le catchError n'est
-    // qu'un filet : quoi qu'il arrive, on finit par entrer dans l'app.
+    // Le scan gère la permission, les erreurs, la reprise sur base locale.
     ref
         .read(trackProvider.notifier)
         .scanAndLoadTracks(showCachedWhileScanning: false)
@@ -84,14 +95,29 @@ class _StartupGateState extends ConsumerState<StartupGate> {
       if (!scanDone.isCompleted) scanDone.complete();
     });
 
+    // Attendre le temps minimum d'affichage et la fin du scan.
     await Future.wait([minDone.future, scanDone.future]);
     _safetyTimer?.cancel();
     if (!mounted) return;
-    // Scan terminé : on garde le chargement 5 s de plus.
-    await Future<void>.delayed(_postScanDelay);
+
+    // Le scan est terminé : on construit l'app derrière le splash.
+    setState(() => _appBuilt = true);
+
+    // Attendre que la première frame de l'app soit peinte, puis que l'écran
+    // soit tranquille (images décodées) avant de retirer le splash.
+    await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
-    setState(() => _ready = true);
+    try {
+      await UiGate.instance
+          .idle(minGap: const Duration(milliseconds: 150))
+          .timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      // Si le timeout se déclenche, on passe tout de même à l'app.
+    }
+    if (!mounted) return;
+    setState(() => _screenReady = true);
   }
+
 
   @override
   void dispose() {
@@ -102,16 +128,22 @@ class _StartupGateState extends ConsumerState<StartupGate> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      child: _ready
-          ? KeyedSubtree(
-              key: const ValueKey('app'),
-              child: widget.child,
-            )
-          : const _StartupSplash(key: ValueKey('splash')),
+    // Si le scan n'est pas encore fini, on montre seulement le splash.
+    if (!_appBuilt) {
+      return const _StartupSplash(key: ValueKey('splash'));
+    }
+    // Le scan est fini, l'app est construite derrière le splash.
+    // Tant que l'écran n'est pas encore prêt, on couvre l'app d'une couche
+    // splash non interactive pour bloquer le scroll.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        if (!_screenReady)
+          const Positioned.fill(
+            child: _StartupSplash(key: ValueKey('splash')),
+          ),
+      ],
     );
   }
 }
