@@ -16,6 +16,7 @@ import '../services/artwork_service.dart';
 import '../services/ui_gate.dart';
 import 'audio_provider.dart' show audioHandlerProvider;
 import '../services/library_filter_service.dart';
+import '../services/duplicate_finder.dart';
 import '../services/track_file_service.dart';
 import '../utils/app_error.dart';
 
@@ -1063,6 +1064,69 @@ class TrackNotifier extends StateNotifier<TrackState> {
         isLoading: false,
         error: 'Erreur lors de la suppression. ${friendlyError(e)}',
       );
+    }
+  }
+
+  /// Fusionne des doublons : pour chaque résolution, l'exemplaire gardé
+  /// hérite du favori et de l'ambiance des exemplaires retirés (s'il n'en
+  /// avait pas), puis les autres sont retirés de la bibliothèque. Les
+  /// fichiers restent sur l'appareil ; leur chemin est mémorisé pour que
+  /// le prochain scan ne les rajoute pas. Une seule recharge à la fin.
+  ///
+  /// Renvoie le nombre de morceaux retirés.
+  Future<int> mergeDuplicates(List<DuplicateResolution> resolutions) async {
+    if (resolutions.isEmpty) return 0;
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final idsToDelete = <int>{};
+      for (final r in resolutions) {
+        final keeper = r.keeper;
+        final removed = r.removed.where((t) => t.id != keeper.id).toList();
+        if (removed.isEmpty) continue;
+
+        if (!keeper.isLiked && removed.any((t) => t.isLiked)) {
+          keeper.isLiked = true;
+          await _storageService.setTrackLiked(keeper.id, true);
+          onLikedChanged?.call(keeper.id, true);
+        }
+
+        final donor = removed.firstWhereOrNull(
+          (t) => t.isClassified && t.mood != MoodType.unknown,
+        );
+        if (donor != null &&
+            (!keeper.isClassified || keeper.mood == MoodType.unknown)) {
+          keeper
+            ..mood = donor.mood
+            ..moodConfidence = donor.moodConfidence
+            ..lastClassified = donor.lastClassified
+            ..updatedAt = DateTime.now();
+          keeper.secondaryMood ??= donor.effectiveSecondaryMood;
+          await _storageService.saveTrack(keeper);
+          await TrackSecondaryMoods.set(keeper.filePath, keeper.secondaryMood);
+        }
+
+        for (final t in removed) {
+          final path = t.filePath;
+          // Même fichier enregistré deux fois : ne pas « retirer » le
+          // chemin de l'exemplaire qu'on garde.
+          if (path != null && path.isNotEmpty && path != keeper.filePath) {
+            await RemovedTracks.add(path);
+            await TrackSecondaryMoods.remove(path);
+          }
+          idsToDelete.add(t.id);
+        }
+      }
+
+      await _storageService.deleteTracks(idsToDelete.toList());
+      await loadTracks();
+      return idsToDelete.length;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Impossible de retirer les doublons. ${friendlyError(e)}',
+      );
+      return 0;
     }
   }
 

@@ -168,7 +168,8 @@ class _TrackOptionsSheet extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radiusXL)),
       ),
       child: SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
@@ -236,6 +237,7 @@ class _TrackOptionsSheet extends ConsumerWidget {
             ),
             const SizedBox(height: AppTheme.spacingM),
           ],
+          ),
         ),
       ),
     );

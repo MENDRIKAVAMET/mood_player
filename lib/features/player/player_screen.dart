@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/track.dart';
@@ -600,6 +601,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             child: IgnorePointer(
               ignoring: !_controlsVisible,
               child: GestureDetector(
+                onTap: _shareCurrentTrack,
+                child: const SizedBox(
+                  width: 44,
+                  height: 48,
+                  child: Icon(
+                    Icons.share_rounded,
+                    size: 22,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 220),
+            opacity: _controlsVisible ? 1 : 0,
+            child: IgnorePointer(
+              ignoring: !_controlsVisible,
+              child: GestureDetector(
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const EqualizerScreen()),
@@ -1152,6 +1172,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         builder: (context) => const QueueScreen(),
       ),
     );
+  }
+
+  Future<void> _shareCurrentTrack() async {
+    final track = _displayTrack;
+    final text = '${track.title} - ${track.artist}';
+    final path = track.filePath;
+    try {
+      if (path != null && path.isNotEmpty) {
+        await Share.shareXFiles([XFile(path)], text: text);
+      } else {
+        await Share.share(text);
+      }
+    } catch (e) {
+      if (mounted) {
+        showAppError(context, 'Partage impossible. ${friendlyError(e)}');
+      }
+    }
   }
 
   void _showOptionsSheet() {

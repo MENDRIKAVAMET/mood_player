@@ -236,6 +236,50 @@ class GroqService {
     }
   }
 
+  /// Conversation avec la bibliothèque : envoie [messages] (déjà au format
+  /// OpenAI : system / user / assistant) et renvoie le texte brut du
+  /// modèle, qui doit être un JSON (voir `LibraryChatService`).
+  ///
+  /// Lance les mêmes exceptions que la classification.
+  Future<String> chatCompletion(List<Map<String, String>> messages) async {
+    try {
+      final response = await _dio.post(
+        '/chat/completions',
+        data: {
+          'model': _model,
+          'messages': messages,
+          'temperature': 0.3,
+          'max_tokens': 700,
+          'response_format': {'type': 'json_object'},
+        },
+        options: Options(receiveTimeout: const Duration(seconds: 40)),
+      );
+      return response.data['choices'][0]['message']['content'] as String;
+    } on DioException catch (e) {
+      final serverMessage = e.response?.data is Map
+          ? (e.response?.data['error']?['message'] ?? e.message)
+          : e.message;
+      if (e.response?.statusCode == 429) {
+        throw GroqRateLimitException(
+          'Trop de requêtes : $serverMessage',
+          retryAfter: _parseRetryAfter(e.response?.headers),
+          originalError: e,
+        );
+      }
+      if (e.response == null) {
+        throw GroqNetworkException(
+          'Connexion au service impossible : $serverMessage',
+          e,
+        );
+      }
+      throw GroqServiceException('Erreur du service : $serverMessage', e);
+    } on GroqServiceException {
+      rethrow;
+    } catch (e) {
+      throw GroqServiceException('Réponse inattendue : $e', e);
+    }
+  }
+
   @visibleForTesting
   String buildQueryPromptForTest(String query) => _buildQueryPrompt(query);
 

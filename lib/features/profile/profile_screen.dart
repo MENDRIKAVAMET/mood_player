@@ -7,6 +7,8 @@ import '../../services/import_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../widgets/app_header.dart';
+import '../chat/library_chat_screen.dart';
+import '../library/duplicates_screen.dart';
 import '../player/equalizer_screen.dart';
 import '../recap/recap_screen.dart';
 import '../../widgets/data_transfer_section.dart';
@@ -235,6 +237,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _buildNormalizeCard(),
                     const SizedBox(height: AppTheme.spacingM),
                     _buildCrossfadeCard(),
+
+                    const SizedBox(height: AppTheme.spacingXL),
+                    const _SectionTitle('Bibliothèque'),
+                    const SizedBox(height: AppTheme.spacingM),
+
+                    // Chat avec la bibliothèque
+                    _SettingTile(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      title: 'Discuter avec ma bibliothèque',
+                      subtitle: 'Demande une playlist, retrouve un morceau '
+                          'ou pose une question en langage naturel.',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LibraryChatScreen()),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          color: AppTheme.textTertiary),
+                    ),
+                    const SizedBox(height: AppTheme.spacingS),
+
+                    // Détection des doublons
+                    _SettingTile(
+                      icon: Icons.content_copy_rounded,
+                      title: 'Doublons',
+                      subtitle: 'Retrouve les morceaux en double et garde '
+                          'le meilleur exemplaire.',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const DuplicatesScreen()),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          color: AppTheme.textTertiary),
+                    ),
 
                     const SizedBox(height: AppTheme.spacingXL),
                     const _SectionTitle('Apparence'),
