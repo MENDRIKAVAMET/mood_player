@@ -51,7 +51,7 @@ Future<void> startTrackShare(BuildContext context, Track track) async {
     MaterialPageRoute<void>(
       builder: (_) => usable
           ? LyricsShareScreen(track: track, result: r)
-          : ExcerptShareScreen(track: track),
+          : ExcerptShareScreen(track: track, lyrics: r),
     ),
   );
 }

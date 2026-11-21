@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 import '../models/track.dart';
 import '../models/playlist.dart';
 import '../features/track/rename_track_screen.dart';
 import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_error.dart';
+import '../features/share/track_share.dart';
 
 /// Shows the "..." options sheet for a single [track]. Shared between
 /// every place a track is listed (library, home, search, custom moods)
@@ -52,18 +52,15 @@ class _TrackOptionsSheet extends ConsumerWidget {
   }
 
   Future<void> _share(BuildContext context) async {
+    // Contexte de l'overlay racine : reste valide après la fermeture du menu.
+    final rootContext =
+        Navigator.of(context, rootNavigator: true).overlay!.context;
     Navigator.pop(context);
-    final text = '${track.title} - ${track.artist}';
-    final path = track.filePath;
     try {
-      if (path != null && path.isNotEmpty) {
-        await Share.shareXFiles([XFile(path)], text: text);
-      } else {
-        await Share.share(text);
-      }
+      await startTrackShare(rootContext, track);
     } catch (e) {
-      if (context.mounted) {
-        showAppError(context, 'Partage impossible. ${friendlyError(e)}');
+      if (rootContext.mounted) {
+        showAppError(rootContext, 'Partage impossible. ${friendlyError(e)}');
       }
     }
   }

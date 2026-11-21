@@ -10,20 +10,27 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../models/lyric_line.dart';
 import '../../models/track.dart';
 import '../../providers/audio_provider.dart';
 import '../../services/audio_handler.dart';
 import '../../services/excerpt_service.dart';
+import '../../services/lyrics_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_error.dart';
 import '../../widgets/app_header.dart';
+import 'karaoke_lyrics.dart';
 import 'share_card.dart';
 
-/// Partage d'un extrait de 10 s (vidéo MP4 : image fixe + audio).
+/// Partage d'un extrait de 10 s (vidéo MP4 : carte + audio, avec les paroles
+/// en karaoké quand elles sont synchronisées).
 class ExcerptShareScreen extends ConsumerStatefulWidget {
   final Track track;
 
-  const ExcerptShareScreen({super.key, required this.track});
+  /// Paroles du morceau : le karaoké n'est proposé que si elles sont synchronisées.
+  final LyricsResult? lyrics;
+
+  const ExcerptShareScreen({super.key, required this.track, this.lyrics});
 
   @override
   ConsumerState<ExcerptShareScreen> createState() => _ExcerptShareScreenState();
@@ -38,9 +45,24 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
 
   String? _customImagePath;
   bool _sharing = false;
+  double _progress = 0;
+  bool _karaoke = true;
+  final ValueNotifier<int> _karaokeMs = ValueNotifier<int>(0);
   bool _previewing = false;
   Timer? _previewTimer;
   MoodAudioHandler? _handler;
+
+  /// Lignes synchronisées, décalage de l'utilisateur appliqué.
+  late final List<LyricLine>? _lines = () {
+    final r = widget.lyrics;
+    if (r == null || !r.hasSynced) return null;
+    return [
+      for (final l in r.synced!)
+        LyricLine(timestamp: l.timestamp + r.offset, text: l.text),
+    ];
+  }();
+
+  bool get _useKaraoke => _karaoke && _lines != null;
 
   int get _maxStartMs => math.max(0, _totalMs - _excerptMs);
 
@@ -59,6 +81,7 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
         total > 0 ? math.min(ExcerptService.excerptMs, total) : ExcerptService.excerptMs;
     final pos = isCurrent ? ref.read(currentPositionProvider).inMilliseconds : 0;
     _startMs = pos.clamp(0, _maxStartMs).toDouble();
+    _karaokeMs.value = _startMs.round();
 
     unawaited(ref.read(audioHandlerProvider.future).then(
       (h) => _handler = h,
@@ -70,6 +93,7 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
   void dispose() {
     _previewTimer?.cancel();
     if (_previewing) unawaited(_handler?.pause());
+    _karaokeMs.dispose();
     super.dispose();
   }
 
@@ -150,6 +174,7 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
     try {
       await _stopPreview();
       if (!mounted) return;
+      _progress = 0;
       final boundary =
           _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) throw StateError('carte indisponible');
@@ -161,18 +186,35 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
         await WidgetsBinding.instance.endOfFrame;
       }
       if (!mounted) return;
-      if (kDebugMode && boundary.debugNeedsPaint) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+      final ctx = await ExcerptService.prepare();
+      final paths = <String>[];
+      int fps;
+      if (_useKaraoke) {
+        // Une image par trame : on avance l'horloge du karaoké, on attend que
+        // la carte soit repeinte, puis on la capture (540 x 960 px).
+        fps = ExcerptService.karaokeFps;
+        final frames = (_excerptMs * fps / 1000).round();
+        for (var i = 0; i < frames; i++) {
+          _karaokeMs.value = _startMs.round() + (i * 1000 / fps).round();
+          await WidgetsBinding.instance.endOfFrame;
+          if (!mounted) return;
+          paths.add(await _capture(boundary, ctx, i, 1.5));
+          if (mounted) setState(() => _progress = (i + 1) / frames);
+        }
+        _karaokeMs.value = _startMs.round();
+      } else {
+        // Image fixe : une seule capture (720 x 1280 px), répétée.
+        fps = 2;
+        final p = await _capture(boundary, ctx, 0, 2);
+        paths.addAll(List<String>.filled((_excerptMs * fps / 1000).ceil(), p));
       }
-      // 360 x 640 à 2x = 720 x 1280 px.
-      final image = await boundary.toImage(pixelRatio: 2);
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      image.dispose();
-      if (data == null) throw StateError('image vide');
+      if (mounted) setState(() => _progress = 1);
 
       final path = await ExcerptService.createVideo(
         track: widget.track,
-        pngBytes: data.buffer.asUint8List(),
+        ctx: ctx,
+        imagePaths: paths,
+        fps: fps,
         startMs: _startMs.round(),
         durationMs: _excerptMs,
       );
@@ -188,6 +230,23 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
+  }
+
+  Future<String> _capture(
+    RenderRepaintBoundary boundary,
+    ({Directory dir, String stamp}) ctx,
+    int index,
+    double pixelRatio,
+  ) async {
+    if (kDebugMode && boundary.debugNeedsPaint) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    // 360 x 640 logiques : 1,5x = 540 x 960, 2x = 720 x 1280 (tailles paires).
+    final image = await boundary.toImage(pixelRatio: pixelRatio);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    if (data == null) throw StateError('image vide');
+    return ExcerptService.writeFrame(ctx, index, data.buffer.asUint8List());
   }
 
   static String _fmt(int ms) {
@@ -230,6 +289,8 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
                                 track: widget.track,
                                 custom: _customProvider(),
                                 cover: _coverProvider(),
+                                lines: _useKaraoke ? _lines : null,
+                                karaokeMs: _karaokeMs,
                               ),
                             ),
                           ),
@@ -246,9 +307,21 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
                         max: canSlide ? _maxStartMs.toDouble() : 1,
                         activeColor: AppTheme.accentPrimary,
                         onChanged: canSlide
-                            ? (v) => setState(() => _startMs = v)
+                            ? (v) => setState(() {
+                                  _startMs = v;
+                                  _karaokeMs.value = v.round();
+                                })
                             : null,
                       ),
+                      if (_lines != null)
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Paroles en karaoké'),
+                          value: _karaoke,
+                          onChanged: _sharing
+                              ? null
+                              : (v) => setState(() => _karaoke = v),
+                        ),
                       Wrap(
                         spacing: AppTheme.spacingS,
                         runSpacing: AppTheme.spacingS,
@@ -300,7 +373,9 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.share_rounded),
-                    label: Text(_sharing ? 'Création de la vidéo…' : 'Partager'),
+                    label: Text(_sharing
+                        ? 'Création de la vidéo… ${(_progress * 100).round()} %'
+                        : 'Partager'),
                   ),
                 ),
               ),
@@ -317,11 +392,15 @@ class _ExcerptCard extends StatelessWidget {
   final Track track;
   final ImageProvider? custom;
   final ImageProvider? cover;
+  final List<LyricLine>? lines;
+  final ValueListenable<int> karaokeMs;
 
   const _ExcerptCard({
     required this.track,
     required this.custom,
     required this.cover,
+    required this.lines,
+    required this.karaokeMs,
   });
 
   @override
@@ -333,7 +412,12 @@ class _ExcerptCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ShareCardBackground(track: track, custom: custom, cover: cover),
+            ShareCardBackground(
+              track: track,
+              custom: custom,
+              cover: cover,
+              showCoverInCenter: lines == null,
+            ),
             // Dégradé sombre pour la lisibilité du texte.
             DecoratedBox(
               decoration: BoxDecoration(
@@ -369,6 +453,20 @@ class _ExcerptCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (lines != null)
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 90,
+                bottom: 150,
+                child: Center(
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: karaokeMs,
+                    builder: (_, ms, _) =>
+                        KaraokeLyrics(lines: lines!, timeMs: ms),
+                  ),
+                ),
+              ),
             Positioned(
               left: 28,
               right: 28,

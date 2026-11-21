@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../models/track.dart';
@@ -20,6 +19,7 @@ import '../../widgets/mood_edit_sheet.dart';
 import '../../widgets/mood_aura_backdrop.dart';
 import '../../widgets/mood_image.dart';
 import '../../utils/app_error.dart';
+import '../share/track_share.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   final Track track;
@@ -1175,15 +1175,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Future<void> _shareCurrentTrack() async {
-    final track = _displayTrack;
-    final text = '${track.title} - ${track.artist}';
-    final path = track.filePath;
     try {
-      if (path != null && path.isNotEmpty) {
-        await Share.shareXFiles([XFile(path)], text: text);
-      } else {
-        await Share.share(text);
-      }
+      await startTrackShare(context, _displayTrack);
     } catch (e) {
       if (mounted) {
         showAppError(context, 'Partage impossible. ${friendlyError(e)}');

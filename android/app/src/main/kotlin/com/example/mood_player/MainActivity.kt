@@ -19,6 +19,8 @@ import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
+import android.widget.Toast
 import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.FileProvider
@@ -50,12 +52,43 @@ class MainActivity : AudioServiceFragmentActivity() {
         }
     }
 
+    // Encodage vidéo des extraits (lourd : hors du thread principal).
+    private val videoExecutor = Executors.newSingleThreadExecutor()
+
     private data class RenameRequest(
         val uri: Uri,
         val displayName: String,
         val title: String,
         val artist: String
     )
+
+    companion object {
+        // Nombre d'instances d'Aura ouvertes dans ce processus (une seule autorisée).
+        private var liveInstances = 0
+    }
+
+    // Vrai si cette instance est comptée (donc doit se décompter à sa fermeture).
+    private var counted = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (liveInstances >= 1) {
+            // Aura est déjà ouvert : on refuse la deuxième instance.
+            Toast.makeText(this, "Aura est déjà ouvert", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+        liveInstances++
+        counted = true
+    }
+
+    override fun onDestroy() {
+        if (counted) {
+            liveInstances--
+            counted = false
+        }
+        super.onDestroy()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -167,6 +200,31 @@ class MainActivity : AudioServiceFragmentActivity() {
                                 null
                             }
                             runOnUiThread { result.success(value) }
+                        }
+                    }
+                    "createExcerptVideo" -> {
+                        val uri = call.argument<String>("uri")
+                        val path = call.argument<String>("path")
+                        val images = call.argument<List<String>>("imagePaths")
+                        val fps = call.argument<Int>("fps") ?: 8
+                        val startMs = (call.argument<Number>("startMs") ?: 0).toLong()
+                        val durationMs = (call.argument<Number>("durationMs") ?: 10000).toLong()
+                        val output = call.argument<String>("outputPath")
+                        if (images.isNullOrEmpty() || output == null) {
+                            result.error("ARGS", "arguments invalides", null)
+                        } else {
+                            videoExecutor.execute {
+                                try {
+                                    ExcerptEncoder(applicationContext)
+                                        .create(uri, path, images, fps, startMs, durationMs, output)
+                                    runOnUiThread { result.success(output) }
+                                } catch (e: Throwable) {
+                                    try { File(output).delete() } catch (_: Throwable) {}
+                                    runOnUiThread {
+                                        result.error("VIDEO", e.message ?: e.toString(), null)
+                                    }
+                                }
+                            }
                         }
                     }
                     else -> result.notImplemented()

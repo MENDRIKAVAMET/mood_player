@@ -228,7 +228,7 @@ class _LyricsShareScreenState extends State<LyricsShareScreen> {
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) =>
-                              ExcerptShareScreen(track: widget.track),
+                              ExcerptShareScreen(track: widget.track, lyrics: widget.result),
                         ),
                       ),
                       child: const Text('Partager un extrait audio à la place'),
