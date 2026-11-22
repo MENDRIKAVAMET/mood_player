@@ -7,6 +7,8 @@ import '../../theme/app_theme.dart';
 import '../../utils/playback_navigation.dart';
 import '../../widgets/app_icon_button.dart';
 import '../../widgets/foryou_list_row.dart';
+import '../../widgets/live_mood_card.dart';
+import '../../widgets/mood_check_in_card.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/discover_section_title.dart';
 import '../../widgets/period_mixes_section.dart';
@@ -52,6 +54,12 @@ class ForYouScreen extends ConsumerWidget {
                   child: _buildEmptyState(),
                 )
               else ...[
+                // Humeur du moment + raccourcis (chat, journal) tout en
+                // haut : un geste pour noter son humeur, puis un mix.
+                // Contexte du moment (heure, météo, mouvement, casque).
+                const SliverToBoxAdapter(child: LiveMoodCard()),
+                const SliverToBoxAdapter(child: MoodCheckInCard()),
+                const SliverToBoxAdapter(child: DiscoverShortcuts()),
                 // Les mixes du moment passent en tout premier : 5 cartes
                 // de 20 morceaux, uniquement pour le moment de la journée
                 // en cours (matin, midi ou soir).

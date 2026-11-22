@@ -55,6 +55,7 @@ dependencies:
   just_audio: ^0.9.36
   audio_service: ^0.18.12
   audio_session: ^0.1.18
+  sensors_plus: ^7.1.1
 
   # Environment variables
   flutter_dotenv: ^5.1.0

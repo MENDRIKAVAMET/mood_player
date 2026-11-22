@@ -85,4 +85,11 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
     state = state.copyWith(smartQueueEnabled: enabled);
     await _service.save(state);
   }
+
+  /// Affiche ou masque le fantôme d'humeur dans le lecteur.
+  Future<void> setGhostEnabled(bool enabled) async {
+    await _ready;
+    state = state.copyWith(ghostEnabled: enabled);
+    await _service.save(state);
+  }
 }

@@ -20,30 +20,39 @@ class UserProfile {
   /// depuis le profil.
   final bool smartQueueEnabled;
 
+  /// Petit fantôme dans le lecteur dont l'expression suit l'ambiance du
+  /// morceau (voir `MoodGhost`). Actif par défaut, désactivable depuis le
+  /// profil.
+  final bool ghostEnabled;
+
   const UserProfile({
     this.favoriteArtists = const [],
     this.onboardingCompleted = false,
     this.periodMoods = const {},
     this.smartQueueEnabled = false,
+    this.ghostEnabled = true,
   });
 
   const UserProfile.empty()
       : favoriteArtists = const [],
         onboardingCompleted = false,
         periodMoods = const {},
-        smartQueueEnabled = false;
+        smartQueueEnabled = false,
+        ghostEnabled = true;
 
   UserProfile copyWith({
     List<String>? favoriteArtists,
     bool? onboardingCompleted,
     Map<String, List<String>>? periodMoods,
     bool? smartQueueEnabled,
+    bool? ghostEnabled,
   }) {
     return UserProfile(
       favoriteArtists: favoriteArtists ?? this.favoriteArtists,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       periodMoods: periodMoods ?? this.periodMoods,
       smartQueueEnabled: smartQueueEnabled ?? this.smartQueueEnabled,
+      ghostEnabled: ghostEnabled ?? this.ghostEnabled,
     );
   }
 
@@ -52,6 +61,7 @@ class UserProfile {
         'onboardingCompleted': onboardingCompleted,
         'periodMoods': periodMoods,
         'smartQueueEnabled': smartQueueEnabled,
+        'ghostEnabled': ghostEnabled,
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -74,6 +84,8 @@ class UserProfile {
       // fonctionnalité : reste désactivée par défaut plutôt que d'imposer
       // un choix jamais fait par l'utilisateur.
       smartQueueEnabled: json['smartQueueEnabled'] as bool? ?? false,
+      // Absent sur les profils antérieurs : actif par défaut.
+      ghostEnabled: json['ghostEnabled'] as bool? ?? true,
     );
   }
 }

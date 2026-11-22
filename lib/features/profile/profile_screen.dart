@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../widgets/app_header.dart';
 import '../chat/library_chat_screen.dart';
+import '../journal/mood_journal_screen.dart';
 import '../library/duplicates_screen.dart';
 import '../player/equalizer_screen.dart';
 import '../recap/recap_screen.dart';
@@ -233,6 +234,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     const SizedBox(height: AppTheme.spacingS),
 
+                    // Fantôme d'humeur
+                    _SettingTile(
+                      icon: Icons.emoji_emotions_rounded,
+                      title: 'Fantôme d\'humeur',
+                      subtitle: 'Une petite mascotte dans le lecteur dont '
+                          'l\'expression suit l\'ambiance du morceau.',
+                      trailing: Switch(
+                        value: profile.ghostEnabled,
+                        activeThumbColor: AppTheme.accentPrimary,
+                        onChanged: (value) => ref
+                            .read(profileProvider.notifier)
+                            .setGhostEnabled(value),
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spacingS),
+
                     // Volume uniforme
                     _buildNormalizeCard(),
                     const SizedBox(height: AppTheme.spacingM),
@@ -252,6 +269,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         context,
                         MaterialPageRoute(
                             builder: (_) => const LibraryChatScreen()),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded,
+                          color: AppTheme.textTertiary),
+                    ),
+                    const SizedBox(height: AppTheme.spacingS),
+
+                    // Journal d'humeur
+                    _SettingTile(
+                      icon: Icons.mood_rounded,
+                      title: 'Journal d\'humeur',
+                      subtitle: 'Note ton humeur et vois ce que tu écoutes '
+                          'selon ton état.',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const MoodJournalScreen()),
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded,
                           color: AppTheme.textTertiary),

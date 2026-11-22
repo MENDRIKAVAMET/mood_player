@@ -17,6 +17,7 @@ import 'lyrics_screen.dart';
 import '../../widgets/track_options_sheet.dart';
 import '../../widgets/mood_edit_sheet.dart';
 import '../../widgets/mood_aura_backdrop.dart';
+import '../../widgets/mood_ghost.dart';
 import '../../widgets/mood_image.dart';
 import '../../utils/app_error.dart';
 import '../share/track_share.dart';
@@ -474,6 +475,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     ),
                   ),
                 ),
+                // Fantôme d'humeur : petite mascotte posée en haut à droite,
+                // son visage suit l'ambiance du morceau en cours.
+                if (ref.watch(profileProvider.select((p) => p.ghostEnabled)))
+                  Positioned(
+                    right: AppTheme.spacingL,
+                    top: MediaQuery.of(context).padding.top + 96,
+                    child: MoodGhost(
+                      mood: _displayTrack.mood,
+                      playing: isPlaying,
+                    ),
+                  ),
                 SafeArea(
                   child: Column(
                     children: [
