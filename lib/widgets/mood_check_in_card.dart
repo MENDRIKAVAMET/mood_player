@@ -5,6 +5,7 @@ import '../features/chat/library_chat_screen.dart';
 import '../features/journal/mood_journal_screen.dart';
 import '../models/mood_journal_entry.dart';
 import '../providers/mood_journal_provider.dart';
+import '../models/track.dart';
 import '../providers/track_provider.dart';
 import '../services/mood_journal_service.dart';
 import '../theme/app_theme.dart';

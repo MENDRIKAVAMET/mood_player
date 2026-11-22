@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/mood_journal_entry.dart';
 import '../../providers/mood_journal_provider.dart';
 import '../../services/mood_journal_service.dart';
+import '../../models/track.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../widgets/app_header.dart';
