@@ -30,6 +30,9 @@ class _LyricsShareScreenState extends State<LyricsShareScreen> {
   final Set<int> _selected = <int>{};
   bool _sharing = false;
 
+  /// Nombre max de lignes sélectionnables (la carte image n'en tient pas plus).
+  static const int _maxLines = 7;
+
   static List<String> _buildLines(LyricsResult r) {
     if (r.hasSynced) {
       return r.synced!.map((l) => l.text.trim()).toList();
@@ -41,19 +44,21 @@ class _LyricsShareScreenState extends State<LyricsShareScreen> {
 
   void _toggle(int i) {
     if (_isBlank(i)) return;
+    if (!_selected.contains(i) && _selected.length >= _maxLines) {
+      ScaffoldMessenger.maybeOf(context)
+        ?..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('7 lignes maximum par partage.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      return;
+    }
     setState(() {
       if (!_selected.remove(i)) _selected.add(i);
     });
   }
-
-  void _selectAll() => setState(() {
-        _selected
-          ..clear()
-          ..addAll([
-            for (var i = 0; i < _lines.length; i++)
-              if (!_isBlank(i)) i,
-          ]);
-      });
 
   /// Lignes choisies dans l'ordre, une ligne vide entre deux sélections non
   /// adjacentes (un saut de strophe compte comme non adjacent), puis la
@@ -134,15 +139,11 @@ class _LyricsShareScreenState extends State<LyricsShareScreen> {
                     Expanded(
                       child: Text(
                         n == 0
-                            ? 'Touche les lignes à partager'
-                            : '$n ligne${n > 1 ? 's' : ''} choisie${n > 1 ? 's' : ''}',
+                            ? 'Touche jusqu\'à $_maxLines lignes à partager'
+                            : '$n/$_maxLines ligne${n > 1 ? 's' : ''} choisie${n > 1 ? 's' : ''}',
                         style: AppTheme.bodyMedium
                             .copyWith(color: AppTheme.textSecondary),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: _selectAll,
-                      child: const Text('Tout sélectionner'),
                     ),
                     TextButton(
                       onPressed:

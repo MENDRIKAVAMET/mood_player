@@ -1,48 +1,54 @@
 # 🎵 Aura
 
-Une application mobile Flutter qui organise vos playlists musicales par "mood" (ambiance) en utilisant l'API Groq pour classifier automatiquement chaque morceau.
+Lecteur de musique Android (Flutter) qui range ta bibliothèque par **ambiance** (mood). Chaque morceau est classé automatiquement, d'abord avec les tags du fichier, puis avec l'API Groq pour le reste.
 
 ## 🚀 Fonctionnalités
 
-- **Classification automatique par mood** : Utilise l'API Groq pour analyser et classifier chaque morceau
-- **Moods supportés** : Énergique, Chill, Mélancolique, Festif, Romantique, Concentration, Motivant, Triste
-- **Cache local** : Stockage des classifications pour éviter les appels API répétés
-- **Lecteur audio** : Lecture avec contrôles depuis la notification/lock screen Android
-- **Images d'ambiance personnalisables** : appui long sur une ambiance (ou bouton photo dans son écran) pour choisir, ambiance par ambiance, entre l'image d'origine (défaut), une illustration d'animé, l'icône seule ou une image importée depuis la galerie ; un style peut aussi être appliqué à toutes les ambiances d'un coup
-- **Images pour les moods créés par l'utilisateur** : appui long sur un mood perso (ou bouton photo dans son écran) pour lui donner une image, au choix parmi toutes les images de l'app (photos et animé) ou importée depuis l'appareil ; l'image sert aussi de fond à l'écran du mood
-- **Transfert de données** : Profil → « Transfert de données » exporte classifications, favoris, ambiances perso, écoutes et réglages dans un fichier JSON ; l'import (autre téléphone, ou classifications d'une autre personne, hors ligne) retrouve les morceaux par titre + artiste + durée
-- **Égaliseur** : préréglages, curseurs par bande et renforcement du volume (Android), accessible depuis le lecteur et le profil
-- **Outils de listes** : sur les listes de morceaux, barre de défilement rapide, bouton ancre (retour au morceau en cours) et boutons Tout lire / Aléatoire / Trier
-- **Volume uniforme** : interrupteur dans le Profil ; mesure le volume de chaque morceau une fois (en arrière-plan) puis ajuste le gain à la lecture pour que tout sonne à peu près aussi fort
-- **Filtrage et recherche** : Filtrer par mood, rechercher par titre/artiste
+### Ambiances
+- **17 ambiances** : Énergique, Chill, Mélancolique, Festif, Romantique, Concentration, Motivant, Triste, Évangélique, Colère, Nostalgique, Sombre, Sommeil, Drôle, Road trip, Spirituel, Classique
+- **Classification automatique** : pré-classement local à partir du tag « genre », puis Groq pour les morceaux restants ; les résultats sont mis en cache, aucun appel répété
+- **Ambiance secondaire** par morceau (ex. Chill + Nostalgique)
+- **Corrections manuelles** : tes corrections servent d'exemples dans le prompt pour que la classification suive ta définition de chaque ambiance
+- **Ambiances personnalisées** : crée tes propres moods, ajoute des morceaux avec un pourcentage de correspondance, donne-leur une image
+- **Images d'ambiance** : par ambiance, au choix entre l'image d'origine, une illustration d'animé, l'icône seule ou une image importée ; un style peut aussi être appliqué à toutes les ambiances d'un coup
+- **Mood live** : propose des ambiances selon l'heure, la météo (ville choisie à la main, via Open-Meteo, sans permission de localisation), le mouvement du téléphone et le casque
+- **Journal d'humeur** : note ton humeur (avec une note facultative), vois ce que tu écoutes selon ton état, relis l'historique
+
+### Lecture
+- Lecteur avec contrôles dans la notification et sur l'écran de verrouillage, file d'attente modifiable
+- **Égaliseur** : préréglages, curseurs par bande et renforcement du volume
+- **Volume uniforme** : mesure le volume de chaque morceau une fois, en arrière-plan, puis ajuste le gain à la lecture
+- **Paroles** : récupérées sur lrclib (synchronisées quand c'est possible) ou lues depuis des fichiers `.lrc`, recherche manuelle, décalage réglable, taille et alignement du texte
+- **Widget** d'écran d'accueil : morceau en cours et fantôme d'humeur
+
+### Bibliothèque et recherche
+- Scan de toute la bibliothèque de l'appareil (MediaStore), tous formats
+- Recherche par titre/artiste, filtre par ambiance, historique de recherches
 - **Recherche par ambiance** : « un truc calme pour réviser » (mots-clés en local, Groq pour les phrases floues, négations comprises)
-- **Bilan du mois** : carte-image partageable (ambiance dominante, top morceaux, heure favorite), construite à partir d'un journal d'écoute daté
+- **Chat avec la bibliothèque** : demande en langage naturel, l'app sélectionne les morceaux en local et propose de les lire, de les mettre en file ou d'en faire une playlist
+- **Doublons** : détecte les morceaux présents en plusieurs exemplaires et propose lequel garder
+- Renommage d'un morceau (renomme aussi le fichier sur l'appareil)
+- Outils de listes : défilement rapide, bouton ancre vers le morceau en cours, Tout lire / Aléatoire / Trier
 
-## 📁 Structure du projet
+### Découvertes
+- Ajouts récents, morceaux les plus écoutés, favoris, mixes par période et suggestions déduites de l'écoute
+- **Rappels d'écoute** : « Ça te dit de réécouter ? », notification programmée ou pop-up quand l'app est ouverte
+- **Bilan du mois** : carte-image partageable (ambiance dominante, top morceaux, heure favorite)
 
-```
-mood_player/
-├── lib/
-│   ├── main.dart                    # Point d'entrée principal
-│   ├── models/
-│   │   └── track.dart               # Modèle de données Track avec Isar
-│   ├── services/
-│   │   ├── groq_service.dart      # Service d'appel API Groq
-│   │   ├── storage_service.dart     # Service de stockage local Isar
-│   │   └── audio_handler.dart       # Gestionnaire audio pour playback
-│   ├── providers/
-│   │   ├── providers.dart           # Export des providers
-│   │   ├── track_provider.dart      # Providers Riverpod pour les tracks
-│   │   └── audio_provider.dart      # Providers Riverpod pour l'audio
-│   └── features/
-│       ├── home/
-│       │   └── home_screen.dart     # Écran principal avec liste
-│       ├── player/
-│       │   └── player_screen.dart   # Écran du lecteur audio
-│       └── tracks/                  # (pour extensions futures)
-├── .env                             # Variables d'environnement (non versionné)
-└── pubspec.yaml                     # Dépendances du projet
-```
+### Partage
+- **Paroles en image** : choisis jusqu'à 7 lignes, carte 9:16 (1080 × 1920 px) avec panneau vitré, pochette, titre et artiste
+- **Extrait de 20 s en vidéo MP4** : même carte, avec les paroles en karaoké quand elles sont synchronisées, fantôme d'humeur et image du mood en option (encodage natif Android, sans ffmpeg)
+- Partage des paroles en texte
+
+### Données
+- **Transfert de données** : Profil → « Transfert de données » exporte classifications, favoris, ambiances perso, écoutes et réglages dans un fichier JSON ; l'import (autre téléphone, ou classifications d'une autre personne, hors ligne) retrouve les morceaux par titre + artiste + durée
+- **Sauvegarde automatique** dans un dossier de ton choix
+- **Mises à jour** : vérifie les releases GitHub, télécharge l'APK et lance l'installation
+- Journal de crash natif affiché au lancement suivant un plantage
+
+## 🧭 Navigation
+
+Quatre onglets : **Bibliothèque**, **Découvertes**, **Ambiances**, **Profil**, avec un mini-lecteur partagé.
 
 ## 🛠️ Stack technique
 
@@ -50,38 +56,58 @@ mood_player/
 |-----------|-------------|
 | Framework | Flutter (Dart) |
 | Gestion d'état | Riverpod |
-| Stockage local | Isar |
+| Base locale | Isar (morceaux) + petits fichiers JSON (profil, réglages, journaux) |
 | Réseau | Dio |
 | Audio | just_audio + audio_service |
-| API IA | Groq |
-| Config | flutter_dotenv |
+| Bibliothèque | on_audio_query + permission_handler |
+| IA | Groq (API compatible OpenAI) |
+| Paroles | lrclib.net |
+| Météo | Open-Meteo (sans clé) |
+| Notifications | flutter_local_notifications |
+| Polices | Inter + Space Grotesk, embarquées dans `google_fonts/` (licence OFL) : rendu identique hors-ligne |
+
+## 📁 Structure du projet
+
+```
+lib/
+├── main.dart
+├── models/        # Track (Isar), moods perso, journal, profil, paroles…
+├── providers/     # Providers Riverpod (audio, pistes, thème, mood live…)
+├── services/      # Groq, stockage, audio, scan, paroles, sauvegarde, mises à jour…
+├── features/      # Écrans : home, library, mood, player, foryou, journal,
+│                  #   recap, reminder, share, search, chat, profile, update…
+├── widgets/       # Composants réutilisables
+├── theme/         # Thème et couleurs par ambiance
+└── utils/
+android/           # Code natif : encodage vidéo, widget, mesure du volume, crash log, installation des mises à jour
+assets/            # Images d'ambiance (photos + animé) et icônes
+google_fonts/     # Polices Inter et Space Grotesk (TTF statiques + licences)
+test/              # Tests unitaires
+```
 
 ## 📋 Prérequis
 
 1. Flutter SDK ≥ 3.11.1
-2. Android Studio / VS Code avec extensions Flutter
-3. Compte Groq (console.groq.com)
-4. Clé API Groq
+2. Android Studio ou VS Code avec les extensions Flutter
+3. Compte Groq (console.groq.com) et clé API
 
 ## ⚙️ Configuration
 
-### 1. Cloner et installer les dépendances
+### 1. Installer les dépendances
 
 ```bash
-cd mood_player
 flutter pub get
 ```
 
 ### 2. Configurer la clé API
 
-Copiez `env.json.example` en `env.json` (ignoré par git) et mettez-y votre clé :
+Copie `env.json.example` en `env.json` (ignoré par git) et mets-y ta clé :
 
 ```json
 { "GROQ_API_KEY": "votre_cle_api_ici" }
 ```
 
-La clé est injectée à la compilation (`--dart-define-from-file`), elle n'est
-plus embarquée dans l'APK sous forme de fichier `.env`.
+La clé est injectée à la compilation (`--dart-define-from-file`). `GROQ_BASE_URL` peut aussi être défini pour passer par un proxy.
 
 ### 3. Générer le code Isar
 
@@ -95,84 +121,58 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run --dart-define-from-file=env.json
 ```
 
-Build release protégé (code obfusqué) :
+## 📦 Release
+
+Build local (code obfusqué) :
 
 ```bash
 flutter build apk --release --obfuscate --split-debug-info=build/symbols \
   --dart-define-from-file=env.json
 ```
 
-Gardez le dossier `build/symbols` de chaque version publiée : il sert à
-relire les stack traces (`flutter symbolize`).
+Garde le dossier `build/symbols` de chaque version publiée : il sert à relire les stack traces (`flutter symbolize`).
 
-## 🎯 Utilisation
+**Signature** : copie `android/key.properties.example` en `android/key.properties` avec ton keystore. Sans ce fichier, le build retombe sur la clé de debug : ne distribue jamais un tel APK, la signature change d'une machine à l'autre et bloque les mises à jour.
 
-### Ajouter un morceau
-1. Appuyez sur le bouton `+` ou l'icône dans l'AppBar
-2. Entrez le titre, l'artiste et (optionnellement) l'album
-3. Le morceau est ajouté à la liste
+**Publication via GitHub Actions** : pousser un tag `vX.Y.Z` déclenche `release.yml`, qui signe l'APK, le build et crée la Release GitHub (c'est elle que l'app interroge pour se mettre à jour). Secrets à créer dans Settings → Secrets and variables → Actions :
 
-### Classifier un morceau
-- Appuyez sur l'icône ✨ à côté d'un morceau non classifié
-- Ou utilisez "Classifier tous les morceaux" dans le menu
+| Secret | Rôle |
+|--------|------|
+| `KEYSTORE_BASE64` | keystore encodé en base64 |
+| `KEYSTORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS` | accès au keystore |
+| `GROQ_API_KEY` | clé Groq compilée dans l'APK |
+| `GROQ_BASE_URL` | (optionnel) proxy Groq |
 
-### Filtrer par mood
-- Utilisez les puces de filtre en haut de l'écran
-- Combinez avec la recherche pour un filtrage précis
+`build.yml` lance l'analyse, les tests et un build à chaque push et pull request sur `main`.
 
-### Écouter un morceau
-- Appuyez sur un morceau pour ouvrir le lecteur
-- Contrôles disponibles : play/pause, avancer/reculer 10s
+## 🔐 Permissions Android
 
-## 🔧 Architecture
-
-### Modèle de données (Track)
-```dart
-@collection
-class Track {
-  Id id = Isar.autoIncrement;
-  late String title;
-  late String artist;
-  String? album;
-  String? filePath;
-  MoodType? mood;
-  double? moodConfidence;
-  DateTime? lastClassified;
-}
-```
-
-### Service Groq
-- Construit un prompt de classification
-- Appelle l'API Groq
-- Parse la réponse JSON
-- Gère les erreurs et retries
-
-### Service Storage
-- CRUD complet pour les morceaux
-- Recherche par titre/artiste
-- Filtrage par mood
-- Statistiques par mood
+Lecture de l'audio (`READ_MEDIA_AUDIO`), notifications, service audio en arrière-plan, alarmes exactes et exclusion de l'optimisation de batterie (rappels), installation d'APK (mises à jour) et accès à tous les fichiers (`MANAGE_EXTERNAL_STORAGE`, uniquement pour lire les `.lrc` rangés à côté de la musique). Les trois dernières conviennent à une distribution par GitHub, mais seraient refusées ou à justifier sur le Play Store.
 
 ## 📝 Notes
 
-- **Pas de backend** : Tout est géré côté client
-- **Pas d'authentification** : Application personnelle
-- **Clé API** : Ne jamais commiter `env.json`. Une clé dans une app mobile reste récupérable : pour la cacher vraiment, passer par un proxy (`GROQ_BASE_URL`)
-- **API Groq** : Vérifiez les quotas et tarifs
+- **Pas de backend** : tout est géré côté client
+- **Pas d'authentification** : application personnelle, les données restent sur l'appareil
+- **Clé API** : ne jamais commiter `env.json`. Une clé dans une app mobile reste récupérable ; pour la cacher vraiment, passer par un proxy (`GROQ_BASE_URL`)
+- **Données envoyées** : titre et artiste à Groq pour la classification, titre/artiste/durée à lrclib pour les paroles, nom de ville à Open-Meteo pour la météo
+- **API Groq** : vérifie les quotas et tarifs
 
 ## 🐛 Dépannage
 
-### Erreur "GROQ_API_KEY not found"
-- Lancez bien l'app avec `--dart-define-from-file=env.json`
+### Erreur « GROQ_API_KEY not found »
+- Lance bien l'app avec `--dart-define-from-file=env.json`
 
 ### Erreur Isar
-- Relancez `dart run build_runner build --delete-conflicting-outputs`
-- Supprimez le dossier `.dart_tool` si nécessaire
+- Relance `dart run build_runner build --delete-conflicting-outputs`
+- Supprime le dossier `.dart_tool` si nécessaire
 
 ### Erreur audio
-- Vérifiez les permissions audio dans `AndroidManifest.xml`
-- Testez avec un fichier audio local
+- Vérifie les permissions audio dans `AndroidManifest.xml`
+- Teste avec un fichier audio local
+
+### Plantage au lancement
+- L'écran de journal de crash s'affiche au lancement suivant : copie la trace pour la partager
 
 ## 📄 Licence
 
-Projet personnel - Pas destiné à la publication.
+Projet personnel.

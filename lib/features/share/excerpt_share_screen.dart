@@ -454,102 +454,6 @@ class _ExcerptCard extends StatelessWidget {
     required this.showMoodImage,
   });
 
-  Widget _artwork() {
-    final c = cover;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: 46,
-        height: 46,
-        child: c != null
-            ? Image(
-                image: c,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _artFallback(),
-              )
-            : _artFallback(),
-      ),
-    );
-  }
-
-  Widget _artFallback() => const ColoredBox(
-        color: Color(0x33FFFFFF),
-        child: Icon(Icons.music_note_rounded, color: Colors.white70),
-      );
-
-  Widget _panel() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.24),
-                Colors.white.withValues(alpha: 0.10),
-                Colors.white.withValues(alpha: 0.16),
-              ],
-              stops: const [0, 0.55, 1],
-            ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (lines != null) ...[
-                ValueListenableBuilder<int>(
-                  valueListenable: karaokeMs,
-                  builder: (_, ms, _) => KaraokeWindow(lines: lines!, timeMs: ms),
-                ),
-                const SizedBox(height: 16),
-              ],
-              Row(
-                children: [
-                  _artwork(),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTheme.bodyLarge.copyWith(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          track.artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTheme.bodyLarge.copyWith(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final mood = track.mood;
@@ -586,30 +490,22 @@ class _ExcerptCard extends StatelessWidget {
               ),
             ),
             // Logo Aura : toujours en haut à gauche.
-            Positioned(
-              left: 24,
-              top: 28,
-              child: Row(
-                children: [
-                  const Icon(Icons.graphic_eq_rounded,
-                      size: 18, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Aura',
-                    style: AppTheme.labelLarge.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const Positioned(left: 24, top: 28, child: ShareAuraLogo()),
             Positioned(
               left: 16,
               right: 16,
               bottom: 36,
-              child: _panel(),
+              child: ShareGlassPanel(
+                track: track,
+                cover: cover,
+                top: lines == null
+                    ? null
+                    : ValueListenableBuilder<int>(
+                        valueListenable: karaokeMs,
+                        builder: (_, ms, _) =>
+                            KaraokeWindow(lines: lines!, timeMs: ms),
+                      ),
+              ),
             ),
             // Fantôme : posé sur le bord haut du panneau, à droite. Il suit
             // l'horloge de la vidéo (pas la sienne) pour être capturé trame

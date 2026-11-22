@@ -126,8 +126,147 @@ class ShareCardBackground extends StatelessWidget {
   }
 }
 
+/// Panneau vitré en bas des cartes de partage (image et vidéo) : [top]
+/// (paroles), puis pochette, titre et artiste. Un seul widget pour que la
+/// carte image et la carte vidéo aient exactement la même forme.
+class ShareGlassPanel extends StatelessWidget {
+  final Track track;
+  final ImageProvider? cover;
+
+  /// Contenu au-dessus de la ligne pochette / titre (en général les paroles).
+  final Widget? top;
+
+  const ShareGlassPanel({
+    super.key,
+    required this.track,
+    required this.cover,
+    this.top,
+  });
+
+  Widget _artwork() {
+    final c = cover;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 46,
+        height: 46,
+        child: c != null
+            ? Image(
+                image: c,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _artFallback(),
+              )
+            : _artFallback(),
+      ),
+    );
+  }
+
+  Widget _artFallback() => const ColoredBox(
+        color: Color(0x33FFFFFF),
+        child: Icon(Icons.music_note_rounded, color: Colors.white70),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.24),
+                Colors.white.withValues(alpha: 0.10),
+                Colors.white.withValues(alpha: 0.16),
+              ],
+              stops: const [0, 0.55, 1],
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (top != null) ...[
+                top!,
+                const SizedBox(height: 16),
+              ],
+              Row(
+                children: [
+                  _artwork(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          track.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Logo Aura (haut gauche des cartes de partage).
+class ShareAuraLogo extends StatelessWidget {
+  const ShareAuraLogo({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.graphic_eq_rounded, size: 18, color: Colors.white),
+        const SizedBox(width: 6),
+        Text(
+          'Aura',
+          style: AppTheme.labelLarge.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Carte 9:16 (360 x 640) avec les paroles choisies, exportée en PNG.
-/// [lines] : une entrée par ligne ; une chaîne vide marque un saut de strophe.
+/// Même forme que la carte de la vidéo : image plein cadre, logo Aura en
+/// haut à gauche, panneau vitré en bas (paroles en serif, pochette, titre,
+/// artiste).
+/// [lines] : une entrée par ligne (7 max) ; une chaîne vide marque un saut
+/// de strophe.
 class LyricsImageCard extends StatelessWidget {
   final Track track;
   final List<String> lines;
@@ -142,11 +281,44 @@ class LyricsImageCard extends StatelessWidget {
     required this.cover,
   });
 
+  Widget _lyrics() {
+    const style = TextStyle(
+      fontFamily: 'serif',
+      color: Colors.white,
+      fontSize: 24,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+      shadows: [Shadow(color: Color(0x66000000), blurRadius: 8)],
+    );
+    // Si les lignes sont longues (retours à la ligne), le bloc rétrécit pour
+    // tenir dans la carte au lieu de déborder.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 330),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: 288,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final line in lines)
+                line.trim().isEmpty
+                    ? const SizedBox(height: 14)
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(line.trim(), style: style),
+                      ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    const shadow = [
-      Shadow(color: Color(0x99000000), blurRadius: 12, offset: Offset(0, 2)),
-    ];
     return SizedBox(
       width: 360,
       height: 640,
@@ -160,109 +332,31 @@ class LyricsImageCard extends StatelessWidget {
               cover: cover,
               showCoverInCenter: false,
             ),
-            // Voile sombre sur toute la carte : le texte doit rester lisible
-            // quelle que soit l'image de fond.
+            // Léger dégradé : garde le logo et le panneau lisibles.
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.55),
-                    Colors.black.withValues(alpha: 0.5),
-                    Colors.black.withValues(alpha: 0.6),
-                    Colors.black.withValues(alpha: 0.92),
+                    Colors.black.withValues(alpha: 0.35),
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.35),
                   ],
-                  stops: const [0, 0.35, 0.7, 1],
+                  stops: const [0, 0.22, 0.6, 1],
                 ),
               ),
             ),
+            const Positioned(left: 24, top: 28, child: ShareAuraLogo()),
             Positioned(
-              left: 24,
-              top: 28,
-              child: Row(
-                children: [
-                  const Icon(Icons.graphic_eq_rounded,
-                      size: 18, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Aura',
-                    style: AppTheme.labelLarge.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Zone des paroles : si la sélection est longue, le texte
-            // rétrécit pour tenir au lieu de déborder.
-            Positioned(
-              left: 28,
-              right: 28,
-              top: 76,
-              bottom: 130,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    width: 304,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final line in lines)
-                          line.trim().isEmpty
-                              ? const SizedBox(height: 18)
-                              : Text(
-                                  line,
-                                  style: AppTheme.headlineLarge.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.3,
-                                    shadows: shadow,
-                                  ),
-                                ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 28,
-              right: 28,
-              bottom: 44,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    track.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.headlineLarge.copyWith(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      height: 1.15,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    track.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.bodyLarge.copyWith(
-                      color: Colors.white70,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
+              left: 16,
+              right: 16,
+              bottom: 36,
+              child: ShareGlassPanel(
+                track: track,
+                cover: cover,
+                top: lines.isEmpty ? null : _lyrics(),
               ),
             ),
           ],

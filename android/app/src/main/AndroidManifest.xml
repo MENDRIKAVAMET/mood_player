@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- Required for network access (Gemini API, album covers) -->
+    <!-- Required for network access (API Groq, paroles, météo, mises à jour, pochettes) -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <!-- Required for audio playback in the background (audio_service) -->

@@ -1,5 +1,5 @@
 name: mood_player
-description: "A new Flutter project."
+description: "Aura : lecteur de musique qui classe ta bibliothèque par ambiance (mood)."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -57,9 +57,6 @@ dependencies:
   audio_session: ^0.1.18
   sensors_plus: ^7.1.1
 
-  # Environment variables
-  flutter_dotenv: ^5.1.0
-
   # Utilities
   uuid: ^4.2.1
   file_picker: ^8.1.2
@@ -114,6 +111,9 @@ flutter:
     - assets/icon/
     - assets/moods/
     - assets/moods/anime/
+    # Polices embarquées : google_fonts les lit ici avant de tenter le réseau
+    # (Inter + Space Grotesk, licence OFL jointe).
+    - google_fonts/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

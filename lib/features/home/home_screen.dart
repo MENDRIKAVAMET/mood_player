@@ -1329,7 +1329,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         title: Text('Classifier tous les morceaux', style: AppTheme.headlineMedium),
         content: Text(
-          'Voulez-vous classifier tous les morceaux non classifiés avec Gemini ? '
+          'Voulez-vous classifier tous les morceaux non classifiés avec l\'IA ? '
           'Cela peut prendre du temps selon le nombre de morceaux.',
           style: AppTheme.bodyMedium,
         ),
