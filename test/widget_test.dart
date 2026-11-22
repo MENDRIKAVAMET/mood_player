@@ -36,6 +36,16 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
+    // google_fonts charge les polices embarquées (google_fonts/) de façon
+    // asynchrone ; Flutter signale alors « polices système modifiées » et
+    // planifie une trame. On laisse ce chargement se terminer (vraie
+    // asynchronie, hors horloge factice), puis on peint une dernière trame :
+    // sinon un callback reste en attente à la fermeture du test.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
     // The app title should be visible.
     expect(find.text('Aura'), findsOneWidget);
 

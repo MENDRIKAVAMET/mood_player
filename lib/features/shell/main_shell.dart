@@ -38,6 +38,10 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
   bool _sessionRestoreAttempted = false;
   Timer? _widgetTimer;
 
+  /// Première sauvegarde automatique, 30 s après le démarrage. Gardé pour
+  /// pouvoir l'annuler à la fermeture (sinon il reste en attente).
+  Timer? _firstBackupTimer;
+
   static const _navigationChannel =
       MethodChannel('com.example.mood_player/navigation');
 
@@ -76,7 +80,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
 
     // Sauvegarde automatique : une première passe un peu après le démarrage
     // (laisse le temps au scan de la bibliothèque).
-    Future<void>.delayed(const Duration(seconds: 30), () {
+    _firstBackupTimer = Timer(const Duration(seconds: 30), () {
       if (mounted) ref.read(autoBackupProvider.notifier).backupIfDue();
     });
   }
@@ -86,6 +90,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     WidgetsBinding.instance.removeObserver(this);
     _likeChangedSub?.cancel();
     _widgetTimer?.cancel();
+    _firstBackupTimer?.cancel();
     super.dispose();
   }
 
