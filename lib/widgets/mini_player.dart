@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'glass_blur.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
@@ -51,15 +52,20 @@ class MiniPlayer extends ConsumerWidget {
           ),
         );
       },
-      child: Container(
-        height: 68,
-        margin: const EdgeInsets.symmetric(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacingM,
           vertical: AppTheme.spacingS,
         ),
+        // Thème Verre : le contenu qui défile derrière est flouté.
+        child: GlassBlur(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        child: Container(
+        height: 68,
         decoration: BoxDecoration(
           // Base OPAQUE sous le dégradé translucide : rien du contenu
           // défilant ne doit transparaître à travers le mini-lecteur.
+          // (Thème Verre : la base est translucide, le flou fait le reste.)
           color: AppTheme.backgroundSecondary,
           gradient: AppTheme.auroraGradient(tint: moodColors.primary),
           borderRadius: BorderRadius.circular(AppTheme.radiusXL),
@@ -216,6 +222,8 @@ class MiniPlayer extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+      ),
       ),
     );
   }

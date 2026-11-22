@@ -130,3 +130,81 @@ class KaraokeLyrics extends StatelessWidget {
     );
   }
 }
+
+
+/// Paroles en « fenêtre » de 3 lignes (la ligne en cours + les 2 suivantes),
+/// en serif, alignées à gauche : le style du panneau vitré de la vidéo.
+/// La ligne en cours est pleine, les suivantes sont atténuées.
+/// Utilise la même chronologie que [KaraokeLyrics] ([KaraokeLyrics.frameKey]).
+class KaraokeWindow extends StatelessWidget {
+  final List<LyricLine> lines;
+  final int timeMs;
+
+  /// Hauteur d'une ligne ; la fenêtre fait toujours 3 x cette hauteur.
+  static const double lineHeight = 34;
+  static const int _transitionMs = 450;
+
+  const KaraokeWindow({super.key, required this.lines, required this.timeMs});
+
+  @override
+  Widget build(BuildContext context) {
+    var cur = -1;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].timestamp.inMilliseconds <= timeMs) {
+        cur = i;
+      } else {
+        break;
+      }
+    }
+    final appear = cur < 0
+        ? 1.0
+        : ((timeMs - lines[cur].timestamp.inMilliseconds) / _transitionMs)
+            .clamp(0.0, 1.0);
+
+    return SizedBox(
+      height: lineHeight * 3,
+      child: Stack(
+        children: [
+          if (cur >= 1 && appear < 1)
+            Opacity(opacity: 1 - appear, child: _window(cur - 1, true)),
+          Opacity(opacity: appear, child: _window(cur < 0 ? 0 : cur, cur >= 0)),
+        ],
+      ),
+    );
+  }
+
+  /// Trois lignes à partir de [start] ; [active] = la première est en cours
+  /// (sinon, intro : tout est atténué).
+  Widget _window(int start, bool active) {
+    String textAt(int i) =>
+        (i >= 0 && i < lines.length) ? lines[i].text.trim() : '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var k = 0; k < 3; k++)
+          SizedBox(
+            height: lineHeight,
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                textAt(start + k),
+                maxLines: 1,
+                style: TextStyle(
+                  fontFamily: 'serif',
+                  color: Colors.white.withValues(alpha: k == 0 && active ? 1 : 0.6),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                  shadows: const [
+                    Shadow(color: Color(0x66000000), blurRadius: 8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

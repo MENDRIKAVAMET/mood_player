@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -210,11 +212,17 @@ class MoodGhost extends StatefulWidget {
   /// Largeur du fantôme ; la hauteur totale est 1,4 fois plus grande.
   final double size;
 
+  /// Position fixe dans la boucle d'animation (0 à 1). Utilisé pour la
+  /// capture vidéo : le fantôme est alors piloté de l'extérieur, image par
+  /// image, au lieu de tourner sur sa propre horloge.
+  final double? time;
+
   const MoodGhost({
     super.key,
     required this.mood,
     required this.playing,
     this.size = 72,
+    this.time,
   });
 
   @override
@@ -305,7 +313,7 @@ class _MoodGhostState extends State<MoodGhost> with TickerProviderStateMixin {
                       painter: _GhostPainter(
                         look: look,
                         color: color,
-                        t: _loop.value,
+                        t: widget.time ?? _loop.value,
                         playing: widget.playing,
                       ),
                     ),
@@ -324,6 +332,37 @@ class _MoodGhostState extends State<MoodGhost> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+/// Dessine le fantôme d'une ambiance dans une image PNG (widget d'écran
+/// d'accueil). [width] est en pixels logiques ; la hauteur est 1,4 fois plus
+/// grande, comme [MoodGhost].
+Future<Uint8List> renderGhostPng({
+  required MoodType? mood,
+  required bool playing,
+  double width = 80,
+  double pixelRatio = 3,
+  double time = 0.25,
+}) async {
+  final height = width * 1.4;
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder)..scale(pixelRatio);
+  _GhostPainter(
+    look: GhostLook.forMood(mood),
+    color: MoodColors.forMood(mood).primary,
+    t: time,
+    playing: playing,
+  ).paint(canvas, Size(width, height));
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(
+    (width * pixelRatio).round(),
+    (height * pixelRatio).round(),
+  );
+  final data = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  picture.dispose();
+  if (data == null) throw StateError('image du fantôme vide');
+  return data.buffer.asUint8List();
 }
 
 class _SpeechBubble extends StatelessWidget {

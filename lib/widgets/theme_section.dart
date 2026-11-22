@@ -94,7 +94,22 @@ class _ThemeSectionState extends ConsumerState<ThemeSection> {
             icon: Icons.auto_awesome_mosaic_rounded,
             title: 'Thèmes complets',
             subtitle: 'Un clic règle tout',
-            children: [_buildPresetsSection(settings)],
+            children: [
+              _buildPresetsSection(settings),
+              const SizedBox(height: AppTheme.spacingS),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.blur_on_rounded),
+                title: const Text('Thème Verre'),
+                subtitle: Text(
+                  'Tout en verre : fond vif, surfaces translucides et floutées',
+                  style: AppTheme.bodySmall,
+                ),
+                value: settings.glass,
+                onChanged: (v) =>
+                    ref.read(themeProvider.notifier).setGlass(v),
+              ),
+            ],
           ),
           const _GroupDivider(),
           _ThemeGroup(
@@ -977,11 +992,16 @@ class _PresetPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = preset.background == null
-        ? ThemePalette.standard.primary
-        : ThemePalette.fromBase(preset.background!).primary;
+    final glassPalette = preset.glass ? ThemePalette.glass(275) : null;
+    final bg = glassPalette != null
+        ? glassPalette.primary
+        : preset.background == null
+            ? ThemePalette.standard.primary
+            : ThemePalette.fromBase(preset.background!).primary;
     final accent = preset.accent ?? const Color(0xFFA855F7);
-    final glow = accent.withValues(alpha: 0.38);
+    final glow = glassPalette != null
+        ? glassPalette.homeTop
+        : accent.withValues(alpha: 0.38);
 
     final Gradient? gradient;
     switch (preset.backgroundStyle) {

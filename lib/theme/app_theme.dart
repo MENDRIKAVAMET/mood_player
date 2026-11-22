@@ -126,6 +126,11 @@ class AppTheme {
   /// foncé (boutons pleins).
   static void applyAccent(Color? base) {
     _customAccent = base;
+    _rebuildPalette();
+    _applyAccentColors(base);
+  }
+
+  static void _applyAccentColors(Color? base) {
     if (base == null) {
       _brandTop = _defaultBrandTop;
       _brandBottom = _defaultBrandBottom;
@@ -212,8 +217,68 @@ class AppTheme {
   /// Applique (ou retire, avec null) la couleur de fond choisie.
   static void applyBackground(Color? base) {
     _customBackground = base;
-    _palette =
-        base == null ? ThemePalette.standard : ThemePalette.fromBase(base);
+    _rebuildPalette();
+  }
+
+  // ── Thème Verre ──────────────────────────────────────────────
+  // Quand il est actif, tout est en verre : fond vif (dégradé coloré dont la
+  // teinte suit la couleur choisie) et surfaces translucides à bord clair,
+  // avec un vrai flou sur la barre du bas et le mini-lecteur.
+  static bool _glass = false;
+
+  /// Vrai si le thème Verre est actif.
+  static bool get glass => _glass;
+
+  static void applyGlass(bool enabled) {
+    _glass = enabled;
+    _rebuildPalette();
+  }
+
+  static void _rebuildPalette() {
+    if (_glass) {
+      _palette = ThemePalette.glass(_glassHue());
+    } else {
+      final bg = _customBackground;
+      _palette = bg == null ? ThemePalette.standard : ThemePalette.fromBase(bg);
+    }
+  }
+
+  /// Teinte du fond verre : la couleur de fond choisie si elle est colorée
+  /// (un noir ou un gris n'a pas de teinte), sinon la couleur principale,
+  /// sinon le violet d'origine.
+  static double _glassHue() {
+    final bg = _customBackground;
+    if (bg != null) {
+      final h = HSLColor.fromColor(bg);
+      if (h.saturation > 0.15) return h.hue;
+    }
+    final a = _customAccent;
+    if (a != null) return HSLColor.fromColor(a).hue;
+    return 275;
+  }
+
+  /// Surface en verre : voile clair en diagonale, bord lumineux, ombre douce.
+  static BoxDecoration _glassBox(double radius,
+      {double a = 0.22, double b = 0.07}) {
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withValues(alpha: a),
+          Colors.white.withValues(alpha: b),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.32), width: 1),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.18),
+          blurRadius: 24,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    );
   }
 
   static Color get backgroundPrimary => _palette.primary;
@@ -273,6 +338,7 @@ class AppTheme {
   /// Dégradé de base (vertical) : couleurs et arrêts réutilisés par tous les
   /// styles de fond.
   static LinearGradient get _baseScreen {
+    if (_glass) return _palette.screen;
     // Fond d'origine + couleur principale choisie : le halo du haut prend
     // la couleur choisie (sinon il resterait violet).
     if (_customBackground == null && _customAccent != null) {
@@ -582,14 +648,27 @@ class AppTheme {
   /// Carte translucide : un voile clair en dégradé posé sur le fond, au
   /// lieu d'un aplat gris. Le fond de l'écran transparaît, ce qui évite
   /// l'effet « rectangles gris empilés ».
-  static BoxDecoration get cardDecoration => BoxDecoration(
+  static BoxDecoration get cardDecoration => _glass
+      ? _glassBox(radiusL)
+      : BoxDecoration(
     gradient: cardGradient,
     borderRadius: BorderRadius.circular(radiusL),
     border: Border.all(color: border, width: 1),
   );
 
   /// Variante teintée par une couleur d'ambiance (mood, pochette…).
-  static BoxDecoration tintedCardDecoration(Color tint) => BoxDecoration(
+  static BoxDecoration tintedCardDecoration(Color tint) => _glass
+      ? _glassBox(radiusL, a: 0.22, b: 0.07).copyWith(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              tint.withValues(alpha: 0.34),
+              Colors.white.withValues(alpha: 0.07),
+            ],
+          ),
+        )
+      : BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -602,7 +681,9 @@ class AppTheme {
     border: Border.all(color: tint.withValues(alpha: 0.28), width: 1),
   );
 
-  static BoxDecoration get cardElevatedDecoration => BoxDecoration(
+  static BoxDecoration get cardElevatedDecoration => _glass
+      ? _glassBox(radiusL, a: 0.30, b: 0.10)
+      : BoxDecoration(
     gradient: const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -613,7 +694,9 @@ class AppTheme {
     boxShadow: shadowSmall,
   );
 
-  static BoxDecoration get glassDecoration => BoxDecoration(
+  static BoxDecoration get glassDecoration => _glass
+      ? _glassBox(radiusL)
+      : BoxDecoration(
     gradient: LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -731,6 +814,42 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(color: textPrimary, size: 24),
       dividerTheme: const DividerThemeData(color: divider, thickness: 1),
+      // Thème Verre : boîtes de dialogue, feuilles et menus translucides à
+      // bord clair, sans ombre (elle transparaîtrait à travers le verre).
+      dialogTheme: _glass
+          ? DialogThemeData(
+              backgroundColor: backgroundCardElevated,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(radiusXL),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.30)),
+              ),
+            )
+          : null,
+      bottomSheetTheme: _glass
+          ? BottomSheetThemeData(
+              backgroundColor: backgroundSecondary,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(radiusXL)),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.30)),
+              ),
+            )
+          : null,
+      popupMenuTheme: _glass
+          ? PopupMenuThemeData(
+              color: backgroundCardElevated,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(radiusL),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.30)),
+              ),
+            )
+          : null,
     );
   }
 }
@@ -779,6 +898,32 @@ class ThemePalette {
       stops: [0.0, 0.22, 0.55],
     ),
   );
+
+  /// Palette du thème Verre : fond vif (dégradé de teintes voisines de
+  /// [hue]) sur lequel les surfaces translucides se détachent. Les cartes
+  /// sont des voiles blancs ; les feuilles et boîtes de dialogue (secondary,
+  /// cardElevated) restent teintées et presque opaques pour la lisibilité.
+  factory ThemePalette.glass(double hue) {
+    Color hsl(double dh, double s, double l, [double a = 1]) =>
+        HSLColor.fromAHSL(a, (hue + dh + 360) % 360, s, l).toColor();
+    final top = hsl(-25, 0.75, 0.34);
+    final mid = hsl(10, 0.70, 0.22);
+    final bottom = hsl(45, 0.65, 0.12);
+    return ThemePalette._(
+      primary: bottom,
+      secondary: hsl(10, 0.50, 0.16, 0.82),
+      tertiary: const Color(0x14FFFFFF),
+      card: const Color(0x1AFFFFFF),
+      cardElevated: hsl(10, 0.45, 0.22, 0.90),
+      homeTop: top,
+      screen: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [top, mid, bottom],
+        stops: const [0.0, 0.45, 1.0],
+      ),
+    );
+  }
 
   /// Luminance relative maximale de la surface la plus claire. Au-delà, le
   /// texte tertiaire (#8B7EAB) n'est plus assez contrasté dessus.

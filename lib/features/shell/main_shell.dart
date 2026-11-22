@@ -1,12 +1,15 @@
 import 'dart:async';
+import '../../widgets/glass_blur.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
+import '../../providers/auto_backup_provider.dart';
 import '../../providers/providers.dart';
 import '../../services/audio_handler.dart';
+import '../../services/home_widget_service.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/listen_reminder_host.dart';
@@ -33,6 +36,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
   int _index = 0;
   StreamSubscription<(int, bool)>? _likeChangedSub;
   bool _sessionRestoreAttempted = false;
+  Timer? _widgetTimer;
 
   static const _navigationChannel =
       MethodChannel('com.example.mood_player/navigation');
@@ -69,13 +73,38 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     // de vie de l'app - MainShell est le seul widget garanti de rester
     // monté en permanence (voir commentaire au-dessus).
     ref.read(smartQueueControllerProvider);
+
+    // Sauvegarde automatique : une première passe un peu après le démarrage
+    // (laisse le temps au scan de la bibliothèque).
+    Future<void>.delayed(const Duration(seconds: 30), () {
+      if (mounted) ref.read(autoBackupProvider.notifier).backupIfDue();
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _likeChangedSub?.cancel();
+    _widgetTimer?.cancel();
     super.dispose();
+  }
+
+  /// Met à jour le widget d'écran d'accueil (morceau, mood, lecture). Court
+  /// délai pour regrouper les changements rapprochés (morceau + état).
+  void _scheduleWidgetSync() {
+    _widgetTimer?.cancel();
+    _widgetTimer = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      final item = ref.read(currentTrackProvider).valueOrNull;
+      final playing = ref.read(isPlayingProvider);
+      final moodName = item?.extras?['mood'] as String?;
+      HomeWidgetService.update(
+        title: item?.title,
+        artist: item?.artist ?? '',
+        mood: moodName == null ? null : MoodTypeExtension.fromString(moodName),
+        playing: playing,
+      );
+    });
   }
 
   @override
@@ -86,6 +115,8 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     // susceptible de tuer le processus.
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       ref.read(audioHandlerProvider).whenData((h) => h.persistPlaybackState());
+      // Sauvegarde automatique des données (dossier choisi par l'utilisateur).
+      ref.read(autoBackupProvider.notifier).backupIfDue();
     }
   }
 
@@ -153,6 +184,8 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     final mediaItem = currentTrack.valueOrNull;
 
     ref.listen(trackProvider, (previous, next) => _maybeRestoreSession(next));
+    ref.listen(currentTrackProvider, (_, _) => _scheduleWidgetSync());
+    ref.listen(isPlayingProvider, (_, _) => _scheduleWidgetSync());
 
     return PopScope(
       // MainShell est la racine de l'app : il n'y a rien "en dessous" à
@@ -196,18 +229,29 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
       ),
       // Barre translucide posée sur un léger voile de marque plutôt qu'un
       // aplat opaque : le dégradé de l'écran continue derrière elle.
-      bottomNavigationBar: Container(
+      bottomNavigationBar: GlassBlur(
+        child: Container(
         decoration: BoxDecoration(
           // Suit la couleur principale choisie (et plus un violet figé).
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppTheme.brandBottom.withValues(alpha: 0.0),
-              AppTheme.brandBottom.withValues(alpha: 0.22),
-            ],
+          // Thème Verre : voile blanc translucide + liseré lumineux.
+          color: AppTheme.glass ? Colors.white.withValues(alpha: 0.10) : null,
+          gradient: AppTheme.glass
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.brandBottom.withValues(alpha: 0.0),
+                    AppTheme.brandBottom.withValues(alpha: 0.22),
+                  ],
+                ),
+          border: Border(
+            top: BorderSide(
+              color: AppTheme.glass
+                  ? Colors.white.withValues(alpha: 0.30)
+                  : AppTheme.divider,
+            ),
           ),
-          border: Border(top: BorderSide(color: AppTheme.divider)),
         ),
         child: NavigationBar(
           selectedIndex: _index,
@@ -260,6 +304,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
             ),
           ],
         ),
+      ),
       ),
       ),
     );

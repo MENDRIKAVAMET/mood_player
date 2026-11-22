@@ -36,11 +36,19 @@ class MainActivity : AudioServiceFragmentActivity() {
     private val navigationChannelName = "com.example.mood_player/navigation"
     private val filesChannelName = "com.example.mood_player/files"
     private val updaterChannelName = "com.example.mood_player/updater"
+    private val backupFolderChannelName = "com.example.mood_player/backup_folder"
+    private val widgetChannelName = "com.example.mood_player/widget"
 
     // Renommage en attente de l'autorisation de l'utilisateur (Android 10+).
     private val requestWriteAccess = 4711
     private var pendingRename: RenameRequest? = null
     private var pendingRenameResult: MethodChannel.Result? = null
+
+    // Sauvegarde automatique : dossier choisi par l'utilisateur (SAF). Le
+    // fichier écrit là survit à la désinstallation de l'app.
+    private val requestPickBackupFolder = 4712
+    private var pendingPickResult: MethodChannel.Result? = null
+    private val backupExecutor = Executors.newSingleThreadExecutor()
 
     // Analyse du volume (une seule à la fois, hors du thread principal).
     // Priorité « arrière-plan » : le décodage audio de l'analyse de volume ne
@@ -184,6 +192,98 @@ class MainActivity : AudioServiceFragmentActivity() {
         // Renommage d'un fichier audio via MediaStore : le système renomme
         // vraiment le fichier et garde le même identifiant (donc le même
         // uri de lecture).
+        // Widget d'écran d'accueil : Flutter envoie le morceau en cours, le
+        // mood, l'état de lecture et l'image du fantôme (PNG).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, widgetChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "update" -> {
+                        try {
+                            val prefs = getSharedPreferences(
+                                AuraWidgetProvider.PREFS, android.content.Context.MODE_PRIVATE
+                            )
+                            val edit = prefs.edit()
+                            val title = call.argument<String>("title")
+                            if (title == null) edit.remove("title") else edit.putString("title", title)
+                            edit.putString("artist", call.argument<String>("artist") ?: "")
+                            edit.putString("mood", call.argument<String>("mood") ?: "")
+                            edit.putBoolean("playing", call.argument<Boolean>("playing") ?: false)
+                            call.argument<Number>("color")?.let { edit.putInt("color", it.toInt()) }
+                            edit.apply()
+                            call.argument<ByteArray>("ghost")?.let {
+                                File(filesDir, AuraWidgetProvider.GHOST_FILE).writeBytes(it)
+                            }
+                            AuraWidgetProvider.refreshAll(applicationContext)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("WIDGET", e.message, null)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, backupFolderChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "pickFolder" -> {
+                        if (pendingPickResult != null) {
+                            result.error("BUSY", "Sélection déjà en cours", null)
+                        } else {
+                            pendingPickResult = result
+                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                                addFlags(
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+                                        Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+                                )
+                            }
+                            try {
+                                startActivityForResult(intent, requestPickBackupFolder)
+                            } catch (e: Exception) {
+                                pendingPickResult = null
+                                result.error("NO_PICKER", e.message, null)
+                            }
+                        }
+                    }
+                    "hasAccess" -> {
+                        val tree = Uri.parse(call.argument<String>("tree") ?: "")
+                        result.success(contentResolver.persistedUriPermissions.any {
+                            it.uri == tree && it.isReadPermission && it.isWritePermission
+                        })
+                    }
+                    "write" -> {
+                        val tree = Uri.parse(call.argument<String>("tree") ?: "")
+                        val name = call.argument<String>("name") ?: ""
+                        val content = call.argument<String>("content") ?: ""
+                        val prevName = call.argument<String>("prevName")
+                        backupExecutor.execute {
+                            try {
+                                writeBackupDoc(tree, name, content, prevName)
+                                runOnUiThread { result.success(true) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("WRITE", e.message, null) }
+                            }
+                        }
+                    }
+                    "read" -> {
+                        val tree = Uri.parse(call.argument<String>("tree") ?: "")
+                        val name = call.argument<String>("name") ?: ""
+                        backupExecutor.execute {
+                            try {
+                                val doc = findBackupChild(tree, name)
+                                val text = if (doc == null) null else readBackupDoc(doc)
+                                runOnUiThread { result.success(text) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("READ", e.message, null) }
+                            }
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, filesChannelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -428,8 +528,102 @@ class MainActivity : AudioServiceFragmentActivity() {
         return null
     }
 
+    // ── Sauvegarde automatique : fichiers dans un dossier SAF ──────────
+
+    private fun backupTreeRoot(tree: Uri): Uri =
+        android.provider.DocumentsContract.buildDocumentUriUsingTree(
+            tree, android.provider.DocumentsContract.getTreeDocumentId(tree)
+        )
+
+    private fun findBackupChild(tree: Uri, name: String): Uri? {
+        val children = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(
+            tree, android.provider.DocumentsContract.getTreeDocumentId(tree)
+        )
+        contentResolver.query(
+            children,
+            arrayOf(
+                android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
+            ),
+            null, null, null
+        )?.use { c ->
+            while (c.moveToNext()) {
+                if (c.getString(1) == name) {
+                    return android.provider.DocumentsContract.buildDocumentUriUsingTree(
+                        tree, c.getString(0)
+                    )
+                }
+            }
+        }
+        return null
+    }
+
+    private fun readBackupDoc(doc: Uri): String? =
+        contentResolver.openInputStream(doc)?.use { it.readBytes().toString(Charsets.UTF_8) }
+
+    /** Écrit [content] dans [name] (créé si besoin). L'ancienne version est
+     *  d'abord copiée dans [prevName] : une sauvegarde ratée n'écrase jamais
+     *  la dernière bonne. */
+    private fun writeBackupDoc(tree: Uri, name: String, content: String, prevName: String?) {
+        val existing = findBackupChild(tree, name)
+        if (existing != null && prevName != null) {
+            val old = readBackupDoc(existing)
+            if (!old.isNullOrEmpty()) {
+                val prev = findBackupChild(tree, prevName)
+                    ?: android.provider.DocumentsContract.createDocument(
+                        contentResolver, backupTreeRoot(tree), "application/json", prevName
+                    )
+                if (prev != null) {
+                    contentResolver.openOutputStream(prev, "wt")?.use {
+                        it.write(old.toByteArray(Charsets.UTF_8))
+                    }
+                }
+            }
+        }
+        val target = existing
+            ?: android.provider.DocumentsContract.createDocument(
+                contentResolver, backupTreeRoot(tree), "application/json", name
+            )
+            ?: throw IllegalStateException("Création du fichier impossible")
+        val out = contentResolver.openOutputStream(target, "wt")
+            ?: throw IllegalStateException("Écriture impossible")
+        out.use { it.write(content.toByteArray(Charsets.UTF_8)) }
+    }
+
+    private fun backupFolderName(tree: Uri): String? {
+        contentResolver.query(
+            backupTreeRoot(tree),
+            arrayOf(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null, null, null
+        )?.use { c -> if (c.moveToFirst()) return c.getString(0) }
+        return null
+    }
+
     @SuppressLint("NewApi")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == requestPickBackupFolder) {
+            val result = pendingPickResult
+            pendingPickResult = null
+            if (result == null) return
+            val uri = data?.data
+            if (resultCode == Activity.RESULT_OK && uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                    result.success(
+                        mapOf("uri" to uri.toString(), "name" to (backupFolderName(uri) ?: ""))
+                    )
+                } catch (e: Exception) {
+                    result.error("PERMISSION", e.message, null)
+                }
+            } else {
+                result.success(null)
+            }
+            return
+        }
         if (requestCode == requestWriteAccess) {
             val request = pendingRename
             val result = pendingRenameResult

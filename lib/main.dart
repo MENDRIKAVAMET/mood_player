@@ -122,6 +122,7 @@ void main() {
     final bool needsOnboarding = await onboardingFuture;
 
     if (theme.ok) {
+      AppTheme.applyGlass(ThemeService.instance.glass);
       AppTheme.applyBackground(theme.background);
       AppTheme.applyAccent(ThemeService.instance.accent);
       ThemeNotifier.applyLoaded(ThemeService.instance);
@@ -206,7 +207,8 @@ class _MyAppState extends ConsumerState<MyApp> {
           previous?.controlsLayout != next.controlsLayout ||
           previous?.navLabels != next.navLabels ||
           previous?.textSize != next.textSize ||
-          previous?.density != next.density) {
+          previous?.density != next.density ||
+          previous?.glass != next.glass) {
         _repaintEverything();
       }
     });

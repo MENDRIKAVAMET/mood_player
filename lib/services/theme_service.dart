@@ -24,6 +24,7 @@ class ThemeService {
   int _navLabels = 0;
   int _textSize = 1;
   int _density = 1;
+  bool _glass = false;
 
   /// Couleur de fond choisie, ou null = thème d'origine.
   Color? get background => _background;
@@ -41,6 +42,9 @@ class ThemeService {
   int get navLabels => _navLabels;
   int get textSize => _textSize;
   int get density => _density;
+
+  /// Thème Verre actif ?
+  bool get glass => _glass;
 
   Future<File> _file() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -71,6 +75,7 @@ class ThemeService {
         _textSize =
             json is Map && json['textSize'] is int ? json['textSize'] : 1;
         _density = json is Map && json['density'] is int ? json['density'] : 1;
+        _glass = json is Map && json['glass'] == true;
       }
     } catch (_) {
       // Fichier absent ou corrompu : thème d'origine plutôt que de bloquer
@@ -96,6 +101,7 @@ class ThemeService {
     int? navLabels,
     int? textSize,
     int? density,
+    bool? glass,
   }) async {
     if (bgStyle != null) _bgStyle = bgStyle;
     if (buttonStyle != null) _buttonStyle = buttonStyle;
@@ -105,6 +111,7 @@ class ThemeService {
     if (navLabels != null) _navLabels = navLabels;
     if (textSize != null) _textSize = textSize;
     if (density != null) _density = density;
+    if (glass != null) _glass = glass;
     await _write();
   }
 
@@ -123,6 +130,7 @@ class ThemeService {
           'navLabels': _navLabels,
           'textSize': _textSize,
           'density': _density,
+          'glass': _glass,
         }),
       );
     } catch (_) {

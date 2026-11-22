@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+import '../providers/auto_backup_provider.dart';
 import '../providers/providers.dart';
 import '../services/backup_service.dart';
 import '../theme/app_theme.dart';
@@ -94,10 +95,101 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
     final path = picked?.files.single.path;
     if (path == null || !mounted) return;
 
+    await _runImport(() => ref.read(backupServiceProvider).readFile(path));
+  }
+
+  /// Restaure depuis le fichier de la sauvegarde automatique.
+  Future<void> _restoreFromFolder() async {
+    if (_busy) return;
+    await _runImport(() async {
+      final data = await ref.read(autoBackupProvider.notifier).readBackup();
+      if (data == null) {
+        throw const BackupFormatException(
+            'Aucune sauvegarde Aura trouvée dans ce dossier.');
+      }
+      return data;
+    });
+  }
+
+  /// Choisit le dossier de sauvegarde. Si une sauvegarde y existe déjà (cas
+  /// d'une réinstallation), propose de la restaurer tout de suite.
+  Future<bool> _pickBackupFolder() async {
+    final c = ref.read(autoBackupProvider.notifier);
+    try {
+      if (!await c.chooseFolder()) return false;
+    } catch (e) {
+      _snack('Choix du dossier impossible. ${friendlyError(e)}', error: true);
+      return false;
+    }
+    final existing = await c.peekBackup();
+    if (existing != null && mounted) {
+      final restore = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.backgroundSecondary,
+          title: const Text('Sauvegarde trouvée'),
+          content: Text(
+            'Une sauvegarde Aura du ${_fmtDate(existing.exportedAt)} existe '
+            'déjà dans ce dossier (${existing.tracks.length} morceaux). '
+            'La restaurer maintenant ?',
+            style: AppTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Plus tard'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Restaurer'),
+            ),
+          ],
+        ),
+      );
+      if (restore == true) await _restoreFromFolder();
+    }
+    return true;
+  }
+
+  Future<void> _toggleAutoBackup(bool enabled) async {
+    final c = ref.read(autoBackupProvider.notifier);
+    if (enabled && !ref.read(autoBackupProvider).hasFolder) {
+      if (!await _pickBackupFolder()) return;
+    }
+    await c.setEnabled(enabled);
+    if (enabled) await _backupNow();
+  }
+
+  Future<void> _changeFolder() async {
+    if (_busy) return;
+    if (await _pickBackupFolder() && ref.read(autoBackupProvider).enabled) {
+      await _backupNow();
+    }
+  }
+
+  Future<void> _backupNow() async {
+    final ok = await ref.read(autoBackupProvider.notifier).backupNow(force: true);
+    final st = ref.read(autoBackupProvider);
+    if (ok) {
+      _snack('Sauvegarde enregistrée dans « ${st.folderName ?? 'le dossier'} ».');
+    } else if (st.error != null) {
+      _snack(st.error!, error: true);
+    } else {
+      _snack('Rien à sauvegarder pour le moment.');
+    }
+  }
+
+  static String _fmtDate(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.day)}/${two(d.month)}/${d.year} à ${two(d.hour)}:${two(d.minute)}';
+  }
+
+  /// Lit les données avec [load], demande quoi importer, puis applique.
+  Future<void> _runImport(Future<BackupData> Function() load) async {
     setState(() => _busy = true);
     try {
       final service = ref.read(backupServiceProvider);
-      final data = await service.readFile(path);
+      final data = await load();
       if (!mounted) return;
 
       final choice = await showDialog<_ImportChoice>(
@@ -222,9 +314,87 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
           subtitle: 'Vous choisissez les données à importer',
           onTap: _busy ? null : _import,
         ),
+        const SizedBox(height: AppTheme.spacingXL),
+        _buildAutoBackup(),
         if (_busy) ...[
           const SizedBox(height: AppTheme.spacingM),
           const LinearProgressIndicator(),
+        ],
+      ],
+    );
+  }
+
+  /// Sauvegarde automatique dans un dossier de l'utilisateur : le fichier
+  /// y reste même si l'app est désinstallée.
+  Widget _buildAutoBackup() {
+    final st = ref.watch(autoBackupProvider);
+    final last = st.lastBackupAt;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Sauvegarde automatique', style: AppTheme.titleLarge),
+        const SizedBox(height: AppTheme.spacingS),
+        Text(
+          'Vos données sont enregistrées toutes seules dans un fichier du '
+          'dossier de votre choix (par exemple Documents). Il n\'est pas '
+          'supprimé si vous désinstallez Aura : après réinstallation, '
+          'choisissez le même dossier pour tout retrouver.',
+          style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
+        ),
+        const SizedBox(height: AppTheme.spacingM),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundCard,
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          ),
+          child: SwitchListTile(
+            value: st.enabled,
+            onChanged: (_busy || st.busy) ? null : _toggleAutoBackup,
+            secondary: Icon(Icons.cloud_sync_rounded,
+                color: AppTheme.accentPrimary),
+            title: Text('Sauvegarde automatique', style: AppTheme.titleMedium),
+            subtitle: Text(
+              st.enabled
+                  ? (last == null
+                      ? 'Active : première sauvegarde à venir'
+                      : 'Dernière : ${_fmtDate(last)}')
+                  : 'Désactivée',
+              style:
+                  AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+            ),
+          ),
+        ),
+        if (st.error != null) ...[
+          const SizedBox(height: AppTheme.spacingS),
+          Text(
+            st.error!,
+            style: AppTheme.bodySmall.copyWith(color: AppTheme.accentError),
+          ),
+        ],
+        const SizedBox(height: AppTheme.spacingS),
+        _TransferTile(
+          icon: Icons.folder_rounded,
+          title: st.hasFolder ? 'Changer de dossier' : 'Choisir le dossier',
+          subtitle: st.hasFolder
+              ? 'Actuel : ${(st.folderName ?? '').isEmpty ? 'dossier choisi' : st.folderName}'
+              : 'Hors du dossier de l\'app, pour survivre à la désinstallation',
+          onTap: (_busy || st.busy) ? null : _changeFolder,
+        ),
+        if (st.hasFolder) ...[
+          const SizedBox(height: AppTheme.spacingS),
+          _TransferTile(
+            icon: Icons.save_rounded,
+            title: 'Sauvegarder maintenant',
+            subtitle: 'Écrit tout de suite le fichier dans le dossier',
+            onTap: (_busy || st.busy) ? null : _backupNow,
+          ),
+          const SizedBox(height: AppTheme.spacingS),
+          _TransferTile(
+            icon: Icons.settings_backup_restore_rounded,
+            title: 'Restaurer la sauvegarde',
+            subtitle: 'Reprend les données du fichier du dossier',
+            onTap: (_busy || st.busy) ? null : _restoreFromFolder,
+          ),
         ],
       ],
     );

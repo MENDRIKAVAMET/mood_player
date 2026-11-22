@@ -19,6 +19,8 @@ import '../../services/lyrics_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_error.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/mood_ghost.dart';
+import '../../widgets/mood_image.dart';
 import 'karaoke_lyrics.dart';
 import 'share_card.dart';
 
@@ -47,6 +49,8 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
   bool _sharing = false;
   double _progress = 0;
   bool _karaoke = true;
+  bool _ghost = false;
+  bool _moodImage = false;
   final ValueNotifier<int> _karaokeMs = ValueNotifier<int>(0);
   bool _previewing = false;
   Timer? _previewTimer;
@@ -63,6 +67,12 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
   }();
 
   bool get _useKaraoke => _karaoke && _lines != null;
+
+  /// Vidéo animée (une capture par trame) : karaoké et/ou fantôme.
+  bool get _animated => _useKaraoke || _ghost;
+
+  bool get _hasMood =>
+      widget.track.mood != null && widget.track.mood != MoodType.unknown;
 
   int get _maxStartMs => math.max(0, _totalMs - _excerptMs);
 
@@ -123,7 +133,10 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
       );
       final path = result?.files.firstOrNull?.path;
       if (path == null || !mounted) return;
-      setState(() => _customImagePath = path);
+      setState(() {
+        _customImagePath = path;
+        _moodImage = false; // image choisie et image du mood : l'une ou l'autre
+      });
     } catch (e) {
       if (mounted) {
         showAppError(context, 'Image impossible. ${friendlyError(e)}');
@@ -189,17 +202,18 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
       final ctx = await ExcerptService.prepare();
       final paths = <String>[];
       int fps;
-      if (_useKaraoke) {
-        // Une image par trame : on avance l'horloge du karaoké, on attend que
-        // la carte soit repeinte, puis on la capture (720 x 1280 px).
+      if (_animated) {
+        // Une image par trame : on avance l'horloge (karaoké + fantôme), on
+        // attend que la carte soit repeinte, puis on la capture (720 x 1280 px).
         fps = ExcerptService.karaokeFps;
         final frames = (_excerptMs * fps / 1000).round();
         int? lastKey;
         for (var i = 0; i < frames; i++) {
           final ms = _startMs.round() + (i * 1000 / fps).round();
-          final key = KaraokeLyrics.frameKey(_lines!, ms);
+          final key = _useKaraoke ? KaraokeLyrics.frameKey(_lines!, ms) : -1;
           // Image identique à la précédente (ligne stable) : on la réutilise.
-          if (key == lastKey && key.isEven && paths.isNotEmpty) {
+          // Jamais avec le fantôme : il bouge à chaque trame.
+          if (!_ghost && key == lastKey && key.isEven && paths.isNotEmpty) {
             paths.add(paths.last);
           } else {
             _karaokeMs.value = ms;
@@ -300,6 +314,8 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
                                 cover: _coverProvider(),
                                 lines: _useKaraoke ? _lines : null,
                                 karaokeMs: _karaokeMs,
+                                showGhost: _ghost,
+                                showMoodImage: _moodImage && _hasMood,
                               ),
                             ),
                           ),
@@ -330,6 +346,25 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
                           onChanged: _sharing
                               ? null
                               : (v) => setState(() => _karaoke = v),
+                        ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Fantôme d\'humeur'),
+                        value: _ghost,
+                        onChanged:
+                            _sharing ? null : (v) => setState(() => _ghost = v),
+                      ),
+                      if (_hasMood)
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Image du mood en fond'),
+                          value: _moodImage,
+                          onChanged: _sharing
+                              ? null
+                              : (v) => setState(() {
+                                    _moodImage = v;
+                                    if (v) _customImagePath = null;
+                                  }),
                         ),
                       Wrap(
                         spacing: AppTheme.spacingS,
@@ -396,13 +431,18 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
   }
 }
 
-/// Carte 9:16 (360 x 640) exportée en PNG puis transformée en vidéo.
+/// Carte 9:16 (360 x 640) exportée en PNG puis transformée en vidéo :
+/// image plein cadre, panneau vitré en bas (paroles, pochette, titre,
+/// artiste). Le logo Aura est toujours en haut à gauche ; le fantôme
+/// (optionnel) est posé sur le bord du panneau.
 class _ExcerptCard extends StatelessWidget {
   final Track track;
   final ImageProvider? custom;
   final ImageProvider? cover;
   final List<LyricLine>? lines;
   final ValueListenable<int> karaokeMs;
+  final bool showGhost;
+  final bool showMoodImage;
 
   const _ExcerptCard({
     required this.track,
@@ -410,10 +450,109 @@ class _ExcerptCard extends StatelessWidget {
     required this.cover,
     required this.lines,
     required this.karaokeMs,
+    required this.showGhost,
+    required this.showMoodImage,
   });
+
+  Widget _artwork() {
+    final c = cover;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 46,
+        height: 46,
+        child: c != null
+            ? Image(
+                image: c,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _artFallback(),
+              )
+            : _artFallback(),
+      ),
+    );
+  }
+
+  Widget _artFallback() => const ColoredBox(
+        color: Color(0x33FFFFFF),
+        child: Icon(Icons.music_note_rounded, color: Colors.white70),
+      );
+
+  Widget _panel() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.24),
+                Colors.white.withValues(alpha: 0.10),
+                Colors.white.withValues(alpha: 0.16),
+              ],
+              stops: const [0, 0.55, 1],
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (lines != null) ...[
+                ValueListenableBuilder<int>(
+                  valueListenable: karaokeMs,
+                  builder: (_, ms, _) => KaraokeWindow(lines: lines!, timeMs: ms),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Row(
+                children: [
+                  _artwork(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          track.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.bodyLarge.copyWith(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final mood = track.mood;
     return SizedBox(
       width: 360,
       height: 640,
@@ -425,9 +564,12 @@ class _ExcerptCard extends StatelessWidget {
               track: track,
               custom: custom,
               cover: cover,
-              showCoverInCenter: lines == null,
+              showCoverInCenter: false,
             ),
-            // Dégradé sombre pour la lisibilité du texte.
+            // Image du mood (choix de l'utilisateur : photo, animé, importée).
+            if (showMoodImage && mood != null)
+              MoodImage(mood: mood, cacheWidth: 1080),
+            // Léger dégradé : garde le logo et le panneau lisibles.
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -436,13 +578,14 @@ class _ExcerptCard extends StatelessWidget {
                   colors: [
                     Colors.black.withValues(alpha: 0.35),
                     Colors.transparent,
+                    Colors.transparent,
                     Colors.black.withValues(alpha: 0.35),
-                    Colors.black.withValues(alpha: 0.9),
                   ],
-                  stops: const [0, 0.3, 0.6, 1],
+                  stops: const [0, 0.22, 0.6, 1],
                 ),
               ),
             ),
+            // Logo Aura : toujours en haut à gauche.
             Positioned(
               left: 24,
               top: 28,
@@ -462,57 +605,29 @@ class _ExcerptCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (lines != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 36,
+              child: _panel(),
+            ),
+            // Fantôme : posé sur le bord haut du panneau, à droite. Il suit
+            // l'horloge de la vidéo (pas la sienne) pour être capturé trame
+            // par trame.
+            if (showGhost)
               Positioned(
-                left: 30,
-                right: 30,
-                top: 110,
-                bottom: 170,
-                child: Center(
-                  // Largeur fixe : le panneau ne change pas de taille d'une
-                  // ligne à l'autre.
-                  child: SizedBox(
-                    width: 300,
-                    child: ValueListenableBuilder<int>(
-                      valueListenable: karaokeMs,
-                      builder: (_, ms, _) =>
-                          KaraokeLyrics(lines: lines!, timeMs: ms),
-                    ),
+                right: 28,
+                bottom: 36 + (lines != null ? 198 : 80) - 18,
+                child: ValueListenableBuilder<int>(
+                  valueListenable: karaokeMs,
+                  builder: (_, ms, _) => MoodGhost(
+                    mood: mood,
+                    playing: true,
+                    size: 64,
+                    time: (ms % 12000) / 12000,
                   ),
                 ),
               ),
-            Positioned(
-              left: 28,
-              right: 28,
-              bottom: 44,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    track.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.headlineLarge.copyWith(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      height: 1.15,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    track.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.bodyLarge.copyWith(
-                      color: Colors.white70,
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

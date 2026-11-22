@@ -22,6 +22,9 @@ class ThemeSettings {
   final TextSizeKind textSize;
   final ListDensity density;
 
+  /// Thème Verre : fond vif et surfaces en verre partout.
+  final bool glass;
+
   const ThemeSettings({
     this.background,
     this.accent,
@@ -33,6 +36,7 @@ class ThemeSettings {
     this.navLabels = NavLabelsKind.always,
     this.textSize = TextSizeKind.normal,
     this.density = ListDensity.normal,
+    this.glass = false,
   });
 
   ThemeSettings copyWith({
@@ -46,6 +50,7 @@ class ThemeSettings {
     NavLabelsKind? navLabels,
     TextSizeKind? textSize,
     ListDensity? density,
+    bool? glass,
   }) {
     return ThemeSettings(
       background: background != null ? background() : this.background,
@@ -58,6 +63,7 @@ class ThemeSettings {
       navLabels: navLabels ?? this.navLabels,
       textSize: textSize ?? this.textSize,
       density: density ?? this.density,
+      glass: glass ?? this.glass,
     );
   }
 }
@@ -73,6 +79,7 @@ class ThemePreset {
   final ButtonSizeKind buttonSize;
   final ControlsLayout controlsLayout;
   final NavLabelsKind navLabels;
+  final bool glass;
 
   const ThemePreset({
     required this.name,
@@ -84,6 +91,7 @@ class ThemePreset {
     this.buttonSize = ButtonSizeKind.normal,
     this.controlsLayout = ControlsLayout.classic,
     this.navLabels = NavLabelsKind.always,
+    this.glass = false,
   });
 
   static const List<ThemePreset> all = [
@@ -124,6 +132,13 @@ class ThemePreset {
       controlsLayout: ControlsLayout.split,
     ),
     ThemePreset(
+      name: 'Verre',
+      backgroundStyle: BackgroundStyle.diagonal,
+      buttonStyle: ButtonStyleKind.glass,
+      navLabels: NavLabelsKind.selected,
+      glass: true,
+    ),
+    ThemePreset(
       name: 'Forêt',
       background: Color(0xFF07200F),
       accent: Color(0xFF22C55E),
@@ -141,7 +156,8 @@ class ThemePreset {
       buttonShape == s.buttonShape &&
       buttonSize == s.buttonSize &&
       controlsLayout == s.controlsLayout &&
-      navLabels == s.navLabels;
+      navLabels == s.navLabels &&
+      glass == s.glass;
 }
 
 T _enumAt<T>(List<T> values, int index) =>
@@ -168,10 +184,12 @@ class ThemeNotifier extends StateNotifier<ThemeSettings> {
           navLabels: _enumAt(NavLabelsKind.values, _service.navLabels),
           textSize: _enumAt(TextSizeKind.values, _service.textSize),
           density: _enumAt(ListDensity.values, _service.density),
+          glass: _service.glass,
         ));
 
   /// Applique au démarrage les styles chargés depuis le disque.
   static void applyLoaded(ThemeService service) {
+    AppTheme.applyGlass(service.glass);
     AppTheme.applyUiStyle(
       background: _enumAt(BackgroundStyle.values, service.bgStyle),
       button: _enumAt(ButtonStyleKind.values, service.buttonStyle),
@@ -249,6 +267,7 @@ class ThemeNotifier extends StateNotifier<ThemeSettings> {
   /// Applique un thème complet d'un coup : une seule reconstruction de l'app
   /// au lieu d'une par réglage.
   Future<void> applyPreset(ThemePreset p) async {
+    AppTheme.applyGlass(p.glass);
     AppTheme.applyBackground(p.background);
     AppTheme.applyAccent(p.accent);
     AppTheme.applyUiStyle(
@@ -268,6 +287,7 @@ class ThemeNotifier extends StateNotifier<ThemeSettings> {
       buttonSize: p.buttonSize,
       controlsLayout: p.controlsLayout,
       navLabels: p.navLabels,
+      glass: p.glass,
       // Taille du texte et densité : préférences de confort, pas de style,
       // donc un thème complet ne les écrase pas.
       textSize: state.textSize,
@@ -281,7 +301,17 @@ class ThemeNotifier extends StateNotifier<ThemeSettings> {
       buttonSize: p.buttonSize.index,
       controlsLayout: p.controlsLayout.index,
       navLabels: p.navLabels.index,
+      glass: p.glass,
     );
+  }
+
+  /// Active ou désactive le thème Verre. Appliqué à [AppTheme] avant le
+  /// changement d'état, comme les autres réglages.
+  Future<void> setGlass(bool enabled) async {
+    if (enabled == state.glass) return;
+    AppTheme.applyGlass(enabled);
+    state = state.copyWith(glass: enabled);
+    await _service.saveStyles(glass: enabled);
   }
 
   Future<void> setTextSize(TextSizeKind size) async {
