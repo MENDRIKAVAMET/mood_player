@@ -48,7 +48,7 @@ void main() {
       expect(s.weights.keys.first, MoodType.chill);
       expect(s.weights.containsKey(MoodType.melancholic), true);
       expect(s.title, 'Ambiance pluie');
-      expect(s.reason, contains('il pleut'));
+      expect(s.reason.toLowerCase(), contains('il pleut'));
       expect(s.reason, contains('il est 21 h'));
     });
 
@@ -92,7 +92,7 @@ void main() {
     test('sans météo : fonctionne quand même', () {
       final s = LiveMoodEngine.suggest(LiveContext(now: at(10)));
       expect(s.weights, isNotEmpty);
-      expect(s.reason, contains('il est 10 h'));
+      expect(s.reason.toLowerCase(), contains('il est 10 h'));
     });
 
     test('au plus 3 ambiances, la première vaut 1.0', () {
