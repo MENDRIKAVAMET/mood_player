@@ -1,3 +1,4 @@
+// ignore_for_file: experimental_member_use
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -133,6 +134,8 @@ class MotionSampler {
 
 /// Casque filaire, Bluetooth ou USB actuellement branché comme sortie audio.
 class HeadphoneDetector {
+  // AudioDeviceType est marqué expérimental par audio_session, mais c'est
+  // l'API prévue pour lister les sorties audio.
   static const _types = {
     AudioDeviceType.wiredHeadset,
     AudioDeviceType.wiredHeadphones,
