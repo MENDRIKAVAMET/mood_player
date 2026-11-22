@@ -38,7 +38,7 @@ class ExcerptEncoder(private val context: Context) {
         outputPath: String
     ) {
         require(imagePaths.isNotEmpty()) { "aucune image" }
-        val deadline = System.currentTimeMillis() + 140_000
+        val deadline = System.currentTimeMillis() + 220_000
 
         val video = encodeVideo(imagePaths, fps, deadline)
         val audio = encodeAudio(uri, path, startMs * 1000, durationMs * 1000, deadline)
@@ -135,7 +135,7 @@ class ExcerptEncoder(private val context: Context) {
         val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w, h).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT,
                 MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible)
-            setInteger(MediaFormat.KEY_BIT_RATE, 3_500_000)
+            setInteger(MediaFormat.KEY_BIT_RATE, 6_000_000)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
         }

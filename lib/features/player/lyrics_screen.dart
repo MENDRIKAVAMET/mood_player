@@ -12,6 +12,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/mood_colors.dart';
 import '../../widgets/player_slider_shapes.dart';
 import '../../widgets/track_artwork.dart';
+import '../share/track_share.dart';
 import 'lyrics_search_screen.dart';
 
 /// How much one tap of the sync buttons shifts the lyrics. 300ms is small
@@ -721,6 +722,11 @@ class _LyricsScreenState extends ConsumerState<LyricsScreen> {
                 tooltip: 'Rechercher les paroles',
                 onTap: _openSearch,
                 child: const Icon(Icons.search_rounded),
+              ),
+              roundAction(
+                tooltip: 'Partager',
+                onTap: () => startTrackShare(context, _track),
+                child: const Icon(Icons.share_rounded),
               ),
               roundAction(
                 tooltip: 'Régler la synchronisation',

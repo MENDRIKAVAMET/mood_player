@@ -85,11 +85,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Contrôle l'affichage des boutons/barre de progression par-dessus la
   /// pochette plein écran : visible à l'ouverture, se cache tout seul
-  /// après [_hideDelay] d'inactivité, et un tap sur l'écran bascule l'état
+  /// après [_hideDelay] (5 s) d'inactivité, et un tap sur l'écran bascule l'état
   /// (le retoucher relance le minuteur, le recacher l'annule).
   bool _controlsVisible = true;
   Timer? _hideTimer;
-  static const Duration _hideDelay = Duration(seconds: 3);
+  static const Duration _hideDelay = Duration(seconds: 5);
 
   void _scheduleHide() {
     _hideTimer?.cancel();
@@ -477,13 +477,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
                 // Fantôme d'humeur : petite mascotte posée en haut à droite,
                 // son visage suit l'ambiance du morceau en cours.
+                // Visible seulement quand les boutons sont cachés (il ne
+                // reste alors que l'image).
                 if (ref.watch(profileProvider.select((p) => p.ghostEnabled)))
                   Positioned(
                     right: AppTheme.spacingL,
                     top: MediaQuery.of(context).padding.top + 96,
-                    child: MoodGhost(
-                      mood: _displayTrack.mood,
-                      playing: isPlaying,
+                    child: IgnorePointer(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 220),
+                        opacity: _controlsVisible ? 0 : 1,
+                        child: MoodGhost(
+                          mood: _displayTrack.mood,
+                          playing: isPlaying,
+                        ),
+                      ),
                     ),
                   ),
                 SafeArea(

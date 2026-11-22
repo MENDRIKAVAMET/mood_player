@@ -12,10 +12,10 @@ class ExcerptService {
       MethodChannel('com.example.mood_player/files');
 
   /// Durée maximale d'un extrait.
-  static const int excerptMs = 10000;
+  static const int excerptMs = 20000;
 
   /// Images par seconde du karaoké.
-  static const int karaokeFps = 10;
+  static const int karaokeFps = 15;
 
   static const String _prefix = 'aura_extrait_';
 
@@ -62,7 +62,7 @@ class ExcerptService {
         'startMs': startMs,
         'durationMs': durationMs,
         'outputPath': outputPath,
-      }).timeout(const Duration(seconds: 150));
+      }).timeout(const Duration(seconds: 240));
       if (path == null) throw StateError('vidéo non créée');
       return path;
     } finally {

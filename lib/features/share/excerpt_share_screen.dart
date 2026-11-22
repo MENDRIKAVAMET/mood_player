@@ -22,7 +22,7 @@ import '../../widgets/app_header.dart';
 import 'karaoke_lyrics.dart';
 import 'share_card.dart';
 
-/// Partage d'un extrait de 10 s (vidéo MP4 : carte + audio, avec les paroles
+/// Partage d'un extrait de 20 s (vidéo MP4 : carte + audio, avec les paroles
 /// en karaoké quand elles sont synchronisées).
 class ExcerptShareScreen extends ConsumerStatefulWidget {
   final Track track;
@@ -76,7 +76,7 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
       total = ref.read(durationProvider).valueOrNull?.inMilliseconds ?? 0;
     }
     _totalMs = total;
-    // Morceau de moins de 10 s : on prend la durée complète.
+    // Morceau de moins de 20 s : on prend la durée complète.
     _excerptMs =
         total > 0 ? math.min(ExcerptService.excerptMs, total) : ExcerptService.excerptMs;
     final pos = isCurrent ? ref.read(currentPositionProvider).inMilliseconds : 0;
@@ -191,14 +191,23 @@ class _ExcerptShareScreenState extends ConsumerState<ExcerptShareScreen> {
       int fps;
       if (_useKaraoke) {
         // Une image par trame : on avance l'horloge du karaoké, on attend que
-        // la carte soit repeinte, puis on la capture (540 x 960 px).
+        // la carte soit repeinte, puis on la capture (720 x 1280 px).
         fps = ExcerptService.karaokeFps;
         final frames = (_excerptMs * fps / 1000).round();
+        int? lastKey;
         for (var i = 0; i < frames; i++) {
-          _karaokeMs.value = _startMs.round() + (i * 1000 / fps).round();
-          await WidgetsBinding.instance.endOfFrame;
-          if (!mounted) return;
-          paths.add(await _capture(boundary, ctx, i, 1.5));
+          final ms = _startMs.round() + (i * 1000 / fps).round();
+          final key = KaraokeLyrics.frameKey(_lines!, ms);
+          // Image identique à la précédente (ligne stable) : on la réutilise.
+          if (key == lastKey && key.isEven && paths.isNotEmpty) {
+            paths.add(paths.last);
+          } else {
+            _karaokeMs.value = ms;
+            await WidgetsBinding.instance.endOfFrame;
+            if (!mounted) return;
+            paths.add(await _capture(boundary, ctx, i, 2));
+          }
+          lastKey = key;
           if (mounted) setState(() => _progress = (i + 1) / frames);
         }
         _karaokeMs.value = _startMs.round();
@@ -455,15 +464,20 @@ class _ExcerptCard extends StatelessWidget {
             ),
             if (lines != null)
               Positioned(
-                left: 24,
-                right: 24,
-                top: 90,
-                bottom: 150,
+                left: 30,
+                right: 30,
+                top: 110,
+                bottom: 170,
                 child: Center(
-                  child: ValueListenableBuilder<int>(
-                    valueListenable: karaokeMs,
-                    builder: (_, ms, _) =>
-                        KaraokeLyrics(lines: lines!, timeMs: ms),
+                  // Largeur fixe : le panneau ne change pas de taille d'une
+                  // ligne à l'autre.
+                  child: SizedBox(
+                    width: 300,
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: karaokeMs,
+                      builder: (_, ms, _) =>
+                          KaraokeLyrics(lines: lines!, timeMs: ms),
+                    ),
                   ),
                 ),
               ),
