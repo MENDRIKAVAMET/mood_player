@@ -32,3 +32,6 @@
 -keep class com.baseflow.permissionhandler.** { *; }
 -keep class com.mr.flutter.plugin.filepicker.** { *; }
 -keep class dev.fluttercommunity.plus.share.** { *; }
+
+# google_sign_in (Google Play services)
+-dontwarn com.google.android.gms.**
