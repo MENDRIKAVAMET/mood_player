@@ -35,6 +35,11 @@ Lecteur de musique Android (Flutter) qui range ta bibliothèque par **ambiance**
 - **Rappels d'écoute** : « Ça te dit de réécouter ? », notification programmée ou pop-up quand l'app est ouverte
 - **Bilan du mois** : carte-image partageable (ambiance dominante, top morceaux, heure favorite)
 
+### Sauvegarde sur compte Google
+- Connexion avec un compte Google (`google_sign_in`) et sauvegarde dans le dossier caché de l'app dans Drive (`appDataFolder`, scope `drive.appdata`) : invisible dans les fichiers de l'utilisateur
+- Sauvegarde manuelle ou automatique (démarrage et mise en arrière-plan), restauration après réinstallation ou sur un autre téléphone
+- Garde-fou : une sauvegarde plus complète du compte n'est jamais écrasée sans confirmation
+
 ### Partage
 - **Paroles en image** : choisis jusqu'à 7 lignes, carte 9:16 (1080 × 1920 px) avec panneau vitré, pochette, titre et artiste
 - **Extrait de 20 s en vidéo MP4** : même carte, avec les paroles en karaoké quand elles sont synchronisées, fantôme d'humeur et image du mood en option (encodage natif Android, sans ffmpeg)
@@ -144,6 +149,12 @@ Garde le dossier `build/symbols` de chaque version publiée : il sert à relire 
 | `GROQ_BASE_URL` | (optionnel) proxy Groq |
 
 `build.yml` lance l'analyse, les tests et un build à chaque push et pull request sur `main`.
+
+### Sauvegarde Google : configuration (une seule fois)
+1. Google Cloud Console : créer un projet et activer la **Google Drive API**.
+2. Google Auth Platform : écran de consentement « Externe », ajouter les comptes testeurs (tant que l'app est en mode Test), ajouter le scope `.../auth/drive.appdata`.
+3. Clients : créer un **ID client Android** par clé de signature, avec le package `com.example.mood_player` et le SHA-1 correspondant (`keytool -list -v -keystore ... -alias ...`). Un client pour la clé de debug, un autre pour la clé de release (celle de `key.properties`, ou du secret `KEYSTORE_BASE64` pour le workflow de release).
+4. Erreur « ApiException: 10 » : le package ou le SHA-1 de la clé qui a signé l'APK ne correspond à aucun client.
 
 ## 🔐 Permissions Android
 

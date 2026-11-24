@@ -113,8 +113,8 @@ class _ListenReminderHostState extends ConsumerState<ListenReminderHost>
     await notifier.ensureLoaded();
     if (!mounted) return;
 
-    // `pendingReminders` écarte déjà « il y a une heure » et « hier »
-    // tant qu'une musique est en lecture : aucun pop-up pendant l'écoute.
+    // `pendingReminders` écarte déjà « hier » tant qu'une musique est en
+    // lecture : aucun pop-up pendant l'écoute.
     final now = DateTime.now();
     final pending = notifier.pendingReminders(now);
     if (pending.isEmpty) return;

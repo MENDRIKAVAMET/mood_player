@@ -57,10 +57,10 @@ class ListenEvent {
       );
 }
 
-/// Moment du rappel : une heure, un jour, une semaine ou un mois après
-/// l'écoute (les trois derniers à la même heure). Les nouvelles valeurs
-/// sont ajoutées à la fin pour ne pas décaler les existantes.
-enum ReminderKind { nextDay, nextWeek, oneHour, nextMonth }
+/// Moment du rappel : un jour, une semaine, un mois, six mois ou un an après
+/// l'écoute, toujours à la même heure. Plus aucun rappel à l'heure : un
+/// rappel « il y a une heure » n'avait pas de sens, l'écoute est trop fraîche.
+enum ReminderKind { nextDay, nextWeek, nextMonth, sixMonths, oneYear }
 
 class ListenReminder {
   final ListenEvent event;
@@ -68,45 +68,78 @@ class ListenReminder {
 
   const ListenReminder(this.event, this.kind);
 
-  int get _daysLater {
+  /// Identifiant de notification propre à chaque type, FIXE : il ne dépend
+  /// pas de l'ordre de l'enum, pour que les notifications déjà programmées
+  /// par une ancienne version soient remplacées et non dupliquées.
+  /// (2 était l'ancien rappel « il y a une heure », voir
+  /// [legacyOneHourNotificationId].)
+  int get _kindCode {
     switch (kind) {
       case ReminderKind.nextDay:
-        return 1;
-      case ReminderKind.nextWeek:
-        return 7;
-      case ReminderKind.nextMonth:
-        return 30;
-      case ReminderKind.oneHour:
         return 0;
+      case ReminderKind.nextWeek:
+        return 1;
+      case ReminderKind.nextMonth:
+        return 3;
+      case ReminderKind.sixMonths:
+        return 4;
+      case ReminderKind.oneYear:
+        return 5;
     }
   }
 
-  int get _hoursLater => kind == ReminderKind.oneHour ? 1 : 0;
+  /// Même jour du mois, [months] mois plus tard, ramené au dernier jour du
+  /// mois si celui-ci est plus court (31 août + 6 mois → 28/29 février).
+  static DateTime _addMonths(DateTime a, int months) {
+    final total = a.month - 1 + months;
+    final year = a.year + total ~/ 12;
+    final month = total % 12 + 1;
+    final lastDay = DateTime(year, month + 1, 0).day;
+    return DateTime(
+        year, month, a.day > lastDay ? lastDay : a.day, a.hour, a.minute);
+  }
 
-  /// Même heure et même minute, [_daysLater] jours plus tard. Construit
-  /// champ par champ (et non avec `+ Duration(days:)`) pour rester à la
-  /// même heure locale malgré un changement d'heure été/hiver.
+  /// Même heure et même minute, plus tard. Construit champ par champ (et
+  /// non avec `+ Duration(days:)`) pour rester à la même heure locale
+  /// malgré un changement d'heure été/hiver.
   DateTime get scheduledAt {
     final a = event.at;
-    return DateTime(
-        a.year, a.month, a.day + _daysLater, a.hour + _hoursLater, a.minute);
+    switch (kind) {
+      case ReminderKind.nextDay:
+        return DateTime(a.year, a.month, a.day + 1, a.hour, a.minute);
+      case ReminderKind.nextWeek:
+        return DateTime(a.year, a.month, a.day + 7, a.hour, a.minute);
+      case ReminderKind.nextMonth:
+        return DateTime(a.year, a.month, a.day + 30, a.hour, a.minute);
+      case ReminderKind.sixMonths:
+        return _addMonths(a, 6);
+      case ReminderKind.oneYear:
+        return _addMonths(a, 12);
+    }
   }
 
   String get key => '${event.id}:${kind.name}';
 
-  /// Les rappels « il y a une heure » et « hier » ne doivent pas être
-  /// envoyés pendant que l'utilisateur écoute de la musique : il est déjà
-  /// en train d'écouter, et ce sont des écoutes trop récentes pour qu'un
-  /// rappel ait du sens. Ceux de la semaine et du mois dernier, plus
+  /// Le rappel « hier » ne doit pas être envoyé pendant que l'utilisateur
+  /// écoute de la musique : il est déjà en train d'écouter, et c'est une
+  /// écoute trop récente pour qu'un rappel ait du sens. Les autres, plus
   /// nostalgiques, restent envoyés.
-  bool get skipsWhilePlaying =>
-      kind == ReminderKind.oneHour || kind == ReminderKind.nextDay;
+  bool get skipsWhilePlaying => kind == ReminderKind.nextDay;
 
   /// Un seul identifiant de notification par créneau horaire : plusieurs
   /// écoutes dans la même heure n'envoient jamais plusieurs notifications.
   int get notificationId {
     final s = scheduledAt;
-    return Object.hash(s.year, s.month, s.day, s.hour, kind.index) & 0x3FFFFFFF;
+    return Object.hash(s.year, s.month, s.day, s.hour, _kindCode) & 0x3FFFFFFF;
+  }
+
+  /// Identifiant qu'avait la notification « il y a une heure » des versions
+  /// précédentes : sert à annuler celles qui sont encore programmées dans
+  /// le système après la mise à jour.
+  static int legacyOneHourNotificationId(ListenEvent event) {
+    final a = event.at;
+    final s = DateTime(a.year, a.month, a.day, a.hour + 1, a.minute);
+    return Object.hash(s.year, s.month, s.day, s.hour, 2) & 0x3FFFFFFF;
   }
 
   String get whenLabel {
@@ -114,28 +147,32 @@ class ListenReminder {
     final hh = a.hour.toString().padLeft(2, '0');
     final mm = a.minute.toString().padLeft(2, '0');
     switch (kind) {
-      case ReminderKind.oneHour:
-        return 'Il y a une heure';
       case ReminderKind.nextDay:
         return 'Hier à $hh:$mm';
       case ReminderKind.nextWeek:
         return 'Il y a une semaine à $hh:$mm';
       case ReminderKind.nextMonth:
         return 'Il y a un mois à $hh:$mm';
+      case ReminderKind.sixMonths:
+        return 'Il y a six mois à $hh:$mm';
+      case ReminderKind.oneYear:
+        return 'Il y a un an à $hh:$mm';
     }
   }
 
   /// Début de phrase de la notification (« … , tu écoutais « titre » »).
   String get notificationLead {
     switch (kind) {
-      case ReminderKind.oneHour:
-        return 'Il y a une heure';
       case ReminderKind.nextDay:
         return 'Hier à cette heure';
       case ReminderKind.nextWeek:
         return 'Il y a une semaine à cette heure';
       case ReminderKind.nextMonth:
         return 'Il y a un mois à cette heure';
+      case ReminderKind.sixMonths:
+        return 'Il y a six mois à cette heure';
+      case ReminderKind.oneYear:
+        return 'Il y a un an à cette heure';
     }
   }
 }

@@ -3,7 +3,7 @@ import 'track.dart';
 /// Une écoute « réelle » (≥ 80 % du morceau) datée, pour le bilan du mois.
 ///
 /// Contrairement à [ListenEvent] (une seule écoute par ouverture de l'app,
-/// jetée après 31 jours, pour les rappels) et aux compteurs d'écoute (un
+/// jetée après environ un an, pour les rappels) et aux compteurs d'écoute (un
 /// total sans date), le journal garde CHAQUE écoute avec son horodatage :
 /// c'est ce qui permet de dire « ce mois-ci » et « ton heure favorite ».
 ///

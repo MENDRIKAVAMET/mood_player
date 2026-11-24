@@ -47,6 +47,9 @@ dependencies:
   dio: ^5.4.0
   share_plus: ^10.1.4
 
+  # Sauvegarde sur le compte Google (Drive, dossier caché de l'app)
+  google_sign_in: ^6.2.2
+
   # Rappels d'écoute programmés (notifications locales)
   flutter_local_notifications: ^19.0.0
   timezone: ^0.10.0

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/auto_backup_provider.dart';
+import '../providers/google_backup_provider.dart';
 import '../providers/providers.dart';
 import '../services/backup_service.dart';
 import '../theme/app_theme.dart';
@@ -179,6 +180,121 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
     }
   }
 
+  // ───────────────────── Sauvegarde sur compte Google ─────────────────────
+
+  Future<void> _googleSignIn() async {
+    if (_busy) return;
+    final c = ref.read(googleBackupProvider.notifier);
+    final ok = await c.signIn();
+    if (!mounted) return;
+    if (!ok) {
+      final err = ref.read(googleBackupProvider).error;
+      if (err != null) _snack(err, error: true);
+      return;
+    }
+
+    // Réinstallation ou nouveau téléphone : une sauvegarde existe peut-être
+    // déjà sur ce compte, on propose de la reprendre tout de suite.
+    final existing = await c.peekBackup();
+    if (!mounted) return;
+    if (existing == null) {
+      _snack('Connecté. Sauvegarde maintenant ou active la sauvegarde '
+          'automatique.');
+      return;
+    }
+    final restore = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.backgroundSecondary,
+        title: const Text('Sauvegarde trouvée'),
+        content: Text(
+          'Une sauvegarde Aura du ${_fmtDate(existing.exportedAt)} existe '
+          'sur ce compte Google (${existing.tracks.length} morceaux). '
+          'La restaurer maintenant ?',
+          style: AppTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Plus tard'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restaurer'),
+          ),
+        ],
+      ),
+    );
+    if (restore == true) await _restoreFromGoogle();
+  }
+
+  Future<void> _googleSignOut() async {
+    if (_busy) return;
+    await ref.read(googleBackupProvider.notifier).signOut();
+    _snack('Déconnecté. Tes sauvegardes restent sur ton compte Google.');
+  }
+
+  Future<void> _toggleGoogleBackup(bool enabled) async {
+    await ref.read(googleBackupProvider.notifier).setEnabled(enabled);
+    if (enabled) await _googleBackupNow();
+  }
+
+  Future<void> _googleBackupNow({bool overwriteRicher = false}) async {
+    final outcome = await ref
+        .read(googleBackupProvider.notifier)
+        .backupNow(force: true, overwriteRicher: overwriteRicher);
+    if (!mounted) return;
+    final st = ref.read(googleBackupProvider);
+    switch (outcome) {
+      case GoogleBackupOutcome.done:
+        _snack('Sauvegarde enregistrée sur ${st.email ?? 'ton compte Google'}.');
+      case GoogleBackupOutcome.remoteRicher:
+        final overwrite = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppTheme.backgroundSecondary,
+            title: const Text('Remplacer la sauvegarde ?'),
+            content: Text(
+              'Ton compte Google contient une sauvegarde plus complète que '
+              'les données de cet appareil. La remplacer la perdra '
+              'définitivement. Tu peux d\'abord la restaurer.',
+              style: AppTheme.bodyMedium,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Remplacer'),
+              ),
+            ],
+          ),
+        );
+        if (overwrite == true) await _googleBackupNow(overwriteRicher: true);
+      case GoogleBackupOutcome.skipped:
+        if (st.error != null) {
+          _snack(st.error!, error: true);
+        } else {
+          _snack('Rien à sauvegarder pour le moment.');
+        }
+    }
+  }
+
+  /// Restaure depuis la sauvegarde du compte Google.
+  Future<void> _restoreFromGoogle() async {
+    if (_busy) return;
+    await _runImport(() async {
+      final data = await ref.read(googleBackupProvider.notifier).readBackup();
+      if (data == null) {
+        throw const BackupFormatException(
+            'Aucune sauvegarde Aura trouvée sur ce compte Google.');
+      }
+      return data;
+    });
+  }
+
   static String _fmtDate(DateTime d) {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${two(d.day)}/${two(d.month)}/${d.year} à ${two(d.hour)}:${two(d.minute)}';
@@ -316,9 +432,92 @@ class _DataTransferSectionState extends ConsumerState<DataTransferSection> {
         ),
         const SizedBox(height: AppTheme.spacingXL),
         _buildAutoBackup(),
+        const SizedBox(height: AppTheme.spacingXL),
+        _buildGoogleBackup(),
         if (_busy) ...[
           const SizedBox(height: AppTheme.spacingM),
           const LinearProgressIndicator(),
+        ],
+      ],
+    );
+  }
+
+  /// Sauvegarde sur le compte Google de l'utilisateur (dossier caché de
+  /// l'app dans Drive) : retrouvée après réinstallation ou sur un autre
+  /// téléphone en se reconnectant.
+  Widget _buildGoogleBackup() {
+    final st = ref.watch(googleBackupProvider);
+    final last = st.lastBackupAt;
+    final locked = _busy || st.busy;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Compte Google', style: AppTheme.titleLarge),
+        const SizedBox(height: AppTheme.spacingS),
+        Text(
+          'Sauvegarde tes données sur ton compte Google. Le fichier est '
+          'rangé dans un espace réservé à Aura de ton Drive (invisible '
+          'dans tes fichiers) : reconnecte-toi après une réinstallation '
+          'ou sur un autre téléphone pour tout retrouver.',
+          style: AppTheme.bodyMedium.copyWith(color: AppTheme.textTertiary),
+        ),
+        const SizedBox(height: AppTheme.spacingM),
+        if (!st.connected)
+          _TransferTile(
+            icon: Icons.account_circle_rounded,
+            title: 'Se connecter avec Google',
+            subtitle: 'Autorise uniquement le dossier privé d\'Aura',
+            onTap: locked ? null : _googleSignIn,
+          )
+        else ...[
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundCard,
+              borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            ),
+            child: SwitchListTile(
+              value: st.enabled,
+              onChanged: locked ? null : _toggleGoogleBackup,
+              secondary: Icon(Icons.cloud_upload_rounded,
+                  color: AppTheme.accentPrimary),
+              title: Text('Sauvegarde sur Google', style: AppTheme.titleMedium),
+              subtitle: Text(
+                '${st.email}\n'
+                '${st.enabled ? (last == null ? 'Active : première sauvegarde à venir' : 'Dernière : ${_fmtDate(last)}') : 'Automatique désactivée'}',
+                style:
+                    AppTheme.bodySmall.copyWith(color: AppTheme.textTertiary),
+              ),
+              isThreeLine: true,
+            ),
+          ),
+          if (st.error != null) ...[
+            const SizedBox(height: AppTheme.spacingS),
+            Text(
+              st.error!,
+              style: AppTheme.bodySmall.copyWith(color: AppTheme.accentError),
+            ),
+          ],
+          const SizedBox(height: AppTheme.spacingS),
+          _TransferTile(
+            icon: Icons.save_rounded,
+            title: 'Sauvegarder maintenant',
+            subtitle: 'Envoie tout de suite les données sur ton compte',
+            onTap: locked ? null : _googleBackupNow,
+          ),
+          const SizedBox(height: AppTheme.spacingS),
+          _TransferTile(
+            icon: Icons.settings_backup_restore_rounded,
+            title: 'Restaurer depuis Google',
+            subtitle: 'Reprend la sauvegarde de ton compte',
+            onTap: locked ? null : _restoreFromGoogle,
+          ),
+          const SizedBox(height: AppTheme.spacingS),
+          _TransferTile(
+            icon: Icons.logout_rounded,
+            title: 'Se déconnecter',
+            subtitle: 'Les sauvegardes restent sur ton compte',
+            onTap: locked ? null : _googleSignOut,
+          ),
         ],
       ],
     );

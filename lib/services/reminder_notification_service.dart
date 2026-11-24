@@ -92,7 +92,7 @@ class ReminderNotificationService {
       _channelId,
       'Rappels d\'écoute',
       channelDescription:
-          'Te rappelle ce que tu écoutais il y a une heure, hier, la semaine ou le mois dernier',
+          'Te rappelle ce que tu écoutais hier, la semaine dernière, le mois dernier, il y a six mois ou un an',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
       category: AndroidNotificationCategory.recommendation,

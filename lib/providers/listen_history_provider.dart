@@ -17,19 +17,18 @@ class ListenHistoryState {
 }
 
 /// Mémorise LA première écoute réelle (≥ 80 %) de chaque ouverture de
-/// l'app, pour la reproposer une heure, un jour, une semaine et un mois plus tard
-/// (les trois derniers à la même heure). Une seule écoute par ouverture, volontairement : proposer
+/// l'app, pour la reproposer un jour, une semaine, un mois, six mois et un an plus
+/// tard, à la même heure. Une seule écoute par ouverture, volontairement : proposer
 /// tous les morceaux écoutés reviendrait à bombarder l'utilisateur.
 ///
 /// « Ouverture » = vie du processus de l'app : le drapeau
 /// [_recordedThisSession] est remis à zéro quand l'app est fermée puis
 /// relancée, pas quand elle passe simplement en arrière-plan.
 ///
-/// Les rappels « il y a une heure » et « hier » (voir
-/// [ListenReminder.skipsWhilePlaying]) sont suspendus tant qu'une musique
-/// est en lecture : leur notification est annulée au démarrage de la
-/// lecture, reprogrammée à la pause, et un rappel dont l'heure tombe en
-/// pleine lecture est abandonné.
+/// Le rappel « hier » (voir [ListenReminder.skipsWhilePlaying]) est
+/// suspendu tant qu'une musique est en lecture : sa notification est
+/// annulée au démarrage de la lecture, reprogrammée à la pause, et un
+/// rappel dont l'heure tombe en pleine lecture est abandonné.
 class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   final ListenHistoryService _service;
   final Ref _ref;
@@ -43,7 +42,7 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
 
   /// Toutes les (re)programmations passent par cette file : une seule à la
   /// fois, dans l'ordre. Sans ça, une pause suivie d'une reprise immédiate
-  /// pouvait laisser une notification « il y a une heure » programmée en
+  /// pouvait laisser une notification « hier » programmée en
   /// pleine lecture.
   Future<void> _syncChain = Future.value();
 
@@ -55,9 +54,9 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   DateTime? _sinceBeforeBlip;
   static const Duration _stopDelay = Duration(milliseconds: 1500);
 
-  /// Au-delà de 31 jours, plus aucun rappel (le plus lointain est à un mois)
-  /// ne peut arriver : on jette l'écoute.
-  static const Duration _retention = Duration(days: 31);
+  /// Au-delà d'un an (+ marge), plus aucun rappel (le plus lointain est à un
+  /// an) ne peut arriver : on jette l'écoute.
+  static const Duration _retention = Duration(days: 370);
 
   /// Fenêtre pendant laquelle un rappel reste proposé après son heure.
   static const Duration _window = Duration(minutes: 60);
@@ -107,8 +106,8 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
       _playingSince = (wasPending && blipSince != null)
           ? blipSince
           : DateTime.now();
-      // La lecture démarre : on retire tout de suite les notifications
-      // « il y a une heure » / « hier » encore programmées.
+      // La lecture démarre : on retire tout de suite la notification
+      // « hier » encore programmée.
       unawaited(_reconcile());
       return;
     }
@@ -140,11 +139,11 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   }
 
   /// Remet les notifications programmées en accord avec l'état de lecture :
-  ///  - en lecture : « il y a une heure » et « hier » sont annulées ;
+  ///  - en lecture : « hier » est annulée ;
   ///  - à l'arrêt : celles à venir sont (re)programmées ; celles dont
   ///    l'heure est tombée PENDANT la lecture sont abandonnées plutôt
   ///    qu'envoyées en retard.
-  /// Sans [all], seuls ces deux types de rappel sont concernés.
+  /// Sans [all], seul ce type de rappel est concerné.
   Future<void> _doReconcile({DateTime? since, bool all = false}) async {
     await _ready;
     if (!mounted) return;
@@ -152,6 +151,12 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
     final now = DateTime.now();
     final skipped = <ListenReminder>[];
     for (final event in List<ListenEvent>.of(state.events)) {
+      // Migration : l'ancien rappel « il y a une heure » n'existe plus, mais
+      // il a pu rester programmé dans le système avant la mise à jour.
+      if (all) {
+        await ReminderNotificationService.cancel(
+            ListenReminder.legacyOneHourNotificationId(event));
+      }
       for (final kind in ReminderKind.values) {
         if (!mounted) return;
         final reminder = ListenReminder(event, kind);
@@ -205,8 +210,8 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
   /// À chaque ouverture de l'app, reprogramme les rappels à venir : une
   /// programmation qui avait échoué (ou été supprimée par le système) est
   /// ainsi rattrapée. Reprogrammer un rappel existant le remplace, sans
-  /// doublon. Pendant une lecture, « il y a une heure » / « hier » restent
-  /// annulés (voir [_doReconcile]).
+  /// doublon. Pendant une lecture, « hier » reste
+  /// annulé (voir [_doReconcile]).
   Future<void> _rescheduleAll() => _reconcile(all: true);
 
   ListenHistoryState _pruned(ListenHistoryState s, DateTime now) {
@@ -257,8 +262,8 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
 
     try {
       await ReminderNotificationService.requestPermission();
-      // En pleine lecture, « il y a une heure » et « hier » ne sont pas
-      // programmés (voir _doReconcile) ; ils le seront à la pause.
+      // En pleine lecture, « hier » n'est pas programmé (voir
+      // _doReconcile) ; il le sera à la pause.
       await _reconcile(all: true);
       await ReminderNotificationService.askBatteryExemptionOnce();
     } catch (_) {
@@ -276,7 +281,7 @@ class ListenHistoryNotifier extends StateNotifier<ListenHistoryState> {
       for (final kind in ReminderKind.values) {
         final reminder = ListenReminder(event, kind);
         if (state.shown.contains(reminder.key)) continue;
-        // Pas de pop-up « il y a une heure » / « hier » pendant la lecture.
+        // Pas de pop-up « hier » pendant la lecture.
         if (_isPlaying && reminder.skipsWhilePlaying) continue;
         final elapsed = now.difference(reminder.scheduledAt);
         if (elapsed >= const Duration(seconds: -45) && elapsed < _window) {

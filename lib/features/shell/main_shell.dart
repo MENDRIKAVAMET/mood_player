@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/track.dart';
 import '../../providers/auto_backup_provider.dart';
+import '../../providers/google_backup_provider.dart';
 import '../../providers/providers.dart';
 import '../../services/audio_handler.dart';
 import '../../services/home_widget_service.dart';
@@ -81,7 +82,9 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     // Sauvegarde automatique : une première passe un peu après le démarrage
     // (laisse le temps au scan de la bibliothèque).
     _firstBackupTimer = Timer(const Duration(seconds: 30), () {
-      if (mounted) ref.read(autoBackupProvider.notifier).backupIfDue();
+      if (!mounted) return;
+      ref.read(autoBackupProvider.notifier).backupIfDue();
+      ref.read(googleBackupProvider.notifier).backupIfDue();
     });
   }
 
@@ -122,6 +125,8 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
       ref.read(audioHandlerProvider).whenData((h) => h.persistPlaybackState());
       // Sauvegarde automatique des données (dossier choisi par l'utilisateur).
       ref.read(autoBackupProvider.notifier).backupIfDue();
+      // Sauvegarde sur le compte Google (si connecté et activée).
+      ref.read(googleBackupProvider.notifier).backupIfDue();
     }
   }
 
