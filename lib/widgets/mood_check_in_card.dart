@@ -10,6 +10,7 @@ import '../providers/track_provider.dart';
 import '../services/mood_journal_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/playback_navigation.dart';
+import 'feeling_widgets.dart';
 
 /// Lance un mix de 20 morceaux pour [feeling] : les ambiances que
 /// l'utilisateur écoute d'habitude dans cet état si l'app a assez de recul,
@@ -41,7 +42,7 @@ void playFeelingMix(BuildContext context, WidgetRef ref, Feeling feeling) {
 }
 
 /// Carte « Comment tu te sens ? » de l'écran Découvertes : une ligne
-/// d'emojis pour noter son humeur en un geste, puis un mix adapté.
+/// de pastilles d'humeur pour la noter en un geste, puis un mix adapté.
 class MoodCheckInCard extends ConsumerStatefulWidget {
   const MoodCheckInCard({super.key});
 
@@ -93,15 +94,7 @@ class _MoodCheckInCardState extends ConsumerState<MoodCheckInCard> {
           style: AppTheme.bodySmall.copyWith(color: AppTheme.textSecondary),
         ),
         const SizedBox(height: AppTheme.spacingM),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final f in Feeling.values)
-                _FeelingButton(feeling: f, onTap: () => _pick(f)),
-            ],
-          ),
-        ),
+        FeelingChipWrap(onSelected: _pick),
       ],
     );
   }
@@ -118,7 +111,7 @@ class _MoodCheckInCardState extends ConsumerState<MoodCheckInCard> {
       children: [
         Row(
           children: [
-            Text(feeling.emoji, style: const TextStyle(fontSize: 34)),
+            FeelingIcon(feeling: feeling, size: 34),
             const SizedBox(width: AppTheme.spacingM),
             Expanded(
               child: Column(
@@ -164,41 +157,6 @@ class _MoodCheckInCardState extends ConsumerState<MoodCheckInCard> {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _FeelingButton extends StatelessWidget {
-  final Feeling feeling;
-  final VoidCallback onTap;
-
-  const _FeelingButton({required this.feeling, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusM),
-      onTap: onTap,
-      child: SizedBox(
-        width: 72,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingS),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(feeling.emoji, style: const TextStyle(fontSize: 30)),
-              const SizedBox(height: 2),
-              Text(
-                feeling.label,
-                style: AppTheme.labelSmall
-                    .copyWith(color: AppTheme.textSecondary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

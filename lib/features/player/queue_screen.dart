@@ -22,7 +22,6 @@ class QueueScreen extends ConsumerStatefulWidget {
 
 class _QueueScreenState extends ConsumerState<QueueScreen> {
   late List<MediaItem> _localQueue;
-  bool _isReordering = false;
 
   @override
   void initState() {
@@ -31,7 +30,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
   }
 
   void _syncWithQueue(List<MediaItem> items) {
-    if (!_isReordering && mounted) {
+    if (mounted) {
       setState(() {
         _localQueue = List.from(items);
       });
@@ -51,12 +50,6 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
     final audioHandlerAsync = ref.read(audioHandlerProvider);
     audioHandlerAsync.whenData((handler) {
       handler.reorderQueue(oldIndex, newIndex);
-    });
-  }
-
-  void _toggleReorderMode() {
-    setState(() {
-      _isReordering = !_isReordering;
     });
   }
 
@@ -124,12 +117,6 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
             tooltip: 'Enregistrer en playlist',
             onTap: _showSavePlaylistDialog,
           ),
-        AppHeaderButton(
-          icon: _isReordering ? Icons.check_rounded : Icons.drag_handle_rounded,
-          tooltip: _isReordering ? 'Terminer' : 'Réorganiser',
-          color: _isReordering ? AppTheme.accentPrimary : AppTheme.textPrimary,
-          onTap: _toggleReorderMode,
-        ),
       ],
     );
   }
@@ -261,25 +248,6 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (_isReordering) ...[
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacingS,
-                vertical: AppTheme.spacingXXS,
-              ),
-              decoration: BoxDecoration(
-                color: AppTheme.accentPrimary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-              ),
-              child: Text(
-                'Mode réorganisation',
-                style: AppTheme.labelSmall.copyWith(
-                  color: AppTheme.accentPrimary,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -325,10 +293,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
     return ReorderableListView.builder(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spacingL,
-        vertical: AppTheme.spacingS,
+        vertical: AppTheme.spacingXS,
       ),
       itemCount: _localQueue.length,
-      // Le drag ne démarre plus que depuis la poignée (voir leading dans
+      // Le drag ne démarre que depuis la poignée (voir trailing dans
       // _buildQueueItem), jamais sur un long-press n'importe où sur la
       // tuile - sinon ce geste entre en conflit avec le Dismissible
       // (glisser pour supprimer) posé sur le même widget, ce qui casse le
@@ -336,7 +304,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
       // réorganisation.
       buildDefaultDragHandles: false,
       // ignore: deprecated_member_use
-      onReorder: _isReordering ? _onReorder : (oldIndex, newIndex) {},
+      onReorder: _onReorder,
       // Le morceau tenu est affiché dans l'Overlay du Navigator, hors du
       // Material du Scaffold. Sans Material ici, le ListTile qu'il contient
       // lève « No Material widget found » dès le début du glissement - c'est
@@ -395,12 +363,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
   }) {
     return Dismissible(
       key: key,
-      direction: _isReordering
-          ? DismissDirection.none
-          : DismissDirection.endToStart,
+      direction: DismissDirection.endToStart,
       onDismissed: (direction) => _removeFromQueue(index),
       background: Container(
-        margin: const EdgeInsets.only(bottom: AppTheme.spacingS),
+        margin: const EdgeInsets.only(bottom: AppTheme.spacingXS),
         decoration: BoxDecoration(
           color: AppTheme.accentError.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
@@ -414,12 +380,12 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
         ),
       ),
       child: Container(
-        margin: const EdgeInsets.only(bottom: AppTheme.spacingS),
+        margin: const EdgeInsets.only(bottom: AppTheme.spacingXS),
         decoration: BoxDecoration(
           color: isCurrentTrack
               ? AppTheme.accentPrimary.withValues(alpha: 0.15)
               : AppTheme.backgroundCard,
-          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          borderRadius: BorderRadius.circular(AppTheme.radiusM),
           border: Border.all(
             color: isCurrentTrack
                 ? AppTheme.accentPrimary.withValues(alpha: 0.3)
@@ -428,23 +394,17 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           ),
         ),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spacingM,
-            vertical: AppTheme.spacingXS,
+          dense: true,
+          visualDensity: const VisualDensity(vertical: -3),
+          minVerticalPadding: 0,
+          contentPadding: const EdgeInsets.only(
+            left: AppTheme.spacingM,
+            right: AppTheme.spacingXS,
           ),
-          leading: _isReordering
-              ? ReorderableDragStartListener(
-                  index: index,
-                  child: Icon(
-                    Icons.drag_handle_rounded,
-                    color: AppTheme.textTertiary,
-                    size: 24,
-                  ),
-                )
-              : _rowArtwork(item, index, isCurrentTrack),
+          leading: _rowArtwork(item, index, isCurrentTrack),
           title: Text(
             item.title,
-            style: AppTheme.bodyLarge.copyWith(
+            style: AppTheme.bodyMedium.copyWith(
               color: isCurrentTrack
                   ? AppTheme.accentPrimary
                   : AppTheme.textPrimary,
@@ -479,19 +439,27 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                     ),
                   ),
                 ),
-              if (!_isReordering)
-                IconButton(
-                  icon: Icon(
-                    Icons.play_circle_outline_rounded,
+              // Poignée : sert uniquement à déplacer le morceau (toucher la
+              // ligne lance toujours la lecture).
+              ReorderableDragStartListener(
+                index: index,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.spacingS,
+                    vertical: AppTheme.spacingS,
+                  ),
+                  child: Icon(
+                    Icons.drag_handle_rounded,
                     color: isCurrentTrack
                         ? AppTheme.accentPrimary
-                        : AppTheme.textSecondary,
+                        : AppTheme.textTertiary,
+                    size: 24,
                   ),
-                  onPressed: onTap,
                 ),
+              ),
             ],
           ),
-          onTap: _isReordering ? null : onTap,
+          onTap: onTap,
         ),
       ),
     );
@@ -500,13 +468,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
   Widget _rowArtwork(MediaItem item, int index, bool isCurrent) {
     final track = _trackFor(item);
     final art = track != null
-        ? TrackArtwork(track: track, size: 46, radius: 12, placeholderFontSize: 18)
+        ? TrackArtwork(track: track, size: 36, radius: 10, placeholderFontSize: 14)
         : Container(
-            width: 46,
-            height: 46,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: AppTheme.accentPrimary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
             child: Text('${index + 1}',
@@ -518,13 +486,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
       children: [
         art,
         Container(
-          width: 46,
-          height: 46,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(Icons.equalizer_rounded, color: Colors.white, size: 22),
+          child: Icon(Icons.equalizer_rounded, color: Colors.white, size: 18),
         ),
       ],
     );

@@ -6,8 +6,8 @@ import '../../providers/mood_journal_provider.dart';
 import '../../services/mood_journal_service.dart';
 import '../../models/track.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/mood_colors.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/feeling_widgets.dart';
 import '../../widgets/mood_check_in_card.dart';
 
 /// Journal d'humeur : noter son humeur (avec une note facultative), voir ce
@@ -41,8 +41,13 @@ class MoodJournalScreen extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppTheme.backgroundSecondary,
-        title: Text('${feeling.emoji} ${feeling.label}',
-            style: AppTheme.titleMedium),
+        title: Row(
+          children: [
+            FeelingIcon(feeling: feeling, size: 24),
+            const SizedBox(width: AppTheme.spacingS),
+            Text(feeling.label, style: AppTheme.titleMedium),
+          ],
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -107,16 +112,8 @@ class MoodJournalScreen extends ConsumerWidget {
                   children: [
                     Text('Comment tu te sens ?', style: AppTheme.titleMedium),
                     const SizedBox(height: AppTheme.spacingM),
-                    Wrap(
-                      spacing: AppTheme.spacingS,
-                      runSpacing: AppTheme.spacingS,
-                      children: [
-                        for (final f in Feeling.values)
-                          ActionChip(
-                            label: Text('${f.emoji} ${f.label}'),
-                            onPressed: () => _addWithNote(context, ref, f),
-                          ),
-                      ],
+                    FeelingChipWrap(
+                      onSelected: (f) => _addWithNote(context, ref, f),
                     ),
                     if (headline != null) ...[
                       const SizedBox(height: AppTheme.spacingL),
@@ -170,7 +167,7 @@ class MoodJournalScreen extends ConsumerWidget {
       decoration: AppTheme.glassDecoration,
       child: Row(
         children: [
-          Text(i.feeling.emoji, style: const TextStyle(fontSize: 30)),
+          FeelingIcon(feeling: i.feeling, size: 30),
           const SizedBox(width: AppTheme.spacingM),
           Expanded(
             child: Text(
@@ -194,7 +191,7 @@ class MoodJournalScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text(i.feeling.emoji, style: const TextStyle(fontSize: 24)),
+              FeelingIcon(feeling: i.feeling, size: 24),
               const SizedBox(width: AppTheme.spacingS),
               Expanded(
                 child: Text(
@@ -229,13 +226,7 @@ class MoodJournalScreen extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis),
                     ),
                     Expanded(
-                      child: LinearProgressIndicator(
-                        value: e.value,
-                        minHeight: 8,
-                        borderRadius: BorderRadius.circular(4),
-                        color: MoodColors.forMood(e.key).primary,
-                        backgroundColor: Colors.white12,
-                      ),
+                      child: FeelingBar(value: e.value),
                     ),
                     SizedBox(
                       width: 44,
@@ -290,7 +281,7 @@ class MoodJournalScreen extends ConsumerWidget {
       widgets.add(
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Text(e.feeling.emoji, style: const TextStyle(fontSize: 26)),
+          leading: FeelingIcon(feeling: e.feeling, size: 26),
           title: Text('${e.feeling.label} · ${_time(e.at)}',
               style: AppTheme.bodyLarge),
           subtitle: e.note == null

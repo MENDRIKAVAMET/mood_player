@@ -346,6 +346,9 @@ class GoogleBackupController extends StateNotifier<GoogleBackupState> {
         return 'Connexion Google impossible : vérifie l\'écran de '
             'consentement et ton compte testeur dans Google Cloud.';
       }
+      // Autre erreur de la connexion : on affiche le code brut pour pouvoir
+      // la diagnostiquer au lieu d'un message générique.
+      return 'Connexion Google impossible (${e.code} : ${e.message}).';
     }
     return friendlyError(e);
   }
